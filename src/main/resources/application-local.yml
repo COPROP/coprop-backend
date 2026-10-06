@@ -1,0 +1,30 @@
+# Perfil de desarrollo. Apunta a los servicios de docker-compose.yml.
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/coprop
+    username: coprop
+    password: coprop
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8081/realms/coprop
+  mail:
+    host: localhost
+    port: 1025
+    properties:
+      mail.smtp.auth: false
+      mail.smtp.starttls.enable: false
+
+coprop:
+  storage:
+    endpoint: http://localhost:9000
+    bucket: coprop-local
+    access-key: coprop
+    secret-key: coprop-local-secret
+    region: us-east-1
+
+logging:
+  level:
+    bo.coprop: DEBUG
+    org.flywaydb: INFO
