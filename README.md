@@ -28,7 +28,7 @@ Deja cuatro servicios en pie:
 |---|---|---|
 | PostgreSQL | 5432 | base `coprop`, usuario `coprop` |
 | Keycloak | 8081 | realm `coprop` importado al arrancar; consola en http://localhost:8081 |
-| MinIO | 9000 (API), 9001 (consola) | bucket `coprop-local`, creado al arrancar |
+| MinIO | 9000 (API) | bucket `coprop-local`, creado al arrancar. Sin consola web: se inspecciona con `docker exec coprop-minio mc ls local/coprop-local` |
 | Mailpit | 1025 (SMTP), 8025 (web) | captura todo el correo que envía la aplicación |
 
 Arrancar la aplicación:

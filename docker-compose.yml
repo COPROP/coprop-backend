@@ -36,39 +36,31 @@ services:
     volumes:
       - ./docker/keycloak:/opt/keycloak/data/import:ro
 
+  # MinIO ya no se distribuye en los registries publicos: minio/minio y minio/mc salieron de
+  # Docker Hub y quay.io/minio exige autenticacion. Se usa el archivo congelado de Bitnami, que es
+  # el mismo MinIO con la misma API S3. No recibe parches nuevos y no importa, porque este servicio
+  # nunca sale de la maquina de desarrollo. Si alguna vez hace falta MinIO en tests con
+  # Testcontainers, hay que forzar esta misma imagen: la de por defecto ya no resuelve.
   minio:
-    image: minio/minio:latest
+    image: bitnamilegacy/minio:2025.7.23-debian-12-r5
     container_name: coprop-minio
-    command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: coprop
       MINIO_ROOT_PASSWORD: coprop-local-secret
+      # Crea el bucket al arrancar. Sustituye al contenedor minio-init que hacia falta antes.
+      MINIO_DEFAULT_BUCKETS: coprop-local
+    # Esta version de MinIO ya no trae la consola web: la quitaron del build AGPL en 2025. Solo
+    # escucha la API en 9000, asi que no hay puerto de consola que publicar. Para inspeccionar el
+    # bucket a mano: docker exec coprop-minio mc ls local/coprop-local
     ports:
       - "9000:9000"
-      - "9001:9001"
     volumes:
-      - minio-data:/data
+      - minio-data:/bitnami/minio/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/minio/health/live"]
       interval: 5s
       timeout: 3s
       retries: 12
-
-  # Crea el bucket al arrancar y termina. No es un servicio permanente.
-  minio-init:
-    image: minio/mc:latest
-    container_name: coprop-minio-init
-    depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint:
-      - sh
-      - -c
-      - |
-        mc alias set local http://minio:9000 coprop coprop-local-secret
-        mc mb --ignore-existing local/coprop-local
-        mc anonymous set none local/coprop-local
-    restart: "no"
 
   mailpit:
     image: axllent/mailpit:v1.31
