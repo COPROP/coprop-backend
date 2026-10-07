@@ -11,8 +11,12 @@ services:
       POSTGRES_DB: coprop
       POSTGRES_USER: coprop
       POSTGRES_PASSWORD: coprop
+    # El 5432 del host lo suele ocupar un PostgreSQL instalado en la maquina, que gana el bind y
+    # deja el contenedor inalcanzable con un error de contrasena enganoso. Se publica en el 15432
+    # para no depender de eso, y no en el 55432 porque Windows reserva ese rango para Hyper-V. Dentro
+    # de la red de compose el puerto sigue siendo el 5432.
     ports:
-      - "5432:5432"
+      - "15432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -31,10 +35,30 @@ services:
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      # Publica /health en la interfaz de management, que escucha en el 9000 del contenedor. Ese
+      # puerto no se mapea al host: el 9000 de la maquina ya lo ocupa MinIO, y el healthcheck
+      # corre dentro del contenedor, asi que no hace falta.
+      KC_HEALTH_ENABLED: "true"
     ports:
       - "8081:8081"
     volumes:
       - ./docker/keycloak:/opt/keycloak/data/import:ro
+    # La imagen de Keycloak no trae curl ni wget, asi que la peticion va por el /dev/tcp de bash.
+    # Se invoca bash explicitamente porque /dev/tcp no existe en un sh POSIX, que es lo que
+    # CMD-SHELL usaria. start_period cubre el arranque mas la importacion del realm.
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -c
+        - >-
+          exec 3<>/dev/tcp/localhost/9000
+          && printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3
+          && grep -q '"status": "UP"' <&3
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
 
   # MinIO ya no se distribuye en los registries publicos: minio/minio y minio/mc salieron de
   # Docker Hub y quay.io/minio exige autenticacion. Se usa el archivo congelado de Bitnami, que es
@@ -72,6 +96,14 @@ services:
       MP_MAX_MESSAGES: 500
       MP_SMTP_AUTH_ACCEPT_ANY: 1
       MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    # Mailpit trae su propio chequeo en el binario (`mailpit readyz`), que consulta la interfaz
+    # web. La imagen es distroless: no hay shell ni curl, por eso la forma CMD con el binario.
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
 
 volumes:
   postgres-data:

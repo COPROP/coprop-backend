@@ -26,7 +26,7 @@ Deja cuatro servicios en pie:
 
 | Servicio | Puerto | Para qué |
 |---|---|---|
-| PostgreSQL | 5432 | base `coprop`, usuario `coprop` |
+| PostgreSQL | 15432 | base `coprop`, usuario `coprop`. No es el 5432: ese puerto lo suele tener tomado un PostgreSQL instalado en la máquina |
 | Keycloak | 8081 | realm `coprop` importado al arrancar; consola en http://localhost:8081 |
 | MinIO | 9000 (API) | bucket `coprop-local`, creado al arrancar. Sin consola web: se inspecciona con `docker exec coprop-minio mc ls local/coprop-local` |
 | Mailpit | 1025 (SMTP), 8025 (web) | captura todo el correo que envía la aplicación |
@@ -41,8 +41,13 @@ El perfil `local` es el de defecto y apunta a esos servicios, así que no hace f
 nada. Comprobar que está arriba:
 
 ```bash
-curl http://localhost:8080/actuator/health
+curl -i http://localhost:8080/actuator/health
 ```
+
+Hoy responde **401**, y eso basta como prueba de vida: todavía no existe ninguna
+`SecurityFilterChain`, así que rige el defecto de Spring Boot, que exige autenticación en todo.
+Las sondas públicas (`/actuator/health/liveness` y `/readiness`) llegan con el issue #6. Si en vez
+del 401 no hay respuesta, la aplicación no levantó: mirar la salida de `bootRun`.
 
 Para resetear el entorno por completo:
 
