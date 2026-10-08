@@ -1,0 +1,27 @@
+#!/bin/sh
+#
+# Rechaza el push directo a main. Es el sustituto local de la proteccion de rama, que GitHub
+# no ofrece en repositorios privados de plan free (ver CONTRIBUTING.md).
+#
+# Se activa por clon, una sola vez:
+#   git config core.hooksPath .githooks
+#
+# Git pasa por stdin una linea por referencia que se empuja:
+#   <ref local> <sha local> <ref remota> <sha remota>
+
+RAMA_PROTEGIDA="refs/heads/main"
+
+while read -r _ref_local _sha_local ref_remota _sha_remota; do
+    if [ "$ref_remota" = "$RAMA_PROTEGIDA" ]; then
+        echo "pre-push: no se empuja directo a main." >&2
+        echo "" >&2
+        echo "  El trabajo entra por pull request. Para esta rama:" >&2
+        echo "    git switch -c m0/lo-que-sea" >&2
+        echo "    git push -u origin m0/lo-que-sea" >&2
+        echo "" >&2
+        echo "  Si de verdad hace falta saltarselo: git push --no-verify" >&2
+        exit 1
+    fi
+done
+
+exit 0

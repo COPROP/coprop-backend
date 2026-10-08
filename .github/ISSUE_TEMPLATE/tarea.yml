@@ -1,0 +1,82 @@
+name: Tarea
+description: Trabajo planificado - funcionalidad, tarea técnica o investigación
+labels: ["phase:mvp"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Esta es la forma que tienen las tareas del backlog: **alcance**, **criterios de
+        aceptación** y la **referencia** al análisis. Los criterios son lo que se comprueba
+        al cerrar, así que conviene que sean verificables y no intenciones.
+
+  - type: textarea
+    id: contexto
+    attributes:
+      label: Por qué
+      description: Una o dos frases sobre qué problema resuelve. Si es obvio, se puede omitir.
+      placeholder: Sin esto la conciliación es imposible de depurar en producción.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alcance
+    attributes:
+      label: Alcance
+      description: Qué entra, en viñetas. Tan importante es decir qué queda fuera.
+      placeholder: |
+        - Logs estructurados en JSON con `traceId` y `condominiumId` en el contexto.
+        - Micrometer y Actuator.
+        - Nunca registrar credenciales ni tokens.
+    validations:
+      required: true
+
+  - type: textarea
+    id: criterios
+    attributes:
+      label: Criterios de aceptación
+      description: >
+        Condiciones comprobables. Evitar "funciona bien" o "está documentado" sin decir dónde.
+      placeholder: |
+        - Toda línea de log de una request lleva el mismo `traceId`.
+        - Existe un test que verifica que las credenciales no aparecen en logs.
+    validations:
+      required: true
+
+  - type: input
+    id: referencia
+    attributes:
+      label: Referencia
+      description: Sección del análisis u otro documento donde está decidido.
+      placeholder: análisis §12.2
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      options:
+        - area:backend
+        - area:frontend
+        - area:mobile
+        - area:infra
+    validations:
+      required: true
+
+  - type: dropdown
+    id: tipo
+    attributes:
+      label: Tipo
+      options:
+        - type:feature
+        - type:chore
+        - type:spike
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        Al crear la tarea, añadir a mano el **milestone**, la **prioridad**
+        (`priority:p0` si bloquea el MVP, `priority:p1` si no) y, si no es del MVP,
+        cambiar `phase:mvp` por `phase:fase2`.
