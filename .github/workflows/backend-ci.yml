@@ -1,0 +1,82 @@
+name: CI del backend
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Un push nuevo sobre la misma rama cancela la corrida anterior: no tiene sentido gastar
+# minutos verificando un commit que ya quedo atras.
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  build:
+    name: Build, formato y tests
+    runs-on: ubuntu-latest
+    # El criterio del issue #7 pide menos de 10 minutos. El limite lo vuelve verificable:
+    # si alguna vez se pasa, la corrida falla y queda a la vista en lugar de degradarse en silencio.
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # Cachea la distribucion de Gradle y las dependencias. Solo escribe la cache desde main,
+      # para que un PR no pueda envenenar la de los demas.
+      - name: Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      # `build` ya encadena spotlessCheck (via check), los tests y el reporte de JaCoCo
+      # (via finalizedBy). Testcontainers usa el Docker que el runner trae de serie.
+      - name: Build
+        run: ./gradlew build --no-daemon
+
+      - name: Resumen de cobertura
+        if: always()
+        run: |
+          REPORTE=build/reports/jacoco/test/jacocoTestReport.csv
+          if [ ! -f "$REPORTE" ]; then
+            echo "No hay reporte de cobertura: los tests no llegaron a correr." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          awk -f .github/scripts/cobertura.awk "$REPORTE" \
+            | tee cobertura.md >> "$GITHUB_STEP_SUMMARY"
+
+      # Publica la cobertura en el PR como un unico comentario que se reescribe en cada corrida,
+      # en lugar de acumular uno por push. Si falla, es cosmetico: no debe tumbar el build.
+      - name: Publicar cobertura en el PR
+        if: always() && github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          [ -f cobertura.md ] || exit 0
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --body-file cobertura.md \
+            --edit-last --create-if-none
+
+      # Los reportes importan sobre todo cuando algo falla, asi que se suben siempre.
+      - name: Subir reportes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reportes-de-test
+          path: |
+            build/reports/tests/test
+            build/reports/jacoco/test/html
+            build/test-results/test
+          retention-days: 14
+          if-no-files-found: ignore
