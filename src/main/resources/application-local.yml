@@ -1,7 +1,7 @@
 # Perfil de desarrollo. Apunta a los servicios de docker-compose.yml.
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/coprop
+    url: jdbc:postgresql://localhost:15432/coprop
     username: coprop
     password: coprop
   security:
