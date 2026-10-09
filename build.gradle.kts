@@ -1,5 +1,6 @@
 plugins {
     java
+    jacoco
     id("org.springframework.boot") version "4.1.1"
     id("io.spring.dependency-management") version "1.1.7"
     id("com.diffplug.spotless") version "7.0.4"
@@ -73,6 +74,20 @@ spotless {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    // El reporte de cobertura se genera siempre tras los tests, para que CI no tenga que
+    // invocar dos tareas ni acordarse del orden.
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+// El CSV lo suma el workflow de CI para publicar la cobertura, porque una columna se agrega con
+// awk sin depender de un parser de XML. El HTML es para leerlo a mano.
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        csv.required = true
+        html.required = true
+        xml.required = false
+    }
 }
 
 // El build falla si el formato no esta aplicado. `./gradlew spotlessApply` lo corrige.

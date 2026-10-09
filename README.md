@@ -1,5 +1,7 @@
 # coprop-backend
 
+[![CI del backend](https://github.com/COPROP/coprop-backend/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/COPROP/coprop-backend/actions/workflows/backend-ci.yml)
+
 API y reglas de negocio de COPROP: gestión de cuentas de condominios y comunidades residenciales.
 
 Java 21 · Spring Boot 4.1 · Spring Modulith · PostgreSQL 16 · Keycloak
@@ -80,6 +82,24 @@ KMS o Vault. Nada de eso entra al repositorio.
 | `./gradlew test --tests "bo.coprop.ModularityTests"` | Verifica los límites entre módulos. No necesita Docker |
 | `./gradlew spotlessApply` | Aplica el formato. El build falla si no está aplicado |
 | `./gradlew bootRun` | Arranca con el perfil `local` |
+
+La cobertura la mide JaCoCo y se genera sola tras los tests, sin invocar nada aparte. El informe
+legible queda en `build/reports/jacoco/test/html/index.html`.
+
+## Integración continua
+
+El workflow [`backend-ci.yml`](.github/workflows/backend-ci.yml) corre en cada push a `main` y en
+cada pull request: `./gradlew build`, que compila, verifica el formato con Spotless y corre los
+tests. Testcontainers funciona de serie porque el runner de GitHub trae Docker.
+
+Publica la cobertura en el resumen de la corrida y, en los pull requests, como un comentario que
+se reescribe en cada push en lugar de acumular uno por intento. Los informes de test y el HTML de
+cobertura quedan como artefacto durante 14 días, que es lo que sirve cuando algo falla y no se
+reproduce en local.
+
+El límite de la corrida son 10 minutos, el criterio del issue #7. Está puesto como
+`timeout-minutes` a propósito: si alguna vez se pasa, la corrida falla en vez de degradarse en
+silencio.
 
 ## Estructura
 
