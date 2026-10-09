@@ -1,5 +1,7 @@
 package bo.coprop.api;
 
+import static java.util.Objects.requireNonNullElse;
+
 import bo.coprop.shared.CodigoDeError;
 import bo.coprop.shared.ErrorDeDominio;
 import jakarta.servlet.http.HttpServletRequest;
@@ -35,8 +37,12 @@ class ManejadorDeErrores extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(ErrorDeDominio.class)
     ResponseEntity<ProblemDetail> manejarDominio(ErrorDeDominio error, HttpServletRequest peticion) {
-        ProblemDetail problema =
-                CatalogoDeProblemas.problema(error.codigo(), error.getMessage(), peticion.getRequestURI());
+        // getMessage() es @Nullable por contrato de Throwable, aunque nuestros constructores lo
+        // exijan: nada impide que una subclase futura pase null.
+        ProblemDetail problema = CatalogoDeProblemas.problema(
+                error.codigo(),
+                requireNonNullElse(error.getMessage(), "La operacion fue rechazada."),
+                peticion.getRequestURI());
         return ResponseEntity.status(CatalogoDeProblemas.estadoDe(error.codigo()))
                 .body(problema);
     }
@@ -82,8 +88,16 @@ class ManejadorDeErrores extends ResponseEntityExceptionHandler {
         return ResponseEntity.unprocessableContent().body(problema);
     }
 
+    /**
+     * El codigo y el mensaje de un {@link FieldError} son @Nullable: el codigo falta cuando el
+     * rechazo no viene de una anotacion, y el mensaje cuando no hay plantilla resuelta. El cliente
+     * ramifica por el codigo, asi que es mejor un valor explicito que un hueco en el JSON.
+     */
     private static ErrorDeCampo aErrorDeCampo(FieldError fallo) {
-        return new ErrorDeCampo(fallo.getField(), fallo.getCode(), fallo.getDefaultMessage());
+        return new ErrorDeCampo(
+                fallo.getField(),
+                requireNonNullElse(fallo.getCode(), "INVALIDO"),
+                requireNonNullElse(fallo.getDefaultMessage(), "El valor no es valido."));
     }
 
     private static String rutaDe(WebRequest peticion) {

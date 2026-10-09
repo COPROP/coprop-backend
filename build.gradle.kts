@@ -1,9 +1,15 @@
+import net.ltgt.gradle.errorprone.CheckSeverity
+import net.ltgt.gradle.errorprone.errorprone
+import net.ltgt.gradle.nullaway.nullaway
+
 plugins {
     java
     jacoco
     id("org.springframework.boot") version "4.1.1"
     id("io.spring.dependency-management") version "1.1.7"
     id("com.diffplug.spotless") version "7.0.4"
+    id("net.ltgt.errorprone") version "5.1.1"
+    id("net.ltgt.nullaway") version "3.2.0"
 }
 
 group = "bo.coprop"
@@ -55,6 +61,8 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-postgresql")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    errorprone("com.google.errorprone:error_prone_core:2.39.0")
+    errorprone("com.uber.nullaway:nullaway:0.12.7")
 }
 
 dependencyManagement {
@@ -90,6 +98,39 @@ tasks.jacocoTestReport {
         xml.required = false
     }
 }
+
+// Analisis estatico. Spotless, arriba, solo ordena el formato; estos dos miran lo que el codigo
+// hace: Error Prone busca defectos conocidos y NullAway persigue los NullPointerException.
+//
+// Error Prone se queda en 2.39.0 y NO sube a la ultima. La 2.50.0 elimino
+// com.google.errorprone.predicates.type.DescendantOf, que NullAway 0.12.7 todavia usa, y el
+// compilador revienta con NoClassDefFoundError al arrancar el analisis. Antes de subir Error
+// Prone hay que comprobar que la version de NullAway lo soporte.
+nullaway {
+    // Dentro de bo.coprop un tipo sin @Nullable no admite null, y NullAway lo comprueba. Fuera
+    // --Spring, el JDK-- se guia por las anotaciones que traiga cada libreria.
+    //
+    // Se elige esto en vez del modo JSpecify (onlyNullMarked) porque cubre todo el codigo desde
+    // el primer dia sin tener que anotar cada package-info. Migrar a JSpecify mas adelante es
+    // posible y no urge.
+    annotatedPackages.add("bo.coprop")
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.errorprone {
+        disableWarningsInGeneratedCode = true
+        // Un aviso que nadie mira no es analisis estatico: NullAway rompe el build, no avisa.
+        nullaway { severity = CheckSeverity.ERROR }
+    }
+}
+
+// Lo que se decidio NO activar, y por que:
+//
+// -Werror, que convertiria todo aviso en error. Los checks de Error Prone con severidad ERROR ya
+// rompen el build, que es donde estan los defectos de verdad; -Werror arrastraria ademas los
+// avisos de javac, y entonces una deprecacion al subir de version de Spring dejaria el proyecto
+// sin compilar por algo que no es un defecto. Los avisos de Error Prone se leen en la salida del
+// build y se corrigen, pero no bloquean.
 
 // El build falla si el formato no esta aplicado. `./gradlew spotlessApply` lo corrige.
 tasks.named("check") {

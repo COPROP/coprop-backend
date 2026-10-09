@@ -110,8 +110,13 @@ En este repositorio:
 ./gradlew build
 ```
 
-Compila, verifica el formato con Spotless y corre los tests. `./gradlew spotlessApply` arregla el
-formato si falla.
+Compila, verifica el formato con Spotless, pasa el análisis estático y corre los tests.
+`./gradlew spotlessApply` arregla el formato si falla.
+
+El análisis estático son **Error Prone** y **NullAway**. Sus violaciones **rompen el build**, no
+avisan: un desreferenciado nulo evidente deja el proyecto sin compilar. Los avisos de Error Prone
+(severidad `warning`) salen en la salida del build y conviene corregirlos, pero no bloquean; el
+porqué de esa decisión está escrito en `build.gradle.kts`, junto a la configuración.
 
 Un aviso que ya costó una vez: **`./gradlew build` puede dar exit 0 sin correr un solo test**, si
 Gradle considera todo al día. Cuando el resultado importa, `./gradlew clean build`, o se compara
