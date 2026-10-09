@@ -13,6 +13,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
 import java.net.URI;
+import java.security.Principal;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +32,11 @@ import org.springframework.web.bind.annotation.RestController;
  * es la que fija Seguridad 5.4, {@code /api/v1/condominios/{condominioId}/...}, y es la misma
  * sobre la que el issue #17 montara el filtro de aislamiento.
  *
+ * <p><strong>El condominio de la ruta se comprueba contra el recurso</strong>, no solo se recibe:
+ * pedir o tocar una unidad o un bloque de otro condominio responde 404, igual que si no
+ * existiera (Seguridad 7.1). Lo que falta para cerrar el aislamiento es la membresia, y esa es
+ * del #17.
+ *
  * <p>Igual que en el alta de condominios, la restriccion por rol llega con el issue #16.
  */
 @ControladorDeApi
@@ -45,9 +51,10 @@ class UnitController {
     }
 
     @PostMapping("/unidades")
-    ResponseEntity<UnitView> alta(@PathVariable UUID condominiumId, @Valid @RequestBody NewUnit nueva) {
-        UnitView creada = unidades.register(condominiumId, nueva);
-        return ResponseEntity.created(URI.create("/api/v1/unidades/" + creada.id()))
+    ResponseEntity<UnitView> alta(
+            @PathVariable UUID condominiumId, @Valid @RequestBody NewUnit nueva, Principal quien) {
+        UnitView creada = unidades.register(condominiumId, nueva, quien.getName());
+        return ResponseEntity.created(URI.create("/api/v1/condominios/" + condominiumId + "/unidades/" + creada.id()))
                 .body(creada);
     }
 
@@ -60,25 +67,30 @@ class UnitController {
      */
     @PostMapping("/unidades/lote")
     ResponseEntity<List<UnitView>> altaMasiva(
-            @PathVariable UUID condominiumId, @Valid @RequestBody LoteDeUnidades lote) {
-        return ResponseEntity.status(201).body(unidades.registerAll(condominiumId, lote.unidades()));
+            @PathVariable UUID condominiumId, @Valid @RequestBody LoteDeUnidades lote, Principal quien) {
+        return ResponseEntity.status(201).body(unidades.registerAll(condominiumId, lote.unidades(), quien.getName()));
     }
 
     @PostMapping("/bloques")
-    ResponseEntity<BlockView> altaDeBloque(@PathVariable UUID condominiumId, @Valid @RequestBody NuevoBloque nuevo) {
-        BlockView creado = unidades.addBlock(condominiumId, nuevo.name());
+    ResponseEntity<BlockView> altaDeBloque(
+            @PathVariable UUID condominiumId, @Valid @RequestBody NuevoBloque nuevo, Principal quien) {
+        BlockView creado = unidades.addBlock(condominiumId, nuevo.name(), quien.getName());
         return ResponseEntity.status(201).body(creado);
     }
 
     @PostMapping("/bloques/{blockId}/pisos")
     ResponseEntity<FloorView> altaDePiso(
-            @PathVariable UUID condominiumId, @PathVariable UUID blockId, @Valid @RequestBody NuevoPiso nuevo) {
-        return ResponseEntity.status(201).body(unidades.addFloor(blockId, nuevo.number()));
+            @PathVariable UUID condominiumId,
+            @PathVariable UUID blockId,
+            @Valid @RequestBody NuevoPiso nuevo,
+            Principal quien) {
+        return ResponseEntity.status(201)
+                .body(unidades.addFloor(condominiumId, blockId, nuevo.number(), quien.getName()));
     }
 
     @GetMapping("/unidades/{unitId}")
     UnitView consultar(@PathVariable UUID condominiumId, @PathVariable UUID unitId) {
-        return unidades.find(unitId);
+        return unidades.find(condominiumId, unitId);
     }
 
     /** Envuelto en un objeto y no un array suelto: deja sitio para añadir opciones al lote. */

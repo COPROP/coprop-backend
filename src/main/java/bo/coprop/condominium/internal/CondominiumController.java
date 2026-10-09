@@ -56,8 +56,8 @@ class CondominiumController {
 
     @PutMapping("/{condominiumId}/configuracion")
     CondominiumView cambiarConfiguracion(
-            @PathVariable UUID condominiumId, @Valid @RequestBody CambioDeConfiguracion cambio) {
-        return condominios.changeConfig(condominiumId, cambio.issueDay(), cambio.dueDay());
+            @PathVariable UUID condominiumId, @Valid @RequestBody CambioDeConfiguracion cambio, Principal quien) {
+        return condominios.changeConfig(condominiumId, cambio.issueDay(), cambio.dueDay(), quien.getName());
     }
 
     /** Lo unico que hoy se puede cambiar de la configuracion. La mora y el agua llegan en M2. */
