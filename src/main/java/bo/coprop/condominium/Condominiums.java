@@ -30,9 +30,14 @@ public interface Condominiums {
      * La anterior sigue en la base con su fecha de cierre, que es lo que garantiza que una
      * obligacion ya emitida no cambie bajo los pies.
      *
+     * <p>Publica {@link CondominiumConfigChanged} con los valores de antes y los de despues.
+     * Es el cambio que mueve las fechas de vencimiento y la mora, asi que la bitacora del
+     * analisis 12.2 tiene que poder decir quien lo hizo.
+     *
+     * @param actor quien lo cambia, para la bitacora
      * @throws bo.coprop.shared.RecursoNoEncontrado si el condominio no existe
      */
-    CondominiumView changeConfig(UUID condominiumId, int issueDay, int dueDay);
+    CondominiumView changeConfig(UUID condominiumId, int issueDay, int dueDay, String actor);
 
     /**
      * Devuelve un condominio con su configuracion vigente.

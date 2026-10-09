@@ -7,8 +7,9 @@ import org.jspecify.annotations.Nullable;
 /**
  * Tapa secretos en el texto que va a los logs.
  *
- * <p>El analisis lo exige en dos sitios: nunca registrar credenciales bancarias, tokens ni datos
- * de QR completos (issue #6), y enmascarar CI y cuentas (analisis 12.2, proteccion de datos).
+ * <p>El analisis lo exige en tres sitios: nunca registrar credenciales bancarias, tokens ni datos
+ * de QR completos (issue #6), enmascarar CI y cuentas (analisis 12.2, proteccion de datos) y
+ * enmascarar tambien el correo (Seguridad 8, fila "Datos personales").
  *
  * <p><strong>Esto es una red, no la defensa.</strong> La defensa es no meter un secreto en un log;
  * un enmascarado siempre se puede esquivar concatenando el valor de una forma que la expresion no
@@ -31,7 +32,11 @@ public final class Enmascarador {
      */
     private static final String CLAVES = "password|passwd|contrasena|contrasenia|clave|secret|secreto"
             + "|token|api[-_]?key|apikey|authorization|client[-_]?secret|credential|credencial"
-            + "|cuenta|account|iban|ci|carnet|nit|qr|qr[-_]?payload|emv";
+            + "|cuenta|account|iban|ci|carnet|nit|qr|qr[-_]?payload|emv"
+            // Seguridad 8 pide enmascarar el correo igual que el CI y las cuentas. Entra antes del
+            // issue #11 a proposito: a partir de el habra personas con correo y el correo empezara
+            // a viajar en los logs.
+            + "|correo|e[-_]?mail|mail";
 
     private record Regla(Pattern patron, String reemplazo) {}
 

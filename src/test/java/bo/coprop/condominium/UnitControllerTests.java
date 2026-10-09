@@ -1,10 +1,12 @@
 package bo.coprop.condominium;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import bo.coprop.TestcontainersConfiguration;
+import java.math.BigDecimal;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -31,6 +33,9 @@ class UnitControllerTests {
 
     @Autowired
     private Condominiums condominios;
+
+    @Autowired
+    private Units unidades;
 
     private UUID lasPalmas;
 
@@ -120,5 +125,35 @@ class UnitControllerTests {
                         .content(unidad("302")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
+    }
+
+    @Test
+    @DisplayName("una unidad se consulta por la ruta de su condominio")
+    void laUnidadSeConsultaPorSuRuta() throws Exception {
+        UnitView propia = unidades.register(lasPalmas, nueva("302"), "emma");
+
+        mockMvc.perform(get("/api/v1/condominios/{id}/unidades/{unitId}", lasPalmas, propia.id()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("302"));
+    }
+
+    @Test
+    @DisplayName("la unidad de otro condominio da 404 desde la ruta de este, no la devuelve")
+    void laUnidadAjenaDa404() throws Exception {
+        UUID villaSol = condominios
+                .register(
+                        new NewCondominium("Villa Sol", "9999999999", CondominiumType.CASAS, "America/La_Paz", 1, 15),
+                        "emma")
+                .id();
+        UnitView ajena = unidades.register(villaSol, nueva("302"), "emma");
+
+        // El condominio de la ruta no es decorativo: 404 y no la unidad de al lado.
+        mockMvc.perform(get("/api/v1/condominios/{id}/unidades/{unitId}", lasPalmas, ajena.id()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
+    }
+
+    private static NewUnit nueva(String code) {
+        return new NewUnit(code, UnitType.DEPARTAMENTO, new BigDecimal("1.25"), null, null, null);
     }
 }

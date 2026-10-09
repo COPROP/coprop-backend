@@ -203,7 +203,8 @@ formato de fábrica para quitarle cosas es más frágil que escribir las ocho cl
 
 ### Secretos en los logs
 
-`Enmascarador` tapa credenciales, tokens, cuentas y datos de QR. Las reglas son **por nombre de
+`Enmascarador` tapa credenciales, tokens, cuentas, datos de QR, el CI y el correo —los tres
+últimos los pide el análisis §12.2 y Seguridad §8—. Las reglas son **por nombre de
 clave**, no por forma del valor: reconocer "esto parece un número de cuenta" produce falsos
 positivos que destrozan los logs útiles. Las excepciones son el JWT y el encabezado `Bearer`, que
 sí tienen forma inconfundible.
@@ -315,6 +316,25 @@ mentirle al reloj no es comodidad: es la única forma de probarlo.
 Cuando algo que pasa en un módulo le interesa a otro, se publica un evento. `condominium` publica
 `CondominiumRegistered` sin conocer a `audit`, que lo consumirá con el issue #21. Es la regla 4 de
 más arriba, y es lo que permite añadir un oyente nuevo sin tocar a quien lo origina.
+
+**Toda operación de escritura recibe el actor como último argumento y publica su evento**, con los
+valores de antes cuando cambia algo que ya existía (`CondominiumConfigChanged` lleva
+`previousIssueDay` y `previousDueDay`). El análisis §12.2 pide una bitácora con actor, acción,
+antes y después; si la operación no recibe al actor, esa bitácora no se puede escribir después y
+las filas ya creadas se quedan sin autor para siempre. Un alta en lote publica **un** evento con
+la lista, no uno por fila: es una sola decisión de una sola persona.
+
+### Aislamiento por condominio
+
+**El condominio es el primer argumento de toda operación del dominio, consultas incluidas.** El
+análisis §12.2 exige el `condominium_id` en toda consulta y Seguridad §7.1 pide comprobar que el
+recurso pedido pertenece al condominio del contexto. Una firma como `find(unitId)` deja esa
+comprobación al criterio de quien llama, y basta olvidarla una vez para servir el recurso de otro
+condominio.
+
+Cuando el recurso no es del condominio de la ruta se responde **404, no 403**, igual que si no
+existiera: distinguirlos ya diría que existe en algún sitio. El filtro de membresía del issue #17
+es la otra mitad del aislamiento; esta mitad no lo espera.
 
 ## Esquema de base de datos
 
