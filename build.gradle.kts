@@ -121,6 +121,13 @@ tasks.withType<JavaCompile>().configureEach {
         disableWarningsInGeneratedCode = true
         // Un aviso que nadie mira no es analisis estatico: NullAway rompe el build, no avisa.
         nullaway { severity = CheckSeverity.ERROR }
+        // JPA exige un constructor sin argumentos y rellena los campos por reflexion despues, asi
+        // que NullAway ve una entidad con campos no-nulos sin inicializar y protesta. No es un
+        // falso positivo cualquiera: es el caso para el que existe esta opcion. Se excluyen solo
+        // los campos mapeados, no todos, para que un campo normal mal inicializado siga cantando.
+        option(
+            "NullAway:ExcludedFieldAnnotations",
+            "jakarta.persistence.Id,jakarta.persistence.Column,jakarta.persistence.JoinColumn")
     }
 }
 

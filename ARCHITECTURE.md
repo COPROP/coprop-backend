@@ -238,6 +238,84 @@ la aplicación, y menos para que un orquestador la reinicie: el reinicio no arre
 correo ajeno. Se descubrió en CI, donde no hay Mailpit y el health raíz devolvía 503 con la
 aplicación perfectamente viva. Si interesa vigilar el correo, va como métrica.
 
+## Cómo se escribe un módulo de dominio
+
+La forma la fija el issue #9 con `condominium`, que es el primero. Lo que sigue aplica a los
+demás salvo que haya una razón escrita para desviarse.
+
+### Qué se ve desde fuera y qué no
+
+```
+bo/coprop/condominium/
+  Condominiums.java           la interfaz: lo único que otros módulos usan
+  CondominiumView.java        lo que devuelve
+  NewCondominium.java         lo que recibe
+  CondominiumType.java        enums del dominio
+  CondominiumRegistered.java  eventos que otros módulos escuchan
+  internal/
+    Condominium.java          la entidad JPA, de paquete
+    CondominiumRepository.java
+    CondominiumsService.java  la implementación
+    CondominiumController.java
+```
+
+El paquete raíz es la API; `internal` no lo es, y Spring Modulith lo hace cumplir. **Las
+entidades JPA son de paquete, no públicas**: así el resto de la aplicación no puede tocarlas ni
+por descuido, sin depender de que `ModularityTests` lo pille después. Exponer una entidad ata el
+contrato de la API a cómo esté guardado el dato.
+
+Por eso la API es una interfaz y la implementación vive en `internal`: si el servicio estuviera
+en la raíz, tendría que ver las entidades y ellas tendrían que ser públicas.
+
+El controlador también va en `internal`. Es un adaptador: nada debe depender de él.
+
+### Nombres
+
+**Lo que el análisis nombra, se llama igual que en el análisis.** El análisis §5.2 nombra las
+entidades en inglés —`Condominium`, `Unit`, `PaymentObligation`— y sus valores de enum en español
+—`EXPENSA`, `BORRADOR`, `EDIFICIO`—. El código reproduce esa mezcla tal cual, y las tablas y
+columnas siguen los mismos nombres en `snake_case`. El motivo es tener cero traducción al leer
+§5.2 al lado del código: un nombre traducido es un sitio donde dos personas pueden entender cosas
+distintas.
+
+Lo que el análisis no nombra —`api`, `shared`, filtros, manejadores— va en español, como ya
+estaba. Las rutas HTTP van en español porque las fija Seguridad §5.4:
+`/api/v1/condominios/{condominioId}`.
+
+Los comentarios y el Javadoc, siempre en español y sin acentos en el código Java, con acentos en
+los documentos.
+
+### Configuración con vigencia
+
+Lo que puede cambiar y afecta a documentos ya emitidos **no se actualiza en sitio**: se cierra la
+fila vigente poniéndole `valid_to` y se abre otra. `condominium_config` lo hace, y el análisis
+§5.2 usa el mismo patrón en `LateFeePolicy` y `WaterTariff`.
+
+Es lo que permite responder «¿con qué configuración se emitió esto?» un año después. Una tabla
+que se actualiza en sitio no puede responder esa pregunta, y en un sistema de cobros esa pregunta
+llega siempre.
+
+Dos detalles que cuesta descubrir solos:
+
+- **La unicidad de «una sola vigente» es un índice parcial**, no un `UNIQUE` normal: PostgreSQL no
+  considera iguales dos nulos, así que sin el `WHERE valid_to IS NULL` un condominio podría
+  acumular varias filas abiertas sin que nada lo impidiera.
+- **Hay que forzar un `flush` entre cerrar la vieja y crear la nueva.** Hibernate ordena todos los
+  `INSERT` antes que los `UPDATE` dentro de un mismo flush, así que sin eso la fila nueva entra
+  mientras la vieja sigue abierta y el índice la rechaza.
+
+### El reloj
+
+Nadie llama a `Instant.now()`. Se inyecta el `Clock` que declara `CopropBackendApplication`, de
+modo que un test puede fijar la hora. En un sistema que calcula mora por días de atraso, poder
+mentirle al reloj no es comodidad: es la única forma de probarlo.
+
+### Eventos en lugar de dependencias
+
+Cuando algo que pasa en un módulo le interesa a otro, se publica un evento. `condominium` publica
+`CondominiumRegistered` sin conocer a `audit`, que lo consumirá con el issue #21. Es la regla 4 de
+más arriba, y es lo que permite añadir un oyente nuevo sin tocar a quien lo origina.
+
 ## Esquema de base de datos
 
 Todo cambio de esquema entra por una migración de Flyway en
