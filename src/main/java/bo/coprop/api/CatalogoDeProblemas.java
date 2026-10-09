@@ -1,5 +1,6 @@
 package bo.coprop.api;
 
+import bo.coprop.shared.ClavesDeLog;
 import bo.coprop.shared.CodigoDeError;
 import java.net.URI;
 import java.util.Locale;
@@ -40,8 +41,8 @@ final class CatalogoDeProblemas {
     }
 
     /**
-     * Construye el cuerpo problem+json. El {@code correlationId} entra siempre que exista: es lo
-     * que permite a soporte unir un error que le reportan con su traza en los logs.
+     * Construye el cuerpo problem+json. El {@code traceId} entra siempre que exista: es lo
+     * que permite a soporte buscar en los logs el identificador que le reporta un usuario.
      */
     static ProblemDetail problema(CodigoDeError codigo, String detalle, String ruta) {
         ProblemDetail problema = ProblemDetail.forStatusAndDetail(estadoDe(codigo), detalle);
@@ -49,9 +50,9 @@ final class CatalogoDeProblemas {
         problema.setTitle(tituloDe(codigo));
         problema.setInstance(URI.create(ruta));
         problema.setProperty("codigo", codigo.name());
-        String correlacion = MDC.get(FiltroDeCorrelacion.CLAVE);
-        if (correlacion != null) {
-            problema.setProperty("correlationId", correlacion);
+        String traza = MDC.get(ClavesDeLog.TRAZA);
+        if (traza != null) {
+            problema.setProperty("traceId", traza);
         }
         return problema;
     }

@@ -54,6 +54,18 @@ management:
     health:
       probes:
         enabled: true
+  health:
+    mail:
+      # Un SMTP caido no es motivo para declarar enferma la aplicacion, y menos para que un
+      # orquestador la reinicie: el reinicio no arregla un servidor de correo ajeno. Se descubrio
+      # en CI, donde no hay Mailpit y el health raiz devolvia 503 con la aplicacion perfectamente
+      # viva. Si interesa vigilar el correo, va como metrica, no como salud.
+      enabled: false
+  metrics:
+    tags:
+      # Toda metrica sale etiquetada con la aplicacion, para poder separarlas cuando haya mas de
+      # un servicio apuntando al mismo sitio.
+      application: ${spring.application.name}
 
 logging:
   level:

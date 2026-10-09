@@ -92,7 +92,7 @@ tres extensiones:
 | Campo | Para qué |
 |---|---|
 | `codigo` | La parte estable del contrato. El cliente ramifica por él, nunca por `title` ni por `detail`, que pueden cambiar sin aviso. |
-| `correlationId` | Une el error que reporta un usuario con su traza en los logs. |
+| `traceId` | El mismo identificador que llevan todas las líneas de log de esa petición, y que viaja en la cabecera `X-Trace-Id`. Ver [Observabilidad](#observabilidad). |
 | `errores` | Solo en validación: un objeto por campo rechazado, con `campo`, `codigo` y `mensaje`. |
 
 El catálogo de códigos es `CodigoDeError`, en `shared`. El mapa a estados HTTP vive en
@@ -117,7 +117,7 @@ Dos filas merecen explicación:
   significado: eres miembro, pero tu rol no alcanza.
 
 El 500 nunca lleva el mensaje de la excepción al cliente, porque puede contener nombres de tabla
-o fragmentos de consulta. Al log sí va entero, con su `correlationId`.
+o fragmentos de consulta. Al log sí va entero, con su `traceId`.
 
 ### Paginación
 
@@ -147,6 +147,96 @@ que gestiona Spring Boot 4. El que hay que inyectar es el de Boot.
 salgan en problem+json como el resto, y para que `/actuator/health` deje de responder 401. Las
 cuatro cadenas reales de Seguridad §7.1 —BFF web con cookie, API móvil con Bearer, webhooks por
 firma, actuator en red interna— llegan con el issue #13 en M1.
+
+## Observabilidad
+
+Issue #6. Sin esto, la conciliación es indepurable en producción: el análisis lo dice en §12.2 y
+es la razón de que entre en M0 y no más tarde.
+
+### El `traceId`
+
+Toda línea de log de una petición lleva el mismo `traceId`, que es el criterio de aceptación del
+issue. Lo pone `FiltroDeTrazas`, de los primeros de la cadena, para que un fallo de autenticación
+—que ocurre antes de cualquier controlador— también lo lleve.
+
+El mismo valor sale por tres sitios, y eso es lo que lo hace útil:
+
+| Dónde | Cómo |
+|---|---|
+| En cada línea de log | clave `traceId` del MDC |
+| En la cabecera de respuesta | `X-Trace-Id` |
+| En el cuerpo de un error | campo `traceId` del problem+json |
+
+Así, lo que un usuario reporta se busca tal cual en los logs. Si el cliente manda su propio
+`X-Trace-Id` se respeta, para poder seguir una operación que empieza en la app móvil.
+
+**No hay librería de trazas, y es deliberado.** Esto es un monolito sin colector al que exportar
+nada, así que Micrometer Tracing hoy solo aportaría el identificador que el filtro ya genera, a
+cambio de una dependencia y de vigilar el orden de los filtros. El día que haya un segundo
+servicio o un colector OTel, el cambio es sustituir el filtro por el puente de tracing: ni la
+clave del MDC ni el nombre del campo cambian.
+
+### Las claves del contexto
+
+Están en `ClavesDeLog`, en `shared`, y no en el módulo que las rellena. La razón: cuando el filtro
+de condominio del #17 empiece a poner la suya, tiene que usar exactamente la misma cadena que ya
+salía en los logs, o las búsquedas dejan de funcionar sin que nadie se entere.
+
+| Clave | Quién la pone |
+|---|---|
+| `traceId` | `FiltroDeTrazas`, ya |
+| `condominiumId` | el filtro de Seguridad §7.2, con el **#17** |
+| `actorId` | la cadena de seguridad, con el **#13** |
+
+Las dos últimas todavía no las rellena nadie: no hay condominios ni identidad hasta M1. El formato
+estructurado vuelca el MDC entero, así que aparecerán en los logs sin tocar nada más.
+
+### Formato
+
+En producción, una línea de JSON por evento: `logging.structured.format.console` apunta a
+`FormatoJsonDeLog`. En local manda la legibilidad, con el patrón de `logback-spring.xml`, que
+antepone `[%X{traceId}]` al mensaje.
+
+`FormatoJsonDeLog` está escrito a mano en vez de usar ECS o Logstash por una razón concreta: todo
+lo que sale pasa por `Enmascarador`, incluidos el MDC y el mensaje de la excepción. Envolver un
+formato de fábrica para quitarle cosas es más frágil que escribir las ocho claves que se usan.
+
+### Secretos en los logs
+
+`Enmascarador` tapa credenciales, tokens, cuentas y datos de QR. Las reglas son **por nombre de
+clave**, no por forma del valor: reconocer "esto parece un número de cuenta" produce falsos
+positivos que destrozan los logs útiles. Las excepciones son el JWT y el encabezado `Bearer`, que
+sí tienen forma inconfundible.
+
+**Es una red, no la defensa.** La defensa es no meter un secreto en un log. El enmascarado existe
+para el día que alguien registre por descuido el cuerpo entero de una respuesta del banco.
+
+Se aplica en dos sitios porque el nombre de la clave no siempre viaja pegado al valor: dentro del
+texto (`enmascarar`) y cuando la clave llega aparte, como en el MDC (`valorDe`). Olvidar el
+segundo caso dejaba salir un `token` del MDC entero, y lo encontró el test del criterio.
+
+### Métricas
+
+Micrometer y Actuator, con `/actuator/metrics` expuesto y toda métrica etiquetada con
+`application`. Las de negocio llegan con sus módulos; el análisis §12.2 ya fija cuáles, y conviene
+respetar estos nombres para no inventarlos dos veces:
+
+| Métrica | Cuándo |
+|---|---|
+| `coprop.qr.generados` | M3, con la generación de QR |
+| `coprop.pagos.confirmados` | M3 |
+| `coprop.pagos.latencia_callback_registro` | M3, latencia del webhook al registro |
+| `coprop.pagos.detectados_por_polling` | M3; si sube, se están perdiendo webhooks |
+| `coprop.conciliacion.excepciones_abiertas` | M4 |
+| `coprop.saldos.a_favor_generados` | M4, por semana y proveedor |
+| `coprop.proveedor.circuito_abierto` | M3, estado del circuit breaker |
+
+### El health no depende del correo
+
+`management.health.mail.enabled` está en `false`. Un SMTP caído no es motivo para declarar enferma
+la aplicación, y menos para que un orquestador la reinicie: el reinicio no arregla un servidor de
+correo ajeno. Se descubrió en CI, donde no hay Mailpit y el health raíz devolvía 503 con la
+aplicación perfectamente viva. Si interesa vigilar el correo, va como métrica.
 
 ## Esquema de base de datos
 
