@@ -1,0 +1,70 @@
+name: Defecto
+description: Algo que debería funcionar y no funciona
+labels: ["type:bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Lo que más tiempo ahorra es la **diferencia entre lo que esperabas y lo que pasó**, y
+        los pasos exactos para reproducirlo. Un síntoma puede engañar: en este proyecto ya pasó
+        que un puerto ocupado se manifestara como un fallo de autenticación.
+
+  - type: textarea
+    id: que-paso
+    attributes:
+      label: Qué pasó
+      description: El comportamiento observado, con el mensaje de error literal si lo hay.
+    validations:
+      required: true
+
+  - type: textarea
+    id: que-esperaba
+    attributes:
+      label: Qué esperabas
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproducir
+    attributes:
+      label: Cómo reproducirlo
+      description: Los pasos mínimos. Si no es reproducible de forma fiable, decirlo.
+      placeholder: |
+        1. `docker compose up -d`
+        2. `./gradlew bootRun`
+        3. `curl -i http://localhost:8080/...`
+    validations:
+      required: true
+
+  - type: textarea
+    id: entorno
+    attributes:
+      label: Entorno
+      description: >
+        Dónde ocurre y con qué versiones. En local, lo que diga `./gradlew --version` y
+        `docker version` suele bastar.
+      placeholder: Local, Windows 11, JDK 21.0.10, Docker 29.8.2
+    validations:
+      required: false
+
+  - type: textarea
+    id: pistas
+    attributes:
+      label: Pistas
+      description: >
+        Logs, enlaces a una corrida de CI, o lo que ya descartaste. Si falló en CI, el enlace a
+        la corrida vale más que un pegote de log.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      options:
+        - area:backend
+        - area:frontend
+        - area:mobile
+        - area:infra
+    validations:
+      required: true
