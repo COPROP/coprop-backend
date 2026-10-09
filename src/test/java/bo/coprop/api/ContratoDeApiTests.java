@@ -39,7 +39,7 @@ import org.springframework.web.bind.annotation.RestController;
  * que exista el primer endpoint de verdad, que es justamente el motivo del issue.
  */
 @Import({TestcontainersConfiguration.class, ContratoDeApiTests.ControladorDePrueba.class})
-@SpringBootTest
+@SpringBootTest(properties = "management.health.mail.enabled=false")
 @AutoConfigureMockMvc
 class ContratoDeApiTests {
 
@@ -103,6 +103,16 @@ class ContratoDeApiTests {
                 .andExpect(jsonPath("$.codigo").value("NO_AUTENTICADO"));
     }
 
+    /**
+     * El health se consulta con el indicador de correo apagado (ver la anotacion de la clase).
+     *
+     * <p>No es para que pase el test: spring-boot-starter-mail registra un indicador que intenta
+     * conectar al SMTP, asi que sin Mailpit delante el health agrega 503 aunque la aplicacion este
+     * perfectamente viva. Eso hacia fallar el test en CI, donde no hay Mailpit, mientras pasaba en
+     * local. Si el correo caido debe o no tumbar el health es una decision de observabilidad, y va
+     * con el issue #6; aqui solo se comprueba lo que este test dice comprobar, que la seguridad no
+     * exige autenticacion en esa ruta.
+     */
     @Test
     @DisplayName("el health y la especificacion OpenAPI no piden autenticacion")
     void elHealthYLaEspecificacionSonPublicos() throws Exception {
