@@ -1,0 +1,8 @@
+# Dueña por defecto de todo el repositorio.
+#
+# Hoy este archivo no pide revisión a nadie: GitHub nunca solicita revisión al autor del
+# pull request, y por ahora autora y dueña son la misma persona. Queda escrito para cuando
+# entre la segunda persona; entonces basta subir las aprobaciones requeridas a 1 y activar
+# require_code_owner_reviews en la protección de main.
+
+* @skillerpir

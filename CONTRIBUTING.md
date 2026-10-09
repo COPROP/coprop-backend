@@ -48,23 +48,36 @@ qué salió, con números. "Probado en local" no es verificación.
 algunos, se enlaza sin la palabra clave y se dice qué queda pendiente; así el issue no se cierra
 por inercia con un criterio sin tocar.
 
-### El push directo a main no está impedido por el servidor
+### El push directo a main lo impide el servidor
 
-GitHub no ofrece protección de rama ni rulesets en repositorios **privados** de plan **free**,
-que es la combinación de estos tres repos. La API responde 403 y remite a GitHub Pro. Así que el
-criterio queda cubierto por convención y por un hook local, no por el servidor.
+Los tres repos son **públicos** desde el 9 de octubre de 2026, y GitHub sí ofrece protección de
+rama en repositorios públicos de plan free. La organización sigue en plan `free`: lo que faltaba
+no era el plan, era que los repos fueran públicos.
 
-Activa el hook una vez por clon:
+`main` está protegido en los tres:
+
+| Repositorio | PR obligatorio | Push directo | Check obligatorio |
+|---|---|---|---|
+| `coprop-backend` | sí | lo rechaza el servidor | `Build, formato y tests` |
+| `coprop-frontend` | sí | lo rechaza el servidor | aún sin CI |
+| `coprop-mobile` | sí | lo rechaza el servidor | aún sin CI |
+
+Además: no se admite force-push, no se puede borrar `main`, las conversaciones del PR deben
+quedar resueltas antes de mezclar, y en el backend la rama debe estar al día con `main` para que
+el check cuente. `enforce_admins` está activo, así que la regla rige también para la dueña de la
+organización.
+
+**Las aprobaciones requeridas son 0, a propósito.** GitHub no permite aprobar tu propio pull
+request, así que mientras haya una sola desarrolladora cualquier número mayor que 0 bloquearía
+todo merge. El pull request sigue siendo obligatorio, que es lo que el criterio pide. Cuando
+entre la segunda persona: subir las aprobaciones a 1 y activar `require_code_owner_reviews`.
+
+El hook de `.githooks/pre-push` ya no es la cerradura, pero vale la pena activarlo igual: avisa
+en local, con un mensaje claro, antes de que el servidor rechace el push.
 
 ```bash
 git config core.hooksPath .githooks
 ```
-
-Desde entonces `git push` a `main` falla con un recordatorio. `git push --no-verify` lo salta,
-a propósito: es un recordatorio, no una cerradura.
-
-Si algún día los repos pasan a públicos o la organización sube a GitHub Team, la protección de
-verdad se habilita y el hook se vuelve redundante.
 
 ## Issues
 
