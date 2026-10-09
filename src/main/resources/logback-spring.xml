@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Solo cambia el patron de consola. El resto (colores, niveles, codificacion) lo trae Spring Boot
+  en defaults.xml, que se incluye tal cual: aqui no se reinventa nada que Boot ya resuelva.
+
+  Dos diferencias con el patron de fabrica:
+    - [%X{traceId}] delante del mensaje, para ver de un vistazo que lineas son de la misma peticion.
+    - %enmascarado en vez de %msg, que pasa el mensaje por Enmascarador antes de escribirlo.
+
+  En produccion no se usa este patron: alli manda logging.structured.format.console, que apunta a
+  FormatoJsonDeLog y hace el mismo enmascarado sobre el JSON.
+-->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <conversionRule conversionWord="enmascarado" class="bo.coprop.shared.ConversorEnmascarado"/>
+
+    <property name="CONSOLE_LOG_PATTERN"
+              value="%clr(%d{${LOG_DATEFORMAT_PATTERN:-yyyy-MM-dd'T'HH:mm:ss.SSSXXX}}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:-}){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr([%X{traceId:-}]){cyan} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %enmascarado%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}"/>
+
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>

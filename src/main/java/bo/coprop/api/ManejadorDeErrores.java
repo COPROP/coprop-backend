@@ -60,14 +60,14 @@ class ManejadorDeErrores extends ResponseEntityExceptionHandler {
 
     /**
      * Red de seguridad. El detalle se descarta a proposito: un mensaje de excepcion puede llevar
-     * nombres de tabla o fragmentos de consulta. Al log si va entero, con su correlationId.
+     * nombres de tabla o fragmentos de consulta. Al log si va entero, con su traceId.
      */
     @ExceptionHandler(Exception.class)
     ResponseEntity<ProblemDetail> manejarNoPrevisto(Exception error, HttpServletRequest peticion) {
         log.error("Error no previsto atendiendo {}", peticion.getRequestURI(), error);
         ProblemDetail problema = CatalogoDeProblemas.problema(
                 CodigoDeError.INTERNO,
-                "Ocurrio un error inesperado. Si vuelve a pasar, reporta el correlationId.",
+                "Ocurrio un error inesperado. Si vuelve a pasar, reporta el traceId.",
                 peticion.getRequestURI());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(problema);
     }

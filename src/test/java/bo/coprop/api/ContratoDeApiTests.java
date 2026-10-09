@@ -39,7 +39,7 @@ import org.springframework.web.bind.annotation.RestController;
  * que exista el primer endpoint de verdad, que es justamente el motivo del issue.
  */
 @Import({TestcontainersConfiguration.class, ContratoDeApiTests.ControladorDePrueba.class})
-@SpringBootTest(properties = "management.health.mail.enabled=false")
+@SpringBootTest
 @AutoConfigureMockMvc
 class ContratoDeApiTests {
 
@@ -134,11 +134,11 @@ class ContratoDeApiTests {
 
     @Test
     @WithMockUser
-    @DisplayName("el correlationId viaja en la cabecera y dentro del cuerpo del error")
-    void elCorrelationIdViajaEnLaRespuesta() throws Exception {
-        mockMvc.perform(get("/api/v1/pruebas/no-encontrado").header("X-Correlation-Id", "abc-123"))
-                .andExpect(header().string("X-Correlation-Id", "abc-123"))
-                .andExpect(jsonPath("$.correlationId").value("abc-123"));
+    @DisplayName("el traceId viaja en la cabecera y dentro del cuerpo del error")
+    void elTraceIdViajaEnLaRespuesta() throws Exception {
+        mockMvc.perform(get("/api/v1/pruebas/no-encontrado").header("X-Trace-Id", "abc-123"))
+                .andExpect(header().string("X-Trace-Id", "abc-123"))
+                .andExpect(jsonPath("$.traceId").value("abc-123"));
     }
 
     /**
