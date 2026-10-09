@@ -9,9 +9,11 @@ import org.testcontainers.utility.DockerImageName;
 /**
  * PostgreSQL para los tests. La version se mantiene igual a la de docker-compose.yml: una
  * diferencia de version entre desarrollo y test esconde errores de migracion.
+ *
+ * <p>Publica porque la usan los tests de cada modulo, no solo los del paquete raiz.
  */
 @TestConfiguration(proxyBeanMethods = false)
-class TestcontainersConfiguration {
+public class TestcontainersConfiguration {
 
     static final DockerImageName POSTGRES = DockerImageName.parse("postgres:16-alpine");
 
