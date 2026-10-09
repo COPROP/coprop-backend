@@ -59,7 +59,7 @@ no era el plan, era que los repos fueran públicos.
 | Repositorio | PR obligatorio | Push directo | Check obligatorio |
 |---|---|---|---|
 | `coprop-backend` | sí | lo rechaza el servidor | `Build, formato y tests` |
-| `coprop-frontend` | sí | lo rechaza el servidor | aún sin CI |
+| `coprop-frontend` | sí | lo rechaza el servidor | `Lint, build y tests` |
 | `coprop-mobile` | sí | lo rechaza el servidor | aún sin CI |
 
 Además: no se admite force-push, no se puede borrar `main`, las conversaciones del PR deben
