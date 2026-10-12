@@ -16,8 +16,8 @@ no declaró, el build falla.
 |---|---|---|
 | `shared` | Tipos comunes: identificadores, dinero, periodo, errores de dominio. Módulo abierto. | — |
 | `api` | Contrato HTTP: problem+json, paginación, prefijo de versión, seguridad, OpenAPI. | `shared` |
-| `identity` | Personas, membresías por condominio, roles, invitaciones. | `shared` |
-| `condominium` | Condominios, su configuración y sus unidades. | `shared` |
+| `identity` | Personas, cuentas de acceso, membresías por condominio, roles, invitaciones. | `shared` |
+| `condominium` | Condominios, su configuración, sus unidades, y las tres relaciones de la unidad con las personas: titularidad, ocupación y responsabilidad de pago. | `shared` |
 | `billing` | `PaymentObligation` y su máquina de estados; expensas, agua, mora. | `shared`, `condominium`, `identity` |
 | `payments` | Intents, QR, inbox de eventos, registro y aplicación de pagos, conciliación. | `shared`, `billing`, `condominium` |
 | `notifications` | Envío de avisos. Solo correo en el MVP. | `shared` |
@@ -32,6 +32,14 @@ no declaró, el build falla.
 2. **`identity` no depende de `condominium`.** Referencia al condominio por identificador, no por
    entidad. Una persona tiene una sola cuenta y una membresía por condominio (Seguridad §2), y
    esa relación se resuelve por id.
+
+   Esta regla decidió dónde viven `UnitOwnership`, `UnitOccupancy` y `BillingResponsibility`.
+   Seguridad §2 las cuelga de la persona, así que por el diagrama serían de `identity`; pero las
+   tres tienen que responder **404 y no 403** cuando la unidad no es del condominio de la ruta, y
+   desde `identity` eso no se puede comprobar sin romper esta regla. Viven en `condominium`, que
+   es el módulo de la unidad, y referencian a la persona por identificador —el mismo patrón, en
+   la otra dirección—. Moverlas a `identity` más adelante exigiría un puerto en `shared` que
+   responda si una unidad pertenece a un condominio.
 
 3. **`payments` es el módulo con los límites más estrictos**, porque es el candidato a
    extraerse. Hacia `billing` se comunica por eventos y por puertos declarados, nunca tocando sus
