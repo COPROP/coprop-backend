@@ -1,5 +1,6 @@
 package bo.coprop.condominium;
 
+import bo.coprop.shared.ZonaHorariaIana;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -23,6 +24,6 @@ public record NewCondominium(
         @NotBlank @Size(max = 160) String name,
         @NotBlank @Size(max = 20) String nit,
         @NotNull CondominiumType type,
-        @NotBlank @Size(max = 64) String timeZone,
+        @NotBlank @Size(max = 64) @ZonaHorariaIana String timeZone,
         @Min(1) @Max(28) int issueDay,
         @Min(1) @Max(28) int dueDay) {}

@@ -77,7 +77,7 @@ class CondominiumsTests {
     void cambiarLaConfiguracionNoPisaLaAnterior() {
         CondominiumView creado = condominios.register(lasPalmas(), "emma");
 
-        CondominiumView cambiado = condominios.changeConfig(creado.id(), 5, 20);
+        CondominiumView cambiado = condominios.changeConfig(creado.id(), 5, 20, "emma");
 
         // Lo vigente es lo nuevo...
         assertThat(cambiado.issueDay()).isEqualTo(5);
@@ -88,6 +88,28 @@ class CondominiumsTests {
         // emitida con la configuracion vieja no cambie bajo los pies cuando llegue M2.
         assertThat(configuracionesDe(creado.id())).isEqualTo(2);
         assertThat(vigentesDe(creado.id())).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("el cambio de configuracion dice quien lo hizo y desde que valores")
+    void elCambioDeConfiguracionQuedaAuditado(PublishedEvents eventos) {
+        CondominiumView creado = condominios.register(lasPalmas(), "emma");
+
+        condominios.changeConfig(creado.id(), 5, 20, "ana");
+
+        // La fila cerrada ya dice cuando cambio; sin este evento no quedaria quien ni desde que
+        // valores, y es el cambio que mueve los vencimientos y la mora (analisis 12.2).
+        assertThat(eventos.ofType(CondominiumConfigChanged.class))
+                .singleElement()
+                .satisfies(evento -> {
+                    assertThat(evento.condominiumId()).isEqualTo(creado.id());
+                    assertThat(evento.previousIssueDay()).isEqualTo(1);
+                    assertThat(evento.previousDueDay()).isEqualTo(15);
+                    assertThat(evento.issueDay()).isEqualTo(5);
+                    assertThat(evento.dueDay()).isEqualTo(20);
+                    assertThat(evento.actor()).isEqualTo("ana");
+                    assertThat(evento.occurredAt()).isEqualTo(AHORA);
+                });
     }
 
     @Test

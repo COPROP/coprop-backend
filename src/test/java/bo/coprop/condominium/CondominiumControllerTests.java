@@ -90,4 +90,20 @@ class CondominiumControllerTests {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.codigo").value("NO_AUTENTICADO"));
     }
+
+    @Test
+    @WithMockUser(username = "emma")
+    @DisplayName("una zona horaria que no existe se rechaza en el alta, no meses despues")
+    void laZonaHorariaInventadaDa422() throws Exception {
+        // Sin la barra baja no es una zona IANA. El analisis 12.2 calcula los vencimientos y la
+        // mora en la zona del condominio, asi que esto se tiene que parar aqui.
+        String conZonaMala = ALTA_VALIDA.replace("America/La_Paz", "America/LaPaz");
+
+        mockMvc.perform(post("/api/v1/condominios")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(conZonaMala))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.codigo").value("VALIDACION"))
+                .andExpect(jsonPath("$.errores[0].campo").value("timeZone"));
+    }
 }

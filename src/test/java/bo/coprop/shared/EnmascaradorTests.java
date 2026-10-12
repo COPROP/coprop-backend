@@ -61,4 +61,16 @@ class EnmascaradorTests {
         assertThat(Enmascarador.enmascarar(null)).isEmpty();
         assertThat(Enmascarador.enmascarar("")).isEmpty();
     }
+
+    @Test
+    @DisplayName("tapa los datos personales de Seguridad 8: el CI y el correo")
+    void tapaDatosPersonales() {
+        assertThat(Enmascarador.enmascarar("{\"ci\":\"1234567\",\"correo\":\"ana@example.com\"}"))
+                .doesNotContain("1234567")
+                .doesNotContain("ana@example.com");
+
+        // El correo viaja muchas veces con la clave aparte, como en el MDC.
+        assertThat(Enmascarador.valorDe("correo", "ana@example.com")).isEqualTo(Enmascarador.TAPADO);
+        assertThat(Enmascarador.valorDe("email", "ana@example.com")).isEqualTo(Enmascarador.TAPADO);
+    }
 }

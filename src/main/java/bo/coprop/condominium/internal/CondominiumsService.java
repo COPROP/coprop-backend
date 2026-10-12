@@ -1,5 +1,6 @@
 package bo.coprop.condominium.internal;
 
+import bo.coprop.condominium.CondominiumConfigChanged;
 import bo.coprop.condominium.CondominiumRegistered;
 import bo.coprop.condominium.CondominiumView;
 import bo.coprop.condominium.Condominiums;
@@ -57,13 +58,18 @@ class CondominiumsService implements Condominiums {
 
     @Override
     @Transactional
-    public CondominiumView changeConfig(UUID condominiumId, int issueDay, int dueDay) {
+    public CondominiumView changeConfig(UUID condominiumId, int issueDay, int dueDay, String actor) {
         Condominium condominio = buscar(condominiumId);
         Instant ahora = reloj.instant();
 
         // Cerrar la vigente y abrir otra, en vez de actualizar. La fila anterior es historia: es
         // lo que permite saber con que configuracion se emitio cada cosa.
-        configuraciones.findByCondominiumIdAndValidToIsNull(condominiumId).ifPresent(vigente -> vigente.close(ahora));
+        //
+        // Se exige que exista: todo condominio nace con una y nunca se cierra sin abrir la
+        // siguiente, asi que no haberla es un estado roto, no un caso que tolerar. Ademas es de
+        // donde salen los valores de "antes" del evento.
+        CondominiumConfig vigente = configuracionVigenteDe(condominiumId);
+        vigente.close(ahora);
 
         // El flush no es decorativo. Hibernate ordena todos los INSERT antes que los UPDATE dentro
         // de un mismo flush, asi que sin esto la fila nueva entra mientras la vieja sigue abierta y
@@ -73,6 +79,9 @@ class CondominiumsService implements Condominiums {
 
         CondominiumConfig nueva = configuraciones.save(new CondominiumConfig(condominiumId, issueDay, dueDay, ahora));
 
+        eventos.publishEvent(new CondominiumConfigChanged(
+                condominiumId, vigente.getIssueDay(), vigente.getDueDay(), issueDay, dueDay, actor, ahora));
+
         return vista(condominio, nueva);
     }
 
@@ -80,11 +89,15 @@ class CondominiumsService implements Condominiums {
     @Transactional(readOnly = true)
     public CondominiumView find(UUID condominiumId) {
         Condominium condominio = buscar(condominiumId);
-        CondominiumConfig config = configuraciones
+        return vista(condominio, configuracionVigenteDe(condominiumId));
+    }
+
+    /** La unica fila de configuracion abierta del condominio. No haberla es un estado roto. */
+    private CondominiumConfig configuracionVigenteDe(UUID condominiumId) {
+        return configuraciones
                 .findByCondominiumIdAndValidToIsNull(condominiumId)
                 .orElseThrow(() -> new IllegalStateException(
                         "El condominio %s no tiene configuracion vigente.".formatted(condominiumId)));
-        return vista(condominio, config);
     }
 
     private Condominium buscar(UUID condominiumId) {
