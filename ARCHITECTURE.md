@@ -336,6 +336,26 @@ Cuando el recurso no es del condominio de la ruta se responde **404, no 403**, i
 existiera: distinguirlos ya diría que existe en algún sitio. El filtro de membresía del issue #17
 es la otra mitad del aislamiento; esta mitad no lo espera.
 
+**Toda tabla de negocio lleva `condominium_id`, y lo referencia con clave foránea compuesta.** La
+columna la exige §6 del análisis, y una política de Row-Level Security (§12.2) la necesita en la
+propia fila: no puede salir a buscarla con un join. Pero una columna denormalizada que hay que
+acordarse de mantener termina mintiendo, así que no se declara sola: la tabla referencia a su
+padre por el par, no solo por el id.
+
+```sql
+-- el padre expone el par
+ALTER TABLE unit ADD CONSTRAINT unit_id_condominium_uq UNIQUE (id, condominium_id);
+
+-- y el hijo lo referencia entero
+CONSTRAINT unit_ownership_unit_fk
+    FOREIGN KEY (unit_id, condominium_id) REFERENCES unit (id, condominium_id)
+```
+
+Así es **imposible** que una fila declare un condominio distinto del de su unidad, en vez de
+depender de que el servicio lo compruebe —que es el defecto que corrigió el PR #72 en cuatro
+sitios—. Lo estableció la V5 para `unit_ownership`, `unit_occupancy`, `billing_responsibility` y
+`floor`; las tablas de M2 y M3 que cuelguen de una unidad siguen el mismo patrón.
+
 ## Esquema de base de datos
 
 Todo cambio de esquema entra por una migración de Flyway en
