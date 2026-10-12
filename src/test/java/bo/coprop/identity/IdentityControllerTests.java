@@ -1,0 +1,206 @@
+package bo.coprop.identity;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import bo.coprop.TestcontainersConfiguration;
+import com.jayway.jsonpath.JsonPath;
+import java.util.UUID;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * Los endpoints de personas, cuentas y membresias, sobre la aplicacion entera.
+ *
+ * <p>Comprueba lo que el test de modulo no puede: el prefijo de version, que la validacion sale en
+ * problem+json con la forma del issue #5, y que la cabecera {@code Location} apunta a una ruta que
+ * de verdad responde --que fue uno de los defectos que corrigio el PR #72.
+ */
+@Import(TestcontainersConfiguration.class)
+@SpringBootTest
+@AutoConfigureMockMvc
+@Transactional
+class IdentityControllerTests {
+
+    private static final String PERSONA =
+            """
+            {"firstNames":"Emma","lastNames":"Tola","nationalId":"8123456"}
+            """;
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Test
+    @WithMockUser(username = "emma")
+    @DisplayName("el alta de persona devuelve 201 con Location y la persona creada")
+    void elAltaDePersonaDevuelve201() throws Exception {
+        mockMvc.perform(post("/api/v1/personas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(PERSONA))
+                .andExpect(status().isCreated())
+                .andExpect(header().exists("Location"))
+                .andExpect(jsonPath("$.id").exists())
+                .andExpect(jsonPath("$.firstNames").value("Emma"))
+                .andExpect(jsonPath("$.nationalId").value("8123456"));
+    }
+
+    @Test
+    @WithMockUser(username = "emma")
+    @DisplayName("el alta de una persona que ya existe tambien devuelve 201, para no delatarla")
+    void elAltaRepetidaTambienDevuelve201() throws Exception {
+        mockMvc.perform(post("/api/v1/personas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(PERSONA))
+                .andExpect(status().isCreated());
+
+        // Un 200 para "ya existia" y un 201 para "la cree" le diria al administrador de un
+        // condominio que esa persona esta en otro. Decision 7.
+        mockMvc.perform(post("/api/v1/personas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(PERSONA))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    @WithMockUser(username = "emma")
+    @DisplayName("un nombre en blanco da 422 en problem+json, con el campo senalado")
+    void elNombreEnBlancoDa422() throws Exception {
+        String sinNombre = PERSONA.replace("\"firstNames\":\"Emma\"", "\"firstNames\":\"\"");
+
+        mockMvc.perform(post("/api/v1/personas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(sinNombre))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.codigo").value("VALIDACION"))
+                .andExpect(jsonPath("$.errores[0].campo").value("firstNames"));
+    }
+
+    @Test
+    @WithMockUser(username = "emma")
+    @DisplayName("una persona que no existe da 404 en problem+json")
+    void unaPersonaQueNoExisteDa404() throws Exception {
+        mockMvc.perform(get("/api/v1/personas/" + UUID.randomUUID()))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
+    }
+
+    @Test
+    @WithMockUser(username = "emma")
+    @DisplayName("la cuenta se abre invitada y su Location apunta a una ruta que responde")
+    void laCuentaSeAbreYSuLocationResponde() throws Exception {
+        String personaId = idDe(mockMvc.perform(post("/api/v1/personas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(PERSONA))
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+
+        String cuentaId = idDe(mockMvc.perform(post("/api/v1/personas/" + personaId + "/cuenta")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"emma@coprop.bo\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Location", org.hamcrest.Matchers.startsWith("/api/v1/cuentas/")))
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+
+        // Lo que el PR #72 tuvo que corregir en el alta de unidades: que Location no apunte al
+        // vacio. Se sigue la cabecera de verdad en vez de confiar en que este bien formada.
+        mockMvc.perform(get("/api/v1/cuentas/" + cuentaId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("INVITADO"))
+                .andExpect(jsonPath("$.mfaEnabled").value(false));
+    }
+
+    @Test
+    @WithMockUser(username = "emma")
+    @DisplayName("un correo mal formado da 422")
+    void unCorreoMalFormadoDa422() throws Exception {
+        String personaId = idDe(mockMvc.perform(post("/api/v1/personas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(PERSONA))
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+
+        mockMvc.perform(post("/api/v1/personas/" + personaId + "/cuenta")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"no-es-un-correo\"}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.codigo").value("VALIDACION"));
+    }
+
+    @Test
+    @WithMockUser(username = "emma")
+    @DisplayName("una membresia sin roles da 422, no un error de dominio")
+    void unaMembresiaSinRolesDa422() throws Exception {
+        mockMvc.perform(post("/api/v1/condominios/" + UUID.randomUUID() + "/membresias")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"accountId\":\"%s\",\"roles\":[]}".formatted(UUID.randomUUID())))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.codigo").value("VALIDACION"))
+                .andExpect(jsonPath("$.errores[0].campo").value("roles"));
+    }
+
+    @Test
+    @WithMockUser(username = "emma")
+    @DisplayName("un rol fuera del catalogo da 400 y SIN codigo: hueco del contrato, no de este modulo")
+    void unRolDesconocidoDa400SinCodigo() throws Exception {
+        // Esto documenta un defecto, no una decision. Un valor de enum que no existe no llega a
+        // deserializarse: Jackson falla antes de que haya objeto que validar, Spring lo trata como
+        // cuerpo ilegible y responde 400 desde ResponseEntityExceptionHandler, sin pasar por
+        // ninguno de nuestros manejadores. El cuerpo sale en problem+json pero **sin codigo**, y
+        // el contrato del issue #5 dice que todo error lleva codigo --tanto, que el interceptor
+        // del frontend tiene que inventarse uno cuando falta.
+        //
+        // Ademas el 422 seria mas correcto que el 400: RFC 9110 reserva el 400 para el cuerpo mal
+        // formado, y este JSON esta bien formado; lo que no se puede procesar es el valor.
+        //
+        // El arreglo es un manejador de HttpMessageNotReadableException en el modulo api, no aqui.
+        // Este test queda para que el dia que se arregle salte y se actualice a proposito.
+        mockMvc.perform(post("/api/v1/condominios/" + UUID.randomUUID() + "/membresias")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"accountId\":\"%s\",\"roles\":[\"JEFE\"]}".formatted(UUID.randomUUID())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.codigo").doesNotExist());
+    }
+
+    @Test
+    @WithMockUser(username = "emma")
+    @DisplayName("una cuenta que no existe da 404 al conceder membresia")
+    void cuentaInexistenteDa404() throws Exception {
+        mockMvc.perform(post("/api/v1/condominios/" + UUID.randomUUID() + "/membresias")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"accountId\":\"%s\",\"roles\":[\"OWNER\"]}".formatted(UUID.randomUUID())))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
+    }
+
+    @Test
+    @DisplayName("sin autenticar, los endpoints de identidad dan 401 con su codigo")
+    void sinAutenticarDa401() throws Exception {
+        mockMvc.perform(post("/api/v1/personas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(PERSONA))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.codigo").value("NO_AUTENTICADO"));
+    }
+
+    private static String idDe(String cuerpoJson) {
+        return JsonPath.read(cuerpoJson, "$.id");
+    }
+}

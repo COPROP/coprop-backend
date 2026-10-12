@@ -1,0 +1,12 @@
+package bo.coprop.condominium.internal;
+
+import java.util.List;
+import java.util.UUID;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+interface UnitOccupancyRepository extends JpaRepository<UnitOccupancy, UUID> {
+
+    boolean existsByUnitIdAndPersonIdAndValidToIsNull(UUID unitId, UUID personId);
+
+    List<UnitOccupancy> findByCondominiumIdAndPersonIdAndValidToIsNull(UUID condominiumId, UUID personId);
+}

@@ -126,7 +126,7 @@ class UnitsService implements Units {
         if (pisos.existsByBlockIdAndNumber(blockId, number)) {
             throw new ReglaDeNegocioViolada("El bloque %s ya tiene el piso %d.".formatted(bloque.getName(), number));
         }
-        Floor piso = pisos.save(new Floor(blockId, number));
+        Floor piso = pisos.save(new Floor(condominiumId, blockId, number));
 
         eventos.publishEvent(
                 new FloorRegistered(condominiumId, blockId, piso.getId(), piso.getNumber(), actor, reloj.instant()));

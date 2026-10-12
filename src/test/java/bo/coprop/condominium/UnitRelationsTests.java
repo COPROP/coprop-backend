@@ -1,0 +1,237 @@
+package bo.coprop.condominium;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import bo.coprop.TestcontainersConfiguration;
+import bo.coprop.shared.RecursoNoEncontrado;
+import bo.coprop.shared.ReglaDeNegocioViolada;
+import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.UUID;
+import javax.sql.DataSource;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.modulith.test.ApplicationModuleTest;
+import org.springframework.modulith.test.PublishedEvents;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * El primer criterio de aceptacion del issue #11 y la razon de que las relaciones sean tres.
+ *
+ * <p>Las personas se insertan con SQL: {@code person} es de {@code identity} y este modulo no
+ * depende de el. La unidad si se crea por su API, porque es de aqui.
+ */
+@Import({TestcontainersConfiguration.class, UnitRelationsTests.RelojFijo.class})
+@ApplicationModuleTest
+@Transactional
+class UnitRelationsTests {
+
+    private static final Instant AHORA = Instant.parse("2026-10-12T12:00:00Z");
+    private static final BigDecimal MITAD = new BigDecimal("50.000000");
+
+    private final JdbcTemplate jdbc;
+    private final Condominiums condominios;
+    private final Units unidades;
+    private final UnitRelations relaciones;
+
+    UnitRelationsTests(
+            @Autowired DataSource dataSource,
+            @Autowired Condominiums condominios,
+            @Autowired Units unidades,
+            @Autowired UnitRelations relaciones) {
+        this.jdbc = new JdbcTemplate(dataSource);
+        this.condominios = condominios;
+        this.unidades = unidades;
+        this.relaciones = relaciones;
+    }
+
+    @Test
+    @DisplayName("RF-03: la misma persona es propietaria en un condominio e inquilina en otro")
+    void propietariaEnUnoEInquilinaEnOtro() {
+        UUID lasPalmas = condominio("Las Palmas", "3000000001");
+        UUID villaSol = condominio("Villa Sol", "3000000002");
+        UUID enLasPalmas = unidad(lasPalmas, "302");
+        UUID enVillaSol = unidad(villaSol, "A-1");
+        UUID persona = persona("6000001");
+
+        relaciones.grantOwnership(lasPalmas, enLasPalmas, persona, MITAD, "admin");
+        relaciones.grantOccupancy(villaSol, enVillaSol, persona, OccupancyRole.INQUILINO, "admin");
+
+        assertThat(relaciones.unitsOwnedBy(lasPalmas, persona)).containsExactly(enLasPalmas);
+        assertThat(relaciones.unitsOccupiedBy(villaSol, persona)).containsExactly(enVillaSol);
+        // Y cada condominio solo ve lo suyo.
+        assertThat(relaciones.unitsOwnedBy(villaSol, persona)).isEmpty();
+        assertThat(relaciones.unitsOccupiedBy(lasPalmas, persona)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("el inquilino ocupa y el propietario sigue pagando: lo que una sola tabla no diria")
+    void elInquilinoOcupaYElPropietarioPaga() {
+        UUID condominio = condominio("Torre Azul", "3000000003");
+        UUID unidad = unidad(condominio, "501");
+        UUID propietaria = persona("6000002");
+        UUID inquilino = persona("6000003");
+
+        relaciones.grantOwnership(condominio, unidad, propietaria, new BigDecimal("100.000000"), "admin");
+        relaciones.grantOccupancy(condominio, unidad, inquilino, OccupancyRole.INQUILINO, "admin");
+        relaciones.assignBilling(condominio, unidad, propietaria, null, "admin");
+
+        assertThat(relaciones.unitsOccupiedBy(condominio, inquilino)).containsExactly(unidad);
+        assertThat(relaciones.unitsBilledTo(condominio, propietaria)).containsExactly(unidad);
+        // El inquilino ocupa y no paga; la propietaria paga y no ocupa.
+        assertThat(relaciones.unitsBilledTo(condominio, inquilino)).isEmpty();
+        assertThat(relaciones.unitsOccupiedBy(condominio, propietaria)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("una unidad admite varios copropietarios, cada uno con su porcentaje")
+    void variosCopropietarios() {
+        UUID condominio = condominio("Los Pinos", "3000000004");
+        UUID unidad = unidad(condominio, "101");
+        UUID una = persona("6000004");
+        UUID otra = persona("6000005");
+
+        relaciones.grantOwnership(condominio, unidad, una, MITAD, "admin");
+        relaciones.grantOwnership(condominio, unidad, otra, MITAD, "admin");
+
+        assertThat(relaciones.ownersOf(condominio, unidad))
+                .extracting(OwnershipView::personId)
+                .containsExactlyInAnyOrder(una, otra);
+    }
+
+    @Test
+    @DisplayName("la misma persona no figura dos veces como propietaria de la misma unidad")
+    void laMismaPersonaNoDosVeces() {
+        UUID condominio = condominio("Mirador", "3000000005");
+        UUID unidad = unidad(condominio, "201");
+        UUID persona = persona("6000006");
+        relaciones.grantOwnership(condominio, unidad, persona, MITAD, "admin");
+
+        assertThatThrownBy(() -> relaciones.grantOwnership(condominio, unidad, persona, MITAD, "admin"))
+                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .hasMessageContaining("ya es propietaria vigente");
+    }
+
+    @Test
+    @DisplayName("la unidad de otro condominio no se encuentra: 404 y no 403")
+    void laUnidadDeOtroCondominioNoSeEncuentra() {
+        UUID propio = condominio("Propio", "3000000006");
+        UUID ajeno = condominio("Ajeno", "3000000007");
+        UUID unidadAjena = unidad(ajeno, "77");
+        UUID persona = persona("6000007");
+
+        // Es la razon de que estas relaciones vivan en este modulo: desde identity no se podria
+        // comprobar, y la ruta de un condominio serviria para colgar titularidades de otro.
+        assertThatThrownBy(() -> relaciones.grantOwnership(propio, unidadAjena, persona, MITAD, "admin"))
+                .isInstanceOf(RecursoNoEncontrado.class);
+        assertThatThrownBy(
+                        () -> relaciones.grantOccupancy(propio, unidadAjena, persona, OccupancyRole.RESIDENTE, "admin"))
+                .isInstanceOf(RecursoNoEncontrado.class);
+        assertThatThrownBy(() -> relaciones.assignBilling(propio, unidadAjena, persona, null, "admin"))
+                .isInstanceOf(RecursoNoEncontrado.class);
+        assertThatThrownBy(() -> relaciones.ownersOf(propio, unidadAjena)).isInstanceOf(RecursoNoEncontrado.class);
+    }
+
+    @Test
+    @DisplayName("el responsable general de una unidad no se asigna dos veces")
+    void elResponsableGeneralNoSeDuplica() {
+        UUID condominio = condominio("Responsable", "3000000008");
+        UUID unidad = unidad(condominio, "801");
+        UUID persona = persona("6000008");
+        relaciones.assignBilling(condominio, unidad, persona, null, "admin");
+
+        assertThatThrownBy(() -> relaciones.assignBilling(condominio, unidad, persona, null, "admin"))
+                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .hasMessageContaining("ya responde");
+    }
+
+    @Test
+    @DisplayName("la misma persona responde por conceptos distintos de la misma unidad")
+    void responsablePorConceptosDistintos() {
+        UUID condominio = condominio("Conceptos", "3000000009");
+        UUID unidad = unidad(condominio, "802");
+        UUID persona = persona("6000009");
+
+        relaciones.assignBilling(condominio, unidad, persona, UUID.randomUUID(), "admin");
+        relaciones.assignBilling(condominio, unidad, persona, UUID.randomUUID(), "admin");
+
+        // La unidad sale una sola vez aunque haya dos responsabilidades.
+        assertThat(relaciones.unitsBilledTo(condominio, persona)).containsExactly(unidad);
+    }
+
+    @Test
+    @DisplayName("la misma persona no ocupa dos veces la misma unidad")
+    void noOcupaDosVeces() {
+        UUID condominio = condominio("Ocupacion", "3000000010");
+        UUID unidad = unidad(condominio, "901");
+        UUID persona = persona("6000010");
+        relaciones.grantOccupancy(condominio, unidad, persona, OccupancyRole.RESIDENTE, "admin");
+
+        assertThatThrownBy(
+                        () -> relaciones.grantOccupancy(condominio, unidad, persona, OccupancyRole.INQUILINO, "admin"))
+                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .hasMessageContaining("ya ocupa");
+    }
+
+    @Test
+    @DisplayName("registrar una titularidad publica su evento con el porcentaje")
+    void laTitularidadPublicaSuEvento(PublishedEvents eventos) {
+        UUID condominio = condominio("Evento", "3000000011");
+        UUID unidad = unidad(condominio, "1001");
+        UUID persona = persona("6000011");
+
+        relaciones.grantOwnership(condominio, unidad, persona, MITAD, "emma");
+
+        assertThat(eventos.ofType(OwnershipGranted.class))
+                .containsExactly(new OwnershipGranted(condominio, unidad, persona, MITAD, "emma", AHORA));
+    }
+
+    private UUID condominio(String nombre, String nit) {
+        return condominios
+                .register(new NewCondominium(nombre, nit, CondominiumType.EDIFICIO, "America/La_Paz", 1, 15), "admin")
+                .id();
+    }
+
+    private UUID unidad(UUID condominiumId, String code) {
+        return unidades.register(
+                        condominiumId,
+                        new NewUnit(code, UnitType.DEPARTAMENTO, new BigDecimal("1.000000"), null, null, null),
+                        "admin")
+                .id();
+    }
+
+    /** La persona por SQL: es de {@code identity} y este modulo no depende de el. */
+    private UUID persona(String carnet) {
+        UUID id = UUID.randomUUID();
+        jdbc.update(
+                """
+                INSERT INTO person (id, first_names, last_names, national_id, created_at)
+                VALUES (?, 'Emma', 'Tola', ?, ?)
+                """,
+                id,
+                carnet,
+                OffsetDateTime.ofInstant(AHORA, ZoneOffset.UTC));
+        return id;
+    }
+
+    /** Reloj parado: asi el evento se puede comparar contra una fecha concreta. */
+    @TestConfiguration(proxyBeanMethods = false)
+    static class RelojFijo {
+
+        @Bean
+        @Primary
+        Clock relojDePrueba() {
+            return Clock.fixed(AHORA, ZoneOffset.UTC);
+        }
+    }
+}
