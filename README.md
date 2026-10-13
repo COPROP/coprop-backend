@@ -72,32 +72,40 @@ token**: los tres quedan en la sesión del servidor, que vive en la base
 (Seguridad §5.1, [ARCHITECTURE.md](ARCHITECTURE.md#seguridad)). Para cerrar sesión, `POST /logout`,
 que también la cierra en Keycloak.
 
-Entrar no da acceso a nada por sí solo. Hace falta además una **cuenta de COPROP con ese correo**;
-si no la hay, la API responde 403 con `SIN_CUENTA`. Y **todavía no hay forma de crear la primera**:
-toda la API exige identidad y la identidad exige una cuenta que alguien dio de alta. El arranque de
-la plataforma es el issue #16; hasta entonces, en local se siembra por SQL:
+Entrar no da acceso a nada por sí solo. Hace falta además una **cuenta de COPROP con ese correo**
+—si no la hay, la API responde 403 con `SIN_CUENTA`— y una **membresía activa** en el condominio que
+se pida —si no la hay, 404—.
+
+### La semilla de desarrollo
+
+**Todavía no hay forma de crear la primera cuenta ni la primera membresía**: toda la API exige
+identidad, y la identidad exige una cuenta que alguien dio de alta. El arranque de la plataforma es
+el issue #16. Hasta entonces:
 
 ```bash
-docker exec -i coprop-postgres psql -U coprop -d coprop <<'SQL'
-insert into person (id, first_names, last_names, national_id, created_at)
-values ('11111111-1111-4111-8111-111111111111', 'Dev', 'Local', '0000001', now());
-insert into user_account (id, person_id, email, status, mfa_enabled, created_at)
-values ('22222222-2222-4222-8222-222222222222', '11111111-1111-4111-8111-111111111111',
-        'dev@coprop.local', 'INVITADO', false, now());
-SQL
+docker exec -i coprop-postgres psql -U coprop -d coprop < docker/postgres/semilla-de-desarrollo.sql
 ```
 
-Con eso, el primer login deja la cuenta en `ACTIVO` y vinculada al sujeto de Keycloak.
+No es una migración y Flyway no la ve, así que no puede acabar en producción. Se puede repetir
+cuantas veces haga falta. Deja:
 
-> **Si recreas el contenedor de Keycloak, hay que volver a sembrar el vínculo.** Keycloak en
-> `start-dev` no persiste su base, así que al recrearlo el usuario `dev@coprop.local` nace con un
-> `sub` nuevo. La cuenta de COPROP sigue apuntando al viejo y, como una cuenta ya vinculada no se
-> revincula a otro sujeto, el login responde `SIN_CUENTA`. Se arregla soltando el vínculo:
->
-> ```bash
-> docker exec -i coprop-postgres psql -U coprop -d coprop \
->   -c "update user_account set idp_subject = null, status = 'INVITADO' where email = 'dev@coprop.local';"
-> ```
+| Qué | Identificador | Para qué |
+|---|---|---|
+| Cuenta `dev@coprop.local` | `2222…2222` | La del usuario del realm, lista para el primer login |
+| Condominio *Torre Sucre (desarrollo)* | `aaaa…0001` | Con la cuenta como **CONDO_ADMIN y FINANCE_ADMIN** |
+| Condominio *del vecino* | `bbbb…0002` | **Sin membresía**: todo lo suyo tiene que responder 404 |
+
+Los dos roles en la misma persona están permitidos y es una decisión explícita del análisis (§10.1):
+en condominios pequeños, una sola persona administra y maneja el dinero. La concentración queda en
+auditoría.
+
+El segundo condominio no es relleno: es el escenario real de fuga. Un condominio que **existe** y no
+es tuyo tiene que responder exactamente igual que uno inventado.
+
+> **Vuelve a correr la semilla cada vez que recrees el contenedor de Keycloak.** En `start-dev` no
+> persiste su base, así que `dev@coprop.local` nace con un `sub` nuevo mientras la cuenta de COPROP
+> sigue apuntando al viejo; como una cuenta ya vinculada no se revincula a otro sujeto, el login
+> responde `SIN_CUENTA` y parece que la cuenta está rota. La semilla suelta ese vínculo.
 
 ### Probar la API desde Postman
 
@@ -136,26 +144,14 @@ En Postman, pestaña **Authorization** → tipo **OAuth 2.0**, con *Authorize us
 *Get New Access Token*, se entra con `dev@coprop.local`, y el token sale con **5 minutos** de vida
 (Seguridad §5.3): cuando empiece a responder 401, se pide otro.
 
-**Autenticarse no alcanza para ver un condominio.** Hace falta además una membresía activa en él, y
-sin ella todo responde 404 (issue #17). Como el alta de la primera membresía es del issue #16, hoy
-se siembra a mano. El condominio sí se puede crear desde Postman, porque esa ruta no cuelga de
-ningún condominio:
+Las variables de la colección ya apuntan a los identificadores de
+[la semilla](#la-semilla-de-desarrollo), así que con la semilla corrida se puede usar de entrada.
 
-```bash
-# 1. POST /api/v1/condominios desde Postman devuelve 201 con el id del condominio.
-# 2. Pero GET /api/v1/condominios/{id} responde 404: todavía no eres miembro.
-# 3. Con esto pasa a responder 200.
-docker exec -i coprop-postgres psql -U coprop -d coprop <<'SQL'
-with nueva as (
-  insert into membership (user_id, condominium_id, status, valid_from)
-  values ('22222222-2222-4222-8222-222222222222', '<EL-ID-DEL-CONDOMINIO>', 'ACTIVA', now())
-  returning id
-)
-insert into membership_role (membership_id, role) select id, 'CONDO_ADMIN' from nueva;
-SQL
-```
-
-El 404 del paso 2 no es un error del montaje: es el aislamiento haciendo su trabajo.
+**Si creas un condominio desde Postman, no vas a poder verlo.** El alta no cuelga de ningún
+condominio, pero consultarlo exige membresía activa y responde 404 sin ella. No es un error del
+montaje: es el aislamiento haciendo su trabajo, y por eso esa petición de la colección **no pisa** la
+variable `condominiumId`. Para trabajar con uno propio, el de la semilla ya viene con los roles
+puestos.
 
 Para resetear el entorno por completo:
 
