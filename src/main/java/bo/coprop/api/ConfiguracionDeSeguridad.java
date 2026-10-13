@@ -1,6 +1,7 @@
 package bo.coprop.api;
 
 import bo.coprop.identity.Identities;
+import bo.coprop.identity.Memberships;
 import bo.coprop.shared.CodigoDeError;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
@@ -124,7 +125,8 @@ class ConfiguracionDeSeguridad {
 
     @Bean
     @Order(2)
-    SecurityFilterChain cadenaDeApiMovil(HttpSecurity http, EscritorDeProblemas problemas, Identities identidades)
+    SecurityFilterChain cadenaDeApiMovil(
+            HttpSecurity http, EscritorDeProblemas problemas, Identities identidades, Memberships membresias)
             throws Exception {
         return http.securityMatcher(nuevaPeticionConBearer())
                 .authorizeHttpRequests(rutas -> rutas.requestMatchers(sinIdentidad())
@@ -140,6 +142,11 @@ class ConfiguracionDeSeguridad {
                         .accessDeniedHandler((peticion, respuesta, fallo) ->
                                 problemas.escribir(peticion, respuesta, CodigoDeError.SIN_PERMISO, SIN_ROL)))
                 .addFilterBefore(new FiltroDeIdentidad(identidades, problemas), AuthorizationFilter.class)
+                // Despues del de identidad y no "tambien antes de la autorizacion": el de
+                // condominio necesita la cuenta que resuelve el otro, y dos filtros insertados en
+                // la misma posicion dependen del orden en que se registraron, que es justo lo que
+                // no conviene dejar al azar.
+                .addFilterAfter(new FiltroDeCondominio(membresias, problemas), FiltroDeIdentidad.class)
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sesion -> sesion.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .build();
@@ -151,6 +158,7 @@ class ConfiguracionDeSeguridad {
             HttpSecurity http,
             EscritorDeProblemas problemas,
             Identities identidades,
+            Memberships membresias,
             ClientRegistrationRepository registros)
             throws Exception {
         return http.authorizeHttpRequests(rutas -> rutas.requestMatchers(sinIdentidad())
@@ -169,6 +177,11 @@ class ConfiguracionDeSeguridad {
                         // la primera respuesta.
                         .csrfTokenRequestHandler(manejadorDeCsrf()))
                 .addFilterBefore(new FiltroDeIdentidad(identidades, problemas), AuthorizationFilter.class)
+                // Despues del de identidad y no "tambien antes de la autorizacion": el de
+                // condominio necesita la cuenta que resuelve el otro, y dos filtros insertados en
+                // la misma posicion dependen del orden en que se registraron, que es justo lo que
+                // no conviene dejar al azar.
+                .addFilterAfter(new FiltroDeCondominio(membresias, problemas), FiltroDeIdentidad.class)
                 .exceptionHandling(errores -> errores
                         // Una llamada de la SPA que perdio la sesion tiene que recibir un 401 que
                         // pueda leer, no un 302 hacia Keycloak: la redireccion la haria el XHR y el
