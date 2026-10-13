@@ -40,6 +40,20 @@ public enum CodigoDeError {
     /** Hay identidad y membresia activa, pero el rol no alcanza. */
     SIN_PERMISO,
 
+    /**
+     * El token es valido pero en COPROP no corresponde a ninguna cuenta que pueda entrar.
+     *
+     * <p>Es distinto de {@link #SIN_PERMISO} y por eso tiene codigo propio: ahi hay una cuenta a
+     * la que le falta rol, y aqui no hay cuenta, asi que al usuario no se le ofrece reintentar
+     * sino pedir su invitacion. El acceso lo da la invitacion, no el haberse autenticado
+     * (Seguridad 10.1).
+     *
+     * <p>Sale igual cuando no hay cuenta con ese correo, cuando esta bloqueada y cuando esta dada
+     * de baja: distinguirlos le diria a cualquiera con una cuenta de Google si un correo esta
+     * registrado en la plataforma.
+     */
+    SIN_CUENTA,
+
     /** Fallo no previsto. Nunca lleva detalle al cliente. */
     INTERNO
 }

@@ -1,5 +1,6 @@
 package bo.coprop.identity;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -47,6 +48,7 @@ class IdentityControllerTests {
     @DisplayName("el alta de persona devuelve 201 con Location y la persona creada")
     void elAltaDePersonaDevuelve201() throws Exception {
         mockMvc.perform(post("/api/v1/personas")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(PERSONA))
                 .andExpect(status().isCreated())
@@ -61,6 +63,7 @@ class IdentityControllerTests {
     @DisplayName("el alta de una persona que ya existe tambien devuelve 201, para no delatarla")
     void elAltaRepetidaTambienDevuelve201() throws Exception {
         mockMvc.perform(post("/api/v1/personas")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(PERSONA))
                 .andExpect(status().isCreated());
@@ -68,6 +71,7 @@ class IdentityControllerTests {
         // Un 200 para "ya existia" y un 201 para "la cree" le diria al administrador de un
         // condominio que esa persona esta en otro. Decision 7.
         mockMvc.perform(post("/api/v1/personas")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(PERSONA))
                 .andExpect(status().isCreated());
@@ -80,6 +84,7 @@ class IdentityControllerTests {
         String sinNombre = PERSONA.replace("\"firstNames\":\"Emma\"", "\"firstNames\":\"\"");
 
         mockMvc.perform(post("/api/v1/personas")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(sinNombre))
                 .andExpect(status().isUnprocessableContent())
@@ -103,6 +108,7 @@ class IdentityControllerTests {
     @DisplayName("la cuenta se abre invitada y su Location apunta a una ruta que responde")
     void laCuentaSeAbreYSuLocationResponde() throws Exception {
         String personaId = idDe(mockMvc.perform(post("/api/v1/personas")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(PERSONA))
                 .andReturn()
@@ -110,6 +116,7 @@ class IdentityControllerTests {
                 .getContentAsString());
 
         String cuentaId = idDe(mockMvc.perform(post("/api/v1/personas/" + personaId + "/cuenta")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"emma@coprop.bo\"}"))
                 .andExpect(status().isCreated())
@@ -131,6 +138,7 @@ class IdentityControllerTests {
     @DisplayName("un correo mal formado da 422")
     void unCorreoMalFormadoDa422() throws Exception {
         String personaId = idDe(mockMvc.perform(post("/api/v1/personas")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(PERSONA))
                 .andReturn()
@@ -138,6 +146,7 @@ class IdentityControllerTests {
                 .getContentAsString());
 
         mockMvc.perform(post("/api/v1/personas/" + personaId + "/cuenta")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"no-es-un-correo\"}"))
                 .andExpect(status().isUnprocessableContent())
@@ -149,6 +158,7 @@ class IdentityControllerTests {
     @DisplayName("una membresia sin roles da 422, no un error de dominio")
     void unaMembresiaSinRolesDa422() throws Exception {
         mockMvc.perform(post("/api/v1/condominios/" + UUID.randomUUID() + "/membresias")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"accountId\":\"%s\",\"roles\":[]}".formatted(UUID.randomUUID())))
                 .andExpect(status().isUnprocessableContent())
@@ -164,6 +174,7 @@ class IdentityControllerTests {
         // mismo que en cualquier otra validacion: 422, VALIDACION y el campo para marcar. Antes
         // daba 400 y sin codigo, porque Jackson falla antes de que haya objeto que validar.
         mockMvc.perform(post("/api/v1/condominios/" + UUID.randomUUID() + "/membresias")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"accountId\":\"%s\",\"roles\":[\"JEFE\"]}".formatted(UUID.randomUUID())))
                 .andExpect(status().isUnprocessableContent())
@@ -179,6 +190,7 @@ class IdentityControllerTests {
     @DisplayName("una cuenta que no existe da 404 al conceder membresia")
     void cuentaInexistenteDa404() throws Exception {
         mockMvc.perform(post("/api/v1/condominios/" + UUID.randomUUID() + "/membresias")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"accountId\":\"%s\",\"roles\":[\"OWNER\"]}".formatted(UUID.randomUUID())))
                 .andExpect(status().isNotFound())
@@ -189,6 +201,7 @@ class IdentityControllerTests {
     @DisplayName("sin autenticar, los endpoints de identidad dan 401 con su codigo")
     void sinAutenticarDa401() throws Exception {
         mockMvc.perform(post("/api/v1/personas")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(PERSONA))
                 .andExpect(status().isUnauthorized())

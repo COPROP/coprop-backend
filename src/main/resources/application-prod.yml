@@ -11,6 +11,7 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: ${OIDC_ISSUER_URI}
+          audiences: ${OIDC_AUDIENCIA:coprop-api}
   mail:
     host: ${MAIL_HOST}
     port: ${MAIL_PORT:587}
@@ -21,6 +22,10 @@ spring:
       mail.smtp.starttls.enable: true
 
 coprop:
+  oidc:
+    emisor: ${OIDC_ISSUER_URI}
+    cliente-id: ${OIDC_CLIENT_ID:coprop-web}
+    cliente-secreto: ${OIDC_CLIENT_SECRET}
   storage:
     endpoint: ${STORAGE_ENDPOINT}
     bucket: ${STORAGE_BUCKET}

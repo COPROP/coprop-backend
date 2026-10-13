@@ -1,5 +1,6 @@
 package bo.coprop.condominium;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -60,6 +61,7 @@ class UnitControllerTests {
     @DisplayName("el alta de una unidad devuelve 201 con su identificador")
     void elAltaDevuelve201() throws Exception {
         mockMvc.perform(post("/api/v1/condominios/{id}/unidades", lasPalmas)
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(unidad("302")))
                 .andExpect(status().isCreated())
@@ -80,6 +82,7 @@ class UnitControllerTests {
                 """;
 
         mockMvc.perform(post("/api/v1/condominios/{id}/unidades/lote", lasPalmas)
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(lote))
                 .andExpect(status().isCreated())
@@ -91,10 +94,12 @@ class UnitControllerTests {
     @DisplayName("un codigo repetido sale como regla de negocio en problem+json, no como un 500")
     void elCodigoRepetidoDa422() throws Exception {
         mockMvc.perform(post("/api/v1/condominios/{id}/unidades", lasPalmas)
+                .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(unidad("302")));
 
         mockMvc.perform(post("/api/v1/condominios/{id}/unidades", lasPalmas)
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(unidad("302")))
                 .andExpect(status().isUnprocessableContent())
@@ -110,6 +115,7 @@ class UnitControllerTests {
                 """;
 
         mockMvc.perform(post("/api/v1/condominios/{id}/unidades", lasPalmas)
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(imposible))
                 .andExpect(status().isUnprocessableContent())
@@ -121,6 +127,7 @@ class UnitControllerTests {
     @DisplayName("dar de alta en un condominio que no existe da 404")
     void enUnCondominioInexistenteDa404() throws Exception {
         mockMvc.perform(post("/api/v1/condominios/{id}/unidades", UUID.randomUUID())
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(unidad("302")))
                 .andExpect(status().isNotFound())

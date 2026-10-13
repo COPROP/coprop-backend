@@ -34,11 +34,19 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.springframework.boot:spring-boot-starter-mail")
     implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.boot:spring-boot-starter-security-oauth2-client")
     implementation("org.springframework.boot:spring-boot-starter-security-oauth2-resource-server")
+    implementation("org.springframework.boot:spring-boot-starter-session-jdbc")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.flywaydb:flyway-database-postgresql")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:3.1.1")
+    // La consola navegable, SOLO en desarrollo. developmentOnly entra en bootRun y queda fuera del
+    // jar, asi que en produccion no es que este apagada: no esta. Eso respeta la decision del issue
+    // #5 --el repositorio es publico y publicar una consola es una decision aparte-- sin obligar a
+    // mirar el JSON a mano en local. El starter sin interfaz se queda: es el que sirve
+    // /api/openapi.json en produccion.
+    developmentOnly("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1")
     implementation("org.springframework.modulith:spring-modulith-observability-api")
     implementation("org.springframework.modulith:spring-modulith-starter-core")
     implementation("org.springframework.modulith:spring-modulith-starter-jpa")

@@ -1,5 +1,6 @@
 package bo.coprop.condominium;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -47,6 +48,7 @@ class CondominiumControllerTests {
     @DisplayName("el alta devuelve 201 con la cabecera Location y el condominio creado")
     void elAltaDevuelve201() throws Exception {
         mockMvc.perform(post("/api/v1/condominios")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(ALTA_VALIDA))
                 .andExpect(status().isCreated())
@@ -64,6 +66,7 @@ class CondominiumControllerTests {
         String conDia31 = ALTA_VALIDA.replace("\"issueDay\":1", "\"issueDay\":31");
 
         mockMvc.perform(post("/api/v1/condominios")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(conDia31))
                 .andExpect(status().isUnprocessableContent())
@@ -85,6 +88,7 @@ class CondominiumControllerTests {
     @DisplayName("sin autenticar no se puede dar de alta un condominio")
     void sinAutenticarNoSePuedeDarDeAlta() throws Exception {
         mockMvc.perform(post("/api/v1/condominios")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(ALTA_VALIDA))
                 .andExpect(status().isUnauthorized())
@@ -100,6 +104,7 @@ class CondominiumControllerTests {
         String conZonaMala = ALTA_VALIDA.replace("America/La_Paz", "America/LaPaz");
 
         mockMvc.perform(post("/api/v1/condominios")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(conZonaMala))
                 .andExpect(status().isUnprocessableContent())

@@ -48,7 +48,46 @@ curl -i http://localhost:8080/actuator/health
 
 Responde **200** con `{"status":"UP"}`: el health y sus sondas (`/actuator/health/liveness` y
 `/readiness`) son públicos desde el issue #6. Si no hay respuesta, la aplicación no levantó: mirar
-la salida de `bootRun`.
+la salida de `bootRun`. El resto del actuator no se sirve por HTTP a nadie.
+
+Todo lo demás de la API exige identidad. **La aplicación arranca aunque Keycloak no esté**, y eso
+está buscado: un reinicio durante una caída del proveedor no debe dejar también sin servicio a la
+app móvil. Ver [ARCHITECTURE.md](ARCHITECTURE.md#el-registro-del-cliente-se-arma-a-mano).
+
+Para revisar los endpoints:
+
+| Dónde | Qué es |
+|---|---|
+| http://localhost:8080/swagger-ui.html | La consola navegable. **Solo en desarrollo**: el webjar no entra al artefacto de producción |
+| http://localhost:8080/api/openapi.json | La especificación, que sí se sirve en producción |
+
+### Entrar
+
+```
+http://localhost:8080/bff/login
+```
+
+Lleva a Keycloak, y al volver el backend deja una cookie de sesión. El navegador **nunca recibe un
+token**: los tres quedan en la sesión del servidor, que vive en la base
+(Seguridad §5.1, [ARCHITECTURE.md](ARCHITECTURE.md#seguridad)). Para cerrar sesión, `POST /logout`,
+que también la cierra en Keycloak.
+
+Entrar no da acceso a nada por sí solo. Hace falta además una **cuenta de COPROP con ese correo**;
+si no la hay, la API responde 403 con `SIN_CUENTA`. Y **todavía no hay forma de crear la primera**:
+toda la API exige identidad y la identidad exige una cuenta que alguien dio de alta. El arranque de
+la plataforma es el issue #16; hasta entonces, en local se siembra por SQL:
+
+```bash
+docker exec -i coprop-postgres psql -U coprop -d coprop <<'SQL'
+insert into person (id, first_names, last_names, national_id, created_at)
+values ('11111111-1111-4111-8111-111111111111', 'Dev', 'Local', '0000001', now());
+insert into user_account (id, person_id, email, status, mfa_enabled, created_at)
+values ('22222222-2222-4222-8222-222222222222', '11111111-1111-4111-8111-111111111111',
+        'dev@coprop.local', 'INVITADO', false, now());
+SQL
+```
+
+Con eso, el primer login deja la cuenta en `ACTIVO` y vinculada al sujeto de Keycloak.
 
 Para resetear el entorno por completo:
 
