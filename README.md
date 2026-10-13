@@ -50,9 +50,9 @@ Responde **200** con `{"status":"UP"}`: el health y sus sondas (`/actuator/healt
 `/readiness`) son públicos desde el issue #6. Si no hay respuesta, la aplicación no levantó: mirar
 la salida de `bootRun`. El resto del actuator no se sirve por HTTP a nadie.
 
-Todo lo demás de la API exige identidad. **La aplicación arranca aunque Keycloak no esté**: la
-descarga de las claves es perezosa y los extremos del cliente están escritos uno a uno, no
-descubiertos al arrancar.
+Todo lo demás de la API exige identidad. **La aplicación arranca aunque Keycloak no esté**, y eso
+está buscado: un reinicio durante una caída del proveedor no debe dejar también sin servicio a la
+app móvil. Ver [ARCHITECTURE.md](ARCHITECTURE.md#el-registro-del-cliente-se-arma-a-mano).
 
 ### Entrar
 

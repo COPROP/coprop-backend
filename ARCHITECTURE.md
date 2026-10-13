@@ -214,6 +214,24 @@ autoridades todavía porque los roles por condominio se resuelven por petición 
 exige una cuenta que alguien tuvo que dar de alta. El arranque de la plataforma —el
 superadministrador— es del issue #16; hasta entonces, en local se siembra por SQL.
 
+#### El registro del cliente se arma a mano
+
+`ConfiguracionDeOidc` construye el `ClientRegistration` en Java en vez de declararlo en
+`spring.security.oauth2.client.*`. La razón es concreta: con `issuer-uri`, Spring Boot resuelve el
+registro con `ClientRegistrations.fromIssuerLocation`, que **descarga el documento de
+descubrimiento al arrancar**. Eso significa que la aplicación no levanta si Keycloak está caído
+—un reinicio durante una caída dejaría también sin servicio a la app móvil, que solo necesita las
+claves y las pide cuando le hacen falta— y que cualquier test que arranque el contexto necesitaría
+un Keycloak en pie.
+
+Escribir los extremos a mano en el YAML **no basta**: con `issuer-uri` presente, Boot descubre
+igual y los ignora. Armarlo en Java da las dos cosas que hacen falta: ninguna llamada de red al
+arrancar y el emisor declarado, que es contra lo que Spring compara el `iss` del id token. Quitar
+el emisor para evitar la descarga haría desaparecer esa comprobación sin que nadie lo note.
+
+El resource server sí usa `issuer-uri`: ahí Boot envuelve el decodificador en un
+`SupplierJwtDecoder` y la descarga es perezosa.
+
 ### El realm de Keycloak
 
 Issue #12. **Un solo realm para toda la plataforma**, en
