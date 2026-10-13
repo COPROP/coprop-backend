@@ -90,13 +90,15 @@ class PeopleService implements People {
 
         eventos.publishEvent(new AccountOpened(cuenta.getId(), personId, actor, ahora));
 
-        return vista(cuenta);
+        return cuenta.vista();
     }
 
     @Override
     @Transactional(readOnly = true)
     public AccountView findAccount(UUID accountId) {
-        return vista(cuentas.findById(accountId).orElseThrow(() -> RecursoNoEncontrado.de("la cuenta", accountId)));
+        return cuentas.findById(accountId)
+                .orElseThrow(() -> RecursoNoEncontrado.de("la cuenta", accountId))
+                .vista();
     }
 
     private Person buscarPersona(UUID personId) {
@@ -106,15 +108,5 @@ class PeopleService implements People {
     private static PersonView vista(Person persona) {
         return new PersonView(
                 persona.getId(), persona.getFirstNames(), persona.getLastNames(), persona.getNationalId());
-    }
-
-    private static AccountView vista(UserAccount cuenta) {
-        return new AccountView(
-                cuenta.getId(),
-                cuenta.getPersonId(),
-                cuenta.getEmail(),
-                cuenta.getPhone(),
-                cuenta.getStatus(),
-                cuenta.isMfaEnabled());
     }
 }
