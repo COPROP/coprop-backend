@@ -469,8 +469,46 @@ comprobación al criterio de quien llama, y basta olvidarla una vez para servir 
 condominio.
 
 Cuando el recurso no es del condominio de la ruta se responde **404, no 403**, igual que si no
-existiera: distinguirlos ya diría que existe en algún sitio. El filtro de membresía del issue #17
-es la otra mitad del aislamiento; esta mitad no lo espera.
+existiera: distinguirlos ya diría que existe en algún sitio.
+
+#### El filtro de membresía
+
+Issue #17. `FiltroDeCondominio` lee el condominio de la ruta, carga la membresía vigente de quien
+pide y, si no hay o no está activa, responde **404**. Es la puerta: a partir de ahí, toda petición
+a `/api/v1/condominios/{id}/...` llega con un condominio que ese actor puede ver, y el condominio
+que reciben los servicios como primer argumento es el mismo de la ruta.
+
+Lee la ruta con una expresión regular y no un `@PathVariable` porque corre **antes de que exista un
+controlador**, que es precisamente lo que lo hace valer para todos los endpoints a la vez en lugar
+de uno por uno.
+
+Los roles de la membresía quedan como autoridades de la petición. Hoy no los mira nadie —la matriz
+es el issue #16— pero es donde Spring los va a buscar, y cargarlos aquí evita que esa matriz vuelva
+a consultar la membresía en cada comprobación.
+
+Lo que lo sostiene es `FugaEntreCondominiosTests`: los catorce endpoints acotados a un condominio,
+cada uno pedido desde el condominio ajeno —tiene que dar 404— y desde el propio —tiene que dar
+cualquier cosa menos 404—. **La segunda mitad no es decorativa**: sin ella, una ruta mal escrita
+daría 404 en las dos y la batería entera pasaría sin comprobar nada. Pasó: cazó un cuerpo de
+petición que usaba una cuenta inexistente.
+
+#### Row-Level Security: evaluado, y por qué todavía no está
+
+§7.2 lo pide como segunda barrera, para que un filtro olvidado en una consulta no cruce
+condominios. **Funciona y conviene**, pero cuesta más que una migración, y eso se comprobó contra
+el PostgreSQL de desarrollo antes de decidir:
+
+| Cómo se conecta la aplicación | Qué hace RLS |
+|---|---|
+| Como `coprop`, que es **superusuario** (el usuario que crea la imagen de Postgres) | **Nada.** Ni con `FORCE ROW LEVEL SECURITY`: un superusuario salta toda política, en silencio |
+| Como un rol sin superusuario | Sin contexto devuelve **0 filas**; con contexto, solo las de ese condominio; y un `INSERT` con otro `condominium_id` lo **rechaza la base** |
+
+Es decir: RLS da exactamente el criterio "ninguna consulta de negocio puede ejecutarse sin
+condominio en contexto", pero **solo si la aplicación deja de conectarse como superusuario**. Eso es
+un cambio de despliegue —rol propio, permisos, el Compose y las variables de producción—, más un
+enganche que ejecute `SET LOCAL` al abrir cada transacción, más resolver el alta de un condominio,
+que ocurre cuando todavía no hay condominio en contexto. Mezclarlo con el filtro habría hecho un
+cambio de seguridad y uno de infraestructura en el mismo PR.
 
 **Toda tabla de negocio lleva `condominium_id`, y lo referencia con clave foránea compuesta.** La
 columna la exige §6 del análisis, y una política de Row-Level Security (§12.2) la necesita en la

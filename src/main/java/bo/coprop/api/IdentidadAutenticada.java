@@ -1,9 +1,10 @@
 package bo.coprop.api;
 
 import java.io.Serializable;
+import java.util.Collection;
 import java.util.UUID;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 
 /**
  * Quien hace la peticion, ya traducido a la cuenta de COPROP.
@@ -27,8 +28,8 @@ final class IdentidadAutenticada extends AbstractAuthenticationToken {
 
     private final Actor actor;
 
-    IdentidadAutenticada(Actor actor, Authentication original) {
-        super(original.getAuthorities());
+    IdentidadAutenticada(Actor actor, Collection<? extends GrantedAuthority> autoridades) {
+        super(autoridades);
         this.actor = actor;
         setAuthenticated(true);
     }

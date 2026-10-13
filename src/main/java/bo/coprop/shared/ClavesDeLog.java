@@ -22,15 +22,16 @@ public final class ClavesDeLog {
     /**
      * Condominio en cuyo contexto ocurre la operacion.
      *
-     * <p>Todavia no lo rellena nadie: no hay condominios hasta M1. Lo pondra el filtro que describe
-     * Seguridad 7.2, con el issue **#17**.
+     * <p>Lo pone el filtro de condominio que describe Seguridad 7.2 (issue #17), con el condominio
+     * de la ruta y solo despues de comprobar que quien pide tiene membresia activa en el.
      */
     public static final String CONDOMINIO = "condominiumId";
 
     /**
      * Persona que ejecuta la operacion.
      *
-     * <p>Todavia no lo rellena nadie: no hay identidad hasta M1. Llega con el issue **#13**.
+     * <p>Lo pone el filtro de identidad (issue #13), con el identificador de la cuenta de COPROP y
+     * no con el sujeto de Keycloak: es el mismo valor que queda como actor en eventos y bitacora.
      */
     public static final String ACTOR = "actorId";
 

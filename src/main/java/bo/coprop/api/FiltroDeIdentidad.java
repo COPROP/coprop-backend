@@ -77,8 +77,8 @@ class FiltroDeIdentidad extends OncePerRequestFilter {
             return;
         }
 
-        var identidad =
-                new IdentidadAutenticada(new IdentidadAutenticada.Actor(cuenta.id(), cuenta.personId()), autenticacion);
+        var identidad = new IdentidadAutenticada(
+                new IdentidadAutenticada.Actor(cuenta.id(), cuenta.personId()), autenticacion.getAuthorities());
         SecurityContextHolder.getContext().setAuthentication(identidad);
         MDC.put(ClavesDeLog.ACTOR, identidad.getName());
         try {
