@@ -54,6 +54,13 @@ Todo lo demás de la API exige identidad. **La aplicación arranca aunque Keyclo
 está buscado: un reinicio durante una caída del proveedor no debe dejar también sin servicio a la
 app móvil. Ver [ARCHITECTURE.md](ARCHITECTURE.md#el-registro-del-cliente-se-arma-a-mano).
 
+Para revisar los endpoints:
+
+| Dónde | Qué es |
+|---|---|
+| http://localhost:8080/swagger-ui.html | La consola navegable. **Solo en desarrollo**: el webjar no entra al artefacto de producción |
+| http://localhost:8080/api/openapi.json | La especificación, que sí se sirve en producción |
+
 ### Entrar
 
 ```

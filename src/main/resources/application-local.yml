@@ -19,6 +19,14 @@ spring:
       mail.smtp.auth: false
       mail.smtp.starttls.enable: false
 
+springdoc:
+  swagger-ui:
+    # La consola navegable, en http://localhost:8080/swagger-ui.html. Solo aqui: en produccion el
+    # webjar ni siquiera entra al artefacto (ver build.gradle.kts). Esta misma propiedad es la que
+    # abre sus rutas en la cadena de seguridad, para que no haya dos interruptores que puedan
+    # quedar en desacuerdo.
+    enabled: true
+
 coprop:
   oidc:
     # El cliente confidencial del BFF. El navegador no lo ve nunca. Va aqui y no en

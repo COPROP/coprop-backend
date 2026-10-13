@@ -3,7 +3,9 @@ package bo.coprop.api;
 import bo.coprop.identity.Identities;
 import bo.coprop.shared.CodigoDeError;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Arrays;
 import java.util.Locale;
+import java.util.stream.Stream;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -58,10 +60,40 @@ class ConfiguracionDeSeguridad {
     /** Lo unico de la API que se sirve sin identidad: el contrato, que no tiene datos de nadie. */
     private static final String[] PUBLICAS = {"/api/openapi.json"};
 
-    private final String urlDeLaWeb;
+    /**
+     * Lo que necesita la consola navegable de springdoc, que solo existe en desarrollo.
+     *
+     * <p>{@code swagger-config} es la llamada que la consola hace antes de pintar nada, y cuelga de
+     * la ruta de la especificacion, que aqui no es la de por defecto.
+     */
+    private static final String[] DE_LA_CONSOLA = {
+        "/swagger-ui.html", "/swagger-ui/**", "/api/openapi.json/swagger-config"
+    };
 
-    ConfiguracionDeSeguridad(@Value("${coprop.web.url}") String urlDeLaWeb) {
+    private final String urlDeLaWeb;
+    private final boolean consolaEncendida;
+
+    ConfiguracionDeSeguridad(
+            @Value("${coprop.web.url}") String urlDeLaWeb,
+            @Value("${springdoc.swagger-ui.enabled:false}") boolean consolaEncendida) {
         this.urlDeLaWeb = urlDeLaWeb;
+        this.consolaEncendida = consolaEncendida;
+    }
+
+    /**
+     * Las rutas que se sirven sin identidad.
+     *
+     * <p>Las de la consola entran <strong>atadas a la misma propiedad que la enciende</strong>. Con
+     * dos interruptores separados --uno para la consola y otro para abrirle las rutas-- lo que pasa
+     * tarde o temprano es que quedan en desacuerdo, y el que sobra abre rutas que ya no sirven a
+     * nada. En produccion el webjar ni siquiera esta en el artefacto.
+     */
+    private String[] sinIdentidad() {
+        if (!consolaEncendida) {
+            return PUBLICAS;
+        }
+        return Stream.concat(Arrays.stream(PUBLICAS), Arrays.stream(DE_LA_CONSOLA))
+                .toArray(String[]::new);
     }
 
     @Bean
@@ -95,8 +127,10 @@ class ConfiguracionDeSeguridad {
     SecurityFilterChain cadenaDeApiMovil(HttpSecurity http, EscritorDeProblemas problemas, Identities identidades)
             throws Exception {
         return http.securityMatcher(nuevaPeticionConBearer())
-                .authorizeHttpRequests(rutas ->
-                        rutas.requestMatchers(PUBLICAS).permitAll().anyRequest().authenticated())
+                .authorizeHttpRequests(rutas -> rutas.requestMatchers(sinIdentidad())
+                        .permitAll()
+                        .anyRequest()
+                        .authenticated())
                 // La firma, el emisor, la audiencia y la expiracion los comprueba Spring con lo
                 // configurado en spring.security.oauth2.resourceserver. La rotacion de claves sale
                 // gratis: el decodificador relee el JWKS cuando aparece un "kid" que no conoce.
@@ -119,7 +153,7 @@ class ConfiguracionDeSeguridad {
             Identities identidades,
             ClientRegistrationRepository registros)
             throws Exception {
-        return http.authorizeHttpRequests(rutas -> rutas.requestMatchers(PUBLICAS)
+        return http.authorizeHttpRequests(rutas -> rutas.requestMatchers(sinIdentidad())
                         .permitAll()
                         .requestMatchers(BffController.LOGIN)
                         .permitAll()

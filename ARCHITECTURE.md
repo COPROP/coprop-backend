@@ -151,9 +151,19 @@ instantes viajan en ISO-8601 UTC; los vencimientos se calculan en `America/La_Pa
 
 ### OpenAPI
 
-springdoc sirve la especificación en `/api/openapi.json`. Se usa el starter **sin interfaz**
-(`springdoc-openapi-starter-webmvc-api`): el repositorio es público y publicar una consola
-navegable es una decisión aparte, no un efecto secundario de documentar la API.
+springdoc sirve la especificación en `/api/openapi.json`. En producción se usa el starter **sin
+interfaz** (`springdoc-openapi-starter-webmvc-api`): el repositorio es público y publicar una
+consola navegable es una decisión aparte, no un efecto secundario de documentar la API.
+
+**La consola existe solo en desarrollo**, en `http://localhost:8080/swagger-ui.html`. El starter con
+interfaz entra como `developmentOnly`, que el plugin de Boot pone en el classpath de `bootRun` y
+deja fuera del jar: en producción no es que esté apagada por configuración, es que **no está en el
+artefacto**. Comprobado: el `bootJar` no contiene ni una entrada de `swagger-ui`.
+
+Sus rutas se abren en la cadena de seguridad **atadas a la misma propiedad que la enciende**
+(`springdoc.swagger-ui.enabled`). Con dos interruptores separados —uno para la consola y otro para
+abrirle las rutas— lo que pasa tarde o temprano es que quedan en desacuerdo, y el que sobra deja
+rutas abiertas que ya no sirven a nada.
 
 Ese starter arrastra Jackson 2 por swagger-core, que convive con el Jackson 3 (`tools.jackson`)
 que gestiona Spring Boot 4. El que hay que inyectar es el de Boot.
