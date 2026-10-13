@@ -1,20 +1,90 @@
 {
   "realm": "coprop",
-  "enabled": true,
   "displayName": "COPROP",
-  "sslRequired": "none",
+  "enabled": true,
+  "sslRequired": "${COPROP_KC_SSL:none}",
+
   "registrationAllowed": false,
   "resetPasswordAllowed": true,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
-  "verifyEmail": false,
-  "accessTokenLifespan": 900,
+  "verifyEmail": true,
+  "editUsernameAllowed": false,
+  "rememberMe": false,
+
+  "internationalizationEnabled": true,
+  "defaultLocale": "es",
+  "supportedLocales": ["es", "en"],
+
+  "passwordPolicy": "length(10) and notUsername(undefined) and notEmail(undefined) and passwordHistory(3)",
+
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 5,
+  "quickLoginCheckMilliSeconds": 1000,
+  "minimumQuickLoginWaitSeconds": 60,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "maxDeltaTimeSeconds": 43200,
+
+  "accessTokenLifespan": 300,
   "ssoSessionIdleTimeout": 86400,
   "ssoSessionMaxLifespan": 86400,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+
+  "smtpServer": {
+    "host": "${COPROP_SMTP_HOST:mailpit}",
+    "port": "${COPROP_SMTP_PORT:1025}",
+    "from": "${COPROP_SMTP_FROM:no-responder@coprop.local}",
+    "fromDisplayName": "COPROP",
+    "auth": "${COPROP_SMTP_AUTH:false}",
+    "starttls": "${COPROP_SMTP_STARTTLS:false}",
+    "ssl": "false"
+  },
+
   "clients": [
     {
       "clientId": "coprop-web",
-      "name": "COPROP web (Angular)",
+      "name": "COPROP web (BFF del backend)",
+      "description": "Cliente confidencial que usa el backend para el flujo de la web. El navegador nunca recibe un token: el backend guarda los tres en la sesion del servidor y responde con una cookie. Seguridad 5.1.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "${COPROP_WEB_SECRET:coprop-local-secret-web}",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": false,
+      "redirectUris": ["${COPROP_WEB_REDIRECT_URI:http://localhost:8080/login/oauth2/code/coprop-web}"],
+      "webOrigins": [],
+      "defaultClientScopes": ["basic", "email", "acr"],
+      "optionalClientScopes": [],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "${COPROP_WEB_POST_LOGOUT_URI:http://localhost:4200/*}",
+        "backchannel.logout.session.required": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "audiencia coprop-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "coprop-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "coprop-movil",
+      "name": "COPROP app movil",
+      "description": "Cliente publico con PKCE. Es el unico que guarda tokens en el dispositivo, en Keychain o Keystore. Seguridad 5.2.",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": true,
@@ -22,24 +92,123 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
-      "redirectUris": ["http://localhost:4200/*"],
-      "webOrigins": ["http://localhost:4200"],
+      "fullScopeAllowed": false,
+      "redirectUris": ["${COPROP_MOVIL_REDIRECT_URI:bo.coprop.app:/oauth2redirect}"],
+      "webOrigins": [],
+      "defaultClientScopes": ["basic", "email", "acr"],
+      "optionalClientScopes": [],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:4200/*"
-      }
+        "post.logout.redirect.uris": "${COPROP_MOVIL_REDIRECT_URI:bo.coprop.app:/oauth2redirect}"
+      },
+      "protocolMappers": [
+        {
+          "name": "audiencia coprop-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "coprop-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
     },
     {
-      "clientId": "coprop-backend",
-      "name": "COPROP backend (resource server)",
+      "clientId": "coprop-api",
+      "name": "COPROP API (resource server)",
+      "description": "La audiencia de todo access token que llega a la API. No obtiene tokens: solo los valida. Seguridad 5.3.",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
       "bearerOnly": true,
       "standardFlowEnabled": false,
-      "directAccessGrantsEnabled": false
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": false
+    },
+    {
+      "clientId": "coprop-admin",
+      "name": "COPROP hacia la Admin API de Keycloak",
+      "description": "Client credentials con los que COPROP crea y deshabilita usuarios. No administra el realm: solo manage-users y view-users. Seguridad 9.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "${COPROP_ADMIN_SECRET:coprop-local-secret-admin}",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": false
     }
   ],
+
+  "identityProviders": [
+    {
+      "alias": "google",
+      "displayName": "Google",
+      "providerId": "google",
+      "enabled": "${GOOGLE_HABILITADO:false}",
+      "trustEmail": true,
+      "storeToken": false,
+      "addReadTokenRoleOnCreate": false,
+      "linkOnly": false,
+      "firstBrokerLoginFlowAlias": "vincular por correo verificado",
+      "config": {
+        "clientId": "${GOOGLE_CLIENT_ID:}",
+        "clientSecret": "${GOOGLE_CLIENT_SECRET:}",
+        "defaultScope": "openid email profile",
+        "syncMode": "FORCE",
+        "useJwksUrl": "true"
+      }
+    }
+  ],
+
+  "authenticationFlows": [
+    {
+      "alias": "vincular por correo verificado",
+      "description": "Primer login por Google. Si el correo no existe se crea la cuenta; si ya existe se vincula sin preguntar, porque Google verifica el correo y en COPROP no hay autorregistro. Seguridad 4.3 y 10.1.",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "idp-create-user-if-unique",
+          "requirement": "ALTERNATIVE",
+          "priority": 10,
+          "userSetupAllowed": false,
+          "autheticatorFlow": false
+        },
+        {
+          "flowAlias": "vincular la cuenta existente",
+          "requirement": "ALTERNATIVE",
+          "priority": 20,
+          "userSetupAllowed": false,
+          "autheticatorFlow": true
+        }
+      ]
+    },
+    {
+      "alias": "vincular la cuenta existente",
+      "description": "Vincula la identidad de Google a la cuenta que ya tiene ese correo.",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "idp-auto-link",
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "userSetupAllowed": false,
+          "autheticatorFlow": false
+        }
+      ]
+    }
+  ],
+
   "users": [
     {
       "username": "dev@coprop.local",
@@ -48,13 +217,23 @@
       "lastName": "Local",
       "enabled": true,
       "emailVerified": true,
+      "requiredActions": [],
+      "realmRoles": ["default-roles-coprop"],
       "credentials": [
         {
           "type": "password",
-          "value": "dev",
+          "value": "dev-local-coprop",
           "temporary": false
         }
       ]
+    },
+    {
+      "username": "service-account-coprop-admin",
+      "enabled": true,
+      "serviceAccountClientId": "coprop-admin",
+      "clientRoles": {
+        "realm-management": ["manage-users", "view-users"]
+      }
     }
   ]
 }
