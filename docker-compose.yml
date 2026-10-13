@@ -39,6 +39,16 @@ services:
       # puerto no se mapea al host: el 9000 de la maquina ya lo ocupa MinIO, y el healthcheck
       # corre dentro del contenedor, asi que no hace falta.
       KC_HEALTH_ENABLED: "true"
+      # El import del realm sustituye ${VARIABLE} y ${VARIABLE:defecto} con el entorno del
+      # contenedor, asi que el archivo versionado no necesita llevar ningun secreto. Estas cuatro
+      # van sin valor a proposito: compose las pasa solo si estan puestas en el entorno de la
+      # maquina y, si no estan, manda el defecto que trae coprop-realm.json. Si se escribieran
+      # como `${GOOGLE_CLIENT_ID:-}` llegarian vacias en vez de ausentes, y una cadena vacia pisa
+      # el defecto del realm.
+      GOOGLE_HABILITADO:
+      GOOGLE_CLIENT_ID:
+      GOOGLE_CLIENT_SECRET:
+      COPROP_WEB_SECRET:
     ports:
       - "8081:8081"
     volumes:

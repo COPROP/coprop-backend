@@ -29,7 +29,7 @@ Deja cuatro servicios en pie:
 | Servicio | Puerto | Para qué |
 |---|---|---|
 | PostgreSQL | 15432 | base `coprop`, usuario `coprop`. No es el 5432: ese puerto lo suele tener tomado un PostgreSQL instalado en la máquina |
-| Keycloak | 8081 | realm `coprop` importado al arrancar; consola en http://localhost:8081 |
+| Keycloak | 8081 | realm `coprop` importado al arrancar desde [`docker/keycloak/coprop-realm.json`](docker/keycloak/coprop-realm.json); consola en http://localhost:8081 |
 | MinIO | 9000 (API) | bucket `coprop-local`, creado al arrancar. Sin consola web: se inspecciona con `docker exec coprop-minio mc ls local/coprop-local` |
 | Mailpit | 1025 (SMTP), 8025 (web) | captura todo el correo que envía la aplicación |
 
@@ -46,10 +46,9 @@ nada. Comprobar que está arriba:
 curl -i http://localhost:8080/actuator/health
 ```
 
-Hoy responde **401**, y eso basta como prueba de vida: todavía no existe ninguna
-`SecurityFilterChain`, así que rige el defecto de Spring Boot, que exige autenticación en todo.
-Las sondas públicas (`/actuator/health/liveness` y `/readiness`) llegan con el issue #6. Si en vez
-del 401 no hay respuesta, la aplicación no levantó: mirar la salida de `bootRun`.
+Responde **200** con `{"status":"UP"}`: el health y sus sondas (`/actuator/health/liveness` y
+`/readiness`) son públicos desde el issue #6. Si no hay respuesta, la aplicación no levantó: mirar
+la salida de `bootRun`.
 
 Para resetear el entorno por completo:
 
@@ -67,11 +66,44 @@ entorno.
 |---|---|---|
 | PostgreSQL | `coprop` | `coprop` |
 | Consola de Keycloak | `admin` | `admin` |
-| Usuario de prueba del realm | `dev@coprop.local` | `dev` |
+| Usuario de prueba del realm | `dev@coprop.local` | `dev-local-coprop` |
 | MinIO | `coprop` | `coprop-local-secret` |
+
+La contraseña del usuario de prueba tiene 16 caracteres porque el realm exige 10: una de tres
+letras ya no pasa la política.
 
 En producción todo llega por variable de entorno (`application-prod.yml`) y los secretos viven en
 KMS o Vault. Nada de eso entra al repositorio.
+
+### El realm
+
+Un solo realm, `coprop`, versionado en
+[`docker/keycloak/coprop-realm.json`](docker/keycloak/coprop-realm.json) y reconstruible desde cero
+con `docker compose down -v && docker compose up -d`. Lo que trae y por qué está en
+[ARCHITECTURE.md](ARCHITECTURE.md#el-realm-de-keycloak).
+
+**No lleva ningún secreto literal.** El import de Keycloak sustituye `${VARIABLE}` y
+`${VARIABLE:defecto}` con el entorno del contenedor, así que cada secreto es un marcador con un
+valor de desarrollo por defecto. Para pisarlo basta exportar la variable antes de levantar el
+Compose: `docker-compose.yml` la pasa al contenedor solo si está puesta.
+
+**Login con Google.** Viene declarado pero **apagado**, porque necesita credenciales de un proyecto
+de Google que no pueden vivir en un repositorio público. Para encenderlo:
+
+1. En Google Cloud, crear credenciales OAuth de tipo *aplicación web* con el URI de redirección
+   `http://localhost:8081/realms/coprop/broker/google/endpoint`.
+2. Exportar las tres variables y rehacer el contenedor:
+
+```bash
+export GOOGLE_HABILITADO=true
+export GOOGLE_CLIENT_ID=...apps.googleusercontent.com
+export GOOGLE_CLIENT_SECRET=...
+docker compose up -d --force-recreate keycloak
+```
+
+Con eso aparece el botón de Google en el login. Quien entre con un correo que ya tiene cuenta en el
+realm **cae en esa misma cuenta**, no en una segunda: lo hace el flujo `vincular por correo
+verificado`, que vale porque Google verifica el correo y en COPROP nadie se registra solo.
 
 ## Comandos
 

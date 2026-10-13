@@ -164,6 +164,48 @@ salgan en problem+json como el resto, y para que `/actuator/health` deje de resp
 cuatro cadenas reales de Seguridad §7.1 —BFF web con cookie, API móvil con Bearer, webhooks por
 firma, actuator en red interna— llegan con el issue #13 en M1.
 
+### El realm de Keycloak
+
+Issue #12. **Un solo realm para toda la plataforma**, en
+[`docker/keycloak/coprop-realm.json`](docker/keycloak/coprop-realm.json), que el Compose importa al
+arrancar. Un realm por condominio no sirve: la misma persona participa en varios y tendría una
+cuenta en cada uno (Seguridad §4.2).
+
+Cuatro clientes, y la diferencia entre los dos primeros es lo que decide dónde vive el token:
+
+| Cliente | Qué es | Dónde acaba el token |
+|---|---|---|
+| `coprop-web` | Confidencial. El flujo lo corre el **backend**, no el navegador | En la sesión del servidor; el navegador solo recibe una cookie `HttpOnly` |
+| `coprop-movil` | Público con PKCE | En el Keychain o Keystore del dispositivo |
+| `coprop-api` | Solo portador. Es la **audiencia** de todo access token que llega a la API | No obtiene tokens, solo los valida |
+| `coprop-admin` | Client credentials para la Admin API de Keycloak | Solo `manage-users` y `view-users`: no administra el realm |
+
+La web es un BFF porque lo pide Seguridad §5.1, y por eso `redirectUris` apunta al backend
+(`/login/oauth2/code/coprop-web`) y no al dev server. **El texto del issue #12 decía "cliente
+público para la SPA" y está viejo**: manda el análisis, como con el #11. Con el token fuera del
+navegador, `webOrigins` queda vacío: el navegador nunca llama a Keycloak por XHR.
+
+**El token no lleva roles.** Los roles por condominio viven en la base de COPROP y se resuelven en
+cada request, para que quitar un rol o terminar un alquiler surta efecto sin esperar a que el token
+expire (§4.2). Dos cosas lo garantizan en el realm, y hacen falta las dos: los clientes de usuario
+no piden el scope `roles`, y llevan `fullScopeAllowed: false`.
+
+**Ningún secreto literal.** Los tres repos son públicos. El import sustituye `${VARIABLE}` y
+`${VARIABLE:defecto}` con el entorno del contenedor, así que todo secreto del archivo es un
+marcador con un valor de desarrollo por defecto, y en producción llega por variable de entorno.
+`RealmDeKeycloakTests` falla si alguien escribe uno a mano.
+
+**Google autentica, no reparte acceso.** El proveedor está declarado pero **apagado** hasta que se
+le den credenciales (`GOOGLE_HABILITADO=true` más el id y el secreto). Con `trustEmail` y el flujo
+`vincular por correo verificado`, quien entra por Google cae en la cuenta que ya tiene ese correo
+en vez de abrir una segunda. Quien entra sin membresía en ningún condominio no ve nada: el acceso
+lo da la invitación (§10.1).
+
+Lo que **no** está todavía: el flujo condicional de MFA con el atributo `requires-mfa` (§4.4), los
+claims `amr` y `auth_time` (§5.3) y los tiempos de sesión por rol, que son del issue #22. El realm
+fija hoy lo que no depende del rol: access token de 5 minutos, refresh rotativo y revocación de la
+sesión entera si se reutiliza uno ya rotado.
+
 ## Observabilidad
 
 Issue #6. Sin esto, la conciliación es indepurable en producción: el análisis lo dice en §12.2 y
