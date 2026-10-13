@@ -158,25 +158,20 @@ class IdentityControllerTests {
 
     @Test
     @WithMockUser(username = "emma")
-    @DisplayName("un rol fuera del catalogo da 400 y SIN codigo: hueco del contrato, no de este modulo")
-    void unRolDesconocidoDa400SinCodigo() throws Exception {
-        // Esto documenta un defecto, no una decision. Un valor de enum que no existe no llega a
-        // deserializarse: Jackson falla antes de que haya objeto que validar, Spring lo trata como
-        // cuerpo ilegible y responde 400 desde ResponseEntityExceptionHandler, sin pasar por
-        // ninguno de nuestros manejadores. El cuerpo sale en problem+json pero **sin codigo**, y
-        // el contrato del issue #5 dice que todo error lleva codigo --tanto, que el interceptor
-        // del frontend tiene que inventarse uno cuando falta.
-        //
-        // Ademas el 422 seria mas correcto que el 400: RFC 9110 reserva el 400 para el cuerpo mal
-        // formado, y este JSON esta bien formado; lo que no se puede procesar es el valor.
-        //
-        // El arreglo es un manejador de HttpMessageNotReadableException en el modulo api, no aqui.
-        // Este test queda para que el dia que se arregle salte y se actualice a proposito.
+    @DisplayName("un rol fuera del catalogo da 422 y dice cuales se admiten")
+    void unRolDesconocidoDa422() throws Exception {
+        // El JSON esta bien formado; lo que no se admite es el valor, asi que el cliente recibe lo
+        // mismo que en cualquier otra validacion: 422, VALIDACION y el campo para marcar. Antes
+        // daba 400 y sin codigo, porque Jackson falla antes de que haya objeto que validar.
         mockMvc.perform(post("/api/v1/condominios/" + UUID.randomUUID() + "/membresias")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"accountId\":\"%s\",\"roles\":[\"JEFE\"]}".formatted(UUID.randomUUID())))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.codigo").doesNotExist());
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.codigo").value("VALIDACION"))
+                .andExpect(jsonPath("$.errores[0].campo").value("roles[0]"))
+                .andExpect(jsonPath("$.errores[0].codigo").value("VALOR_NO_ADMITIDO"))
+                .andExpect(jsonPath("$.errores[0].mensaje").value(org.hamcrest.Matchers.containsString("OWNER")));
     }
 
     @Test

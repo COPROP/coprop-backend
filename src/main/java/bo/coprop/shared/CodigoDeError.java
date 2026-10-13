@@ -12,6 +12,17 @@ public enum CodigoDeError {
     VALIDACION,
 
     /**
+     * El cuerpo de la peticion no se pudo leer: no es JSON valido.
+     *
+     * <p>Se separa de {@link #VALIDACION} porque son problemas distintos y el cliente hace cosas
+     * distintas. Un cuerpo mal formado es un defecto del cliente y no tiene campos que señalar;
+     * un valor inadmisible dentro de un JSON correcto si los tiene, y sale como
+     * {@code VALIDACION} con su lista. El RFC 9110 reserva el 400 para lo primero y el 422 para
+     * lo segundo.
+     */
+    CUERPO_ILEGIBLE,
+
+    /**
      * El recurso no existe. Tambien cubre el acceso a un condominio sin membresia activa: se
      * responde lo mismo que si no existiera, para no revelar que condominios hay (Seguridad 7.2).
      */

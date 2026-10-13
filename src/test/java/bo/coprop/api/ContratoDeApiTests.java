@@ -134,6 +134,55 @@ class ContratoDeApiTests {
 
     @Test
     @WithMockUser
+    @DisplayName("un cuerpo que no es JSON da 400 con su codigo, no un problem+json mudo")
+    void unCuerpoRotoDa400ConCodigo() throws Exception {
+        // Antes este caso no pasaba por ningun manejador nuestro: contestaba
+        // ResponseEntityExceptionHandler y el cuerpo salia sin codigo, contra lo que promete el
+        // contrato. Tanto, que el interceptor del frontend tiene que inventarse uno cuando falta.
+        mockMvc.perform(post("/api/v1/pruebas/enum")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{esto no es json"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.codigo").value("CUERPO_ILEGIBLE"))
+                .andExpect(jsonPath("$.type").value("https://coprop.bo/errores/cuerpo-ilegible"))
+                // Sin eco de lo que mando el cliente ni del fragmento que Jackson no supo leer.
+                .andExpect(jsonPath("$.detail").value(not(containsString("esto no es json"))));
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("un valor de enum inadmisible da 422 y enumera los admitidos")
+    void unEnumInadmisibleDa422() throws Exception {
+        // El JSON esta bien formado, asi que el 422 es el estado correcto (RFC 9110) y el cliente
+        // recibe la misma forma que en cualquier otra validacion: campo, codigo y mensaje.
+        mockMvc.perform(post("/api/v1/pruebas/enum")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"color\":\"AZUL\"}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.codigo").value("VALIDACION"))
+                .andExpect(jsonPath("$.errores[0].campo").value("color"))
+                .andExpect(jsonPath("$.errores[0].codigo").value("VALOR_NO_ADMITIDO"))
+                .andExpect(jsonPath("$.errores[0].mensaje").value(containsString("ROJO, VERDE")))
+                // El nombre de la clase destino no sale: es ruido para el cliente.
+                .andExpect(jsonPath("$.errores[0].mensaje").value(not(containsString("Color"))));
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("un tipo que no encaja da 422 y señala el campo, aunque no sea un enum")
+    void unTipoQueNoEncajaDa422() throws Exception {
+        mockMvc.perform(post("/api/v1/pruebas/validacion")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"numero\":{}}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.codigo").value("VALIDACION"))
+                .andExpect(jsonPath("$.errores[0].campo").value("numero"))
+                .andExpect(jsonPath("$.errores[0].codigo").value("FORMATO"));
+    }
+
+    @Test
+    @WithMockUser
     @DisplayName("el traceId viaja en la cabecera y dentro del cuerpo del error")
     void elTraceIdViajaEnLaRespuesta() throws Exception {
         mockMvc.perform(get("/api/v1/pruebas/no-encontrado").header("X-Trace-Id", "abc-123"))
@@ -179,6 +228,17 @@ class ContratoDeApiTests {
 
             @PostMapping("/validacion")
             void validacion(@Valid @RequestBody Entrada entrada) {}
+
+            /** Para los dos caminos del cuerpo ilegible: un enum y un desajuste de tipo. */
+            enum Color {
+                ROJO,
+                VERDE
+            }
+
+            record EntradaConEnum(Color color) {}
+
+            @PostMapping("/enum")
+            void conEnum(@Valid @RequestBody EntradaConEnum entrada) {}
         }
     }
 }

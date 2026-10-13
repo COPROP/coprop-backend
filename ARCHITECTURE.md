@@ -109,6 +109,7 @@ El catálogo de códigos es `CodigoDeError`, en `shared`. El mapa a estados HTTP
 | Situación | HTTP | `codigo` |
 |---|---|---|
 | Entrada inválida | 422 | `VALIDACION` |
+| El cuerpo no es JSON válido | 400 | `CUERPO_ILEGIBLE` |
 | Sin token o token inválido | 401 | `NO_AUTENTICADO` |
 | Es miembro, pero el rol no alcanza | 403 | `SIN_PERMISO` |
 | El recurso no existe, o no hay membresía activa en ese condominio | 404 | `NO_ENCONTRADO` |
@@ -116,10 +117,17 @@ El catálogo de códigos es `CodigoDeError`, en `shared`. El mapa a estados HTTP
 | Petición bien formada que una regla rechaza | 422 | `REGLA_DE_NEGOCIO` |
 | Fallo no previsto | 500 | `INTERNO` |
 
-Dos filas merecen explicación:
+Tres filas merecen explicación:
 
 - **422 en validación, no el 400 que Spring devuelve por defecto.** El 400 es para una petición
   que el servidor no puede ni parsear; una entidad bien formada que no pasa las reglas es 422.
+- **400 solo cuando el cuerpo no se puede leer**, y esa es toda la diferencia con el 422. La
+  frontera no es "pasó por la validación de Bean Validation o no": un valor que Jackson no puede
+  convertir —un enum que no existe, un UUID mal escrito— falla *antes* de que haya objeto que
+  validar, y aun así es **422 `VALIDACION` con su lista de campos**, porque el JSON estaba bien
+  formado y el cliente necesita saber qué campo corregir. El 400 queda para el cuerpo roto, que
+  no tiene campo que señalar. Lo reparte `handleHttpMessageNotReadable`; para un enum, el mensaje
+  del campo enumera los valores admitidos, que son parte del contrato.
 - **404 y no 403 cuando falta la membresía.** Lo exige Seguridad §7.2: distinguir "no existe" de
   "no puedes" le diría al que pregunta qué condominios hay. Eso deja al 403 con un único
   significado: eres miembro, pero tu rol no alcanza.

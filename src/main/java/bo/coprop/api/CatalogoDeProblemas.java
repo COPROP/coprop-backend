@@ -32,6 +32,7 @@ final class CatalogoDeProblemas {
     static HttpStatus estadoDe(CodigoDeError codigo) {
         return switch (codigo) {
             case VALIDACION, REGLA_DE_NEGOCIO -> HttpStatus.UNPROCESSABLE_CONTENT;
+            case CUERPO_ILEGIBLE -> HttpStatus.BAD_REQUEST;
             case NO_ENCONTRADO -> HttpStatus.NOT_FOUND;
             case CONFLICTO -> HttpStatus.CONFLICT;
             case NO_AUTENTICADO -> HttpStatus.UNAUTHORIZED;
@@ -60,6 +61,7 @@ final class CatalogoDeProblemas {
     private static String tituloDe(CodigoDeError codigo) {
         return switch (codigo) {
             case VALIDACION -> "La solicitud no es valida";
+            case CUERPO_ILEGIBLE -> "No se pudo leer el cuerpo de la solicitud";
             case NO_ENCONTRADO -> "No se encontro el recurso";
             case CONFLICTO -> "La operacion choca con el estado actual";
             case REGLA_DE_NEGOCIO -> "Una regla del negocio rechaza la operacion";
