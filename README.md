@@ -72,22 +72,86 @@ token**: los tres quedan en la sesión del servidor, que vive en la base
 (Seguridad §5.1, [ARCHITECTURE.md](ARCHITECTURE.md#seguridad)). Para cerrar sesión, `POST /logout`,
 que también la cierra en Keycloak.
 
-Entrar no da acceso a nada por sí solo. Hace falta además una **cuenta de COPROP con ese correo**;
-si no la hay, la API responde 403 con `SIN_CUENTA`. Y **todavía no hay forma de crear la primera**:
-toda la API exige identidad y la identidad exige una cuenta que alguien dio de alta. El arranque de
-la plataforma es el issue #16; hasta entonces, en local se siembra por SQL:
+Entrar no da acceso a nada por sí solo. Hace falta además una **cuenta de COPROP con ese correo**
+—si no la hay, la API responde 403 con `SIN_CUENTA`— y una **membresía activa** en el condominio que
+se pida —si no la hay, 404—.
+
+### La semilla de desarrollo
+
+**Todavía no hay forma de crear la primera cuenta ni la primera membresía**: toda la API exige
+identidad, y la identidad exige una cuenta que alguien dio de alta. El arranque de la plataforma es
+el issue #16. Hasta entonces:
 
 ```bash
-docker exec -i coprop-postgres psql -U coprop -d coprop <<'SQL'
-insert into person (id, first_names, last_names, national_id, created_at)
-values ('11111111-1111-4111-8111-111111111111', 'Dev', 'Local', '0000001', now());
-insert into user_account (id, person_id, email, status, mfa_enabled, created_at)
-values ('22222222-2222-4222-8222-222222222222', '11111111-1111-4111-8111-111111111111',
-        'dev@coprop.local', 'INVITADO', false, now());
-SQL
+docker exec -i coprop-postgres psql -U coprop -d coprop < docker/postgres/semilla-de-desarrollo.sql
 ```
 
-Con eso, el primer login deja la cuenta en `ACTIVO` y vinculada al sujeto de Keycloak.
+No es una migración y Flyway no la ve, así que no puede acabar en producción. Se puede repetir
+cuantas veces haga falta. Deja:
+
+| Qué | Identificador | Para qué |
+|---|---|---|
+| Cuenta `dev@coprop.local` | `2222…2222` | La del usuario del realm, lista para el primer login |
+| Condominio *Torre Sucre (desarrollo)* | `aaaa…0001` | Con la cuenta como **CONDO_ADMIN y FINANCE_ADMIN** |
+| Condominio *del vecino* | `bbbb…0002` | **Sin membresía**: todo lo suyo tiene que responder 404 |
+
+Los dos roles en la misma persona están permitidos y es una decisión explícita del análisis (§10.1):
+en condominios pequeños, una sola persona administra y maneja el dinero. La concentración queda en
+auditoría.
+
+El segundo condominio no es relleno: es el escenario real de fuga. Un condominio que **existe** y no
+es tuyo tiene que responder exactamente igual que uno inventado.
+
+> **Vuelve a correr la semilla cada vez que recrees el contenedor de Keycloak.** En `start-dev` no
+> persiste su base, así que `dev@coprop.local` nace con un `sub` nuevo mientras la cuenta de COPROP
+> sigue apuntando al viejo; como una cuenta ya vinculada no se revincula a otro sujeto, el login
+> responde `SIN_CUENTA` y parece que la cuenta está rota. La semilla suelta ese vínculo.
+
+### Probar la API desde Postman
+
+Hay una colección lista para importar en
+[`docs/postman/COPROP.postman_collection.json`](docs/postman/COPROP.postman_collection.json): trae
+los 19 endpoints con cuerpos de ejemplo, la autenticación ya configurada y dos peticiones que
+**tienen que fallar**, para ver el aislamiento funcionando. Las altas guardan solas los
+identificadores que devuelven, así que se pueden encadenar de arriba abajo sin copiar nada.
+
+La web entra por el BFF con cookie, que Postman no puede recorrer —hay un formulario de login de por
+medio—. El camino para una herramienta es el del cliente móvil: **Authorization Code con PKCE**
+contra `coprop-movil`, que devuelve un `Bearer` y no depende de ninguna sesión.
+
+Lo único que hace falta es que Keycloak acepte la vuelta de Postman. No se toca el realm: se
+sustituye por variable de entorno, que es para lo que están los marcadores.
+
+```bash
+export COPROP_MOVIL_REDIRECT_URI=https://oauth.pstmn.io/v1/callback
+docker compose up -d --force-recreate keycloak
+```
+
+En Postman, pestaña **Authorization** → tipo **OAuth 2.0**, con *Authorize using browser* desmarcado:
+
+| Campo | Valor |
+|---|---|
+| Grant type | Authorization Code (With PKCE) |
+| Callback URL | `https://oauth.pstmn.io/v1/callback` |
+| Auth URL | `http://localhost:8081/realms/coprop/protocol/openid-connect/auth` |
+| Access Token URL | `http://localhost:8081/realms/coprop/protocol/openid-connect/token` |
+| Client ID | `coprop-movil` |
+| Client Secret | *(vacío: es un cliente público)* |
+| Code Challenge Method | SHA-256 |
+| Scope | `openid email` |
+| Client Authentication | Send client credentials in body |
+
+*Get New Access Token*, se entra con `dev@coprop.local`, y el token sale con **5 minutos** de vida
+(Seguridad §5.3): cuando empiece a responder 401, se pide otro.
+
+Las variables de la colección ya apuntan a los identificadores de
+[la semilla](#la-semilla-de-desarrollo), así que con la semilla corrida se puede usar de entrada.
+
+**Si creas un condominio desde Postman, no vas a poder verlo.** El alta no cuelga de ningún
+condominio, pero consultarlo exige membresía activa y responde 404 sin ella. No es un error del
+montaje: es el aislamiento haciendo su trabajo, y por eso esa petición de la colección **no pisa** la
+variable `condominiumId`. Para trabajar con uno propio, el de la semilla ya viene con los roles
+puestos.
 
 Para resetear el entorno por completo:
 

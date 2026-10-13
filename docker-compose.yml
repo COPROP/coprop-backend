@@ -49,6 +49,9 @@ services:
       GOOGLE_CLIENT_ID:
       GOOGLE_CLIENT_SECRET:
       COPROP_WEB_SECRET:
+      # La vuelta del cliente movil. Se pasa para poder apuntarla a la de una herramienta --la de
+      # Postman, por ejemplo-- y sacar un token a mano sin tocar el realm versionado. Ver el README.
+      COPROP_MOVIL_REDIRECT_URI:
     ports:
       - "8081:8081"
     volumes:
