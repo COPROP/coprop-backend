@@ -89,6 +89,68 @@ SQL
 
 Con eso, el primer login deja la cuenta en `ACTIVO` y vinculada al sujeto de Keycloak.
 
+> **Si recreas el contenedor de Keycloak, hay que volver a sembrar el vínculo.** Keycloak en
+> `start-dev` no persiste su base, así que al recrearlo el usuario `dev@coprop.local` nace con un
+> `sub` nuevo. La cuenta de COPROP sigue apuntando al viejo y, como una cuenta ya vinculada no se
+> revincula a otro sujeto, el login responde `SIN_CUENTA`. Se arregla soltando el vínculo:
+>
+> ```bash
+> docker exec -i coprop-postgres psql -U coprop -d coprop \
+>   -c "update user_account set idp_subject = null, status = 'INVITADO' where email = 'dev@coprop.local';"
+> ```
+
+### Probar la API desde Postman
+
+La web entra por el BFF con cookie, que Postman no puede recorrer —hay un formulario de login de por
+medio—. El camino para una herramienta es el del cliente móvil: **Authorization Code con PKCE**
+contra `coprop-movil`, que devuelve un `Bearer` y no depende de ninguna sesión.
+
+Lo único que hace falta es que Keycloak acepte la vuelta de Postman. No se toca el realm: se
+sustituye por variable de entorno, que es para lo que están los marcadores.
+
+```bash
+export COPROP_MOVIL_REDIRECT_URI=https://oauth.pstmn.io/v1/callback
+docker compose up -d --force-recreate keycloak
+```
+
+En Postman, pestaña **Authorization** → tipo **OAuth 2.0**, con *Authorize using browser* desmarcado:
+
+| Campo | Valor |
+|---|---|
+| Grant type | Authorization Code (With PKCE) |
+| Callback URL | `https://oauth.pstmn.io/v1/callback` |
+| Auth URL | `http://localhost:8081/realms/coprop/protocol/openid-connect/auth` |
+| Access Token URL | `http://localhost:8081/realms/coprop/protocol/openid-connect/token` |
+| Client ID | `coprop-movil` |
+| Client Secret | *(vacío: es un cliente público)* |
+| Code Challenge Method | SHA-256 |
+| Scope | `openid email` |
+| Client Authentication | Send client credentials in body |
+
+*Get New Access Token*, se entra con `dev@coprop.local`, y el token sale con **5 minutos** de vida
+(Seguridad §5.3): cuando empiece a responder 401, se pide otro.
+
+**Autenticarse no alcanza para ver un condominio.** Hace falta además una membresía activa en él, y
+sin ella todo responde 404 (issue #17). Como el alta de la primera membresía es del issue #16, hoy
+se siembra a mano. El condominio sí se puede crear desde Postman, porque esa ruta no cuelga de
+ningún condominio:
+
+```bash
+# 1. POST /api/v1/condominios desde Postman devuelve 201 con el id del condominio.
+# 2. Pero GET /api/v1/condominios/{id} responde 404: todavía no eres miembro.
+# 3. Con esto pasa a responder 200.
+docker exec -i coprop-postgres psql -U coprop -d coprop <<'SQL'
+with nueva as (
+  insert into membership (user_id, condominium_id, status, valid_from)
+  values ('22222222-2222-4222-8222-222222222222', '<EL-ID-DEL-CONDOMINIO>', 'ACTIVA', now())
+  returning id
+)
+insert into membership_role (membership_id, role) select id, 'CONDO_ADMIN' from nueva;
+SQL
+```
+
+El 404 del paso 2 no es un error del montaje: es el aislamiento haciendo su trabajo.
+
 Para resetear el entorno por completo:
 
 ```bash
