@@ -112,6 +112,7 @@ El catálogo de códigos es `CodigoDeError`, en `shared`. El mapa a estados HTTP
 | El cuerpo no es JSON válido | 400 | `CUERPO_ILEGIBLE` |
 | Sin token o token inválido | 401 | `NO_AUTENTICADO` |
 | Es miembro, pero el rol no alcanza | 403 | `SIN_PERMISO` |
+| El token es válido pero no hay cuenta en COPROP | 403 | `SIN_CUENTA` |
 | El recurso no existe, o no hay membresía activa en ese condominio | 404 | `NO_ENCONTRADO` |
 | Transición inválida o choque de concurrencia | 409 | `CONFLICTO` |
 | Petición bien formada que una regla rechaza | 422 | `REGLA_DE_NEGOCIO` |
@@ -159,10 +160,59 @@ que gestiona Spring Boot 4. El que hay que inyectar es el de Boot.
 
 ### Seguridad
 
-`ConfiguracionDeSeguridad` es una cadena mínima y provisional: existe para que el 401 y el 403
-salgan en problem+json como el resto, y para que `/actuator/health` deje de responder 401. Las
-cuatro cadenas reales de Seguridad §7.1 —BFF web con cookie, API móvil con Bearer, webhooks por
-firma, actuator en red interna— llegan con el issue #13 en M1.
+Issue #13. `ConfiguracionDeSeguridad` declara **tres cadenas**, una por forma de llegar
+(Seguridad §7.1), y se eligen en este orden:
+
+| Cadena | Qué la selecciona | Cómo autentica |
+|---|---|---|
+| Operación | `/actuator/**` | No autentica a nadie: el health es público y el resto está denegado |
+| API móvil | Cabecera `Authorization: Bearer` | `oauth2ResourceServer` con JWT: firma, emisor, audiencia y expiración |
+| BFF web | Todo lo demás | `oauth2Login` con sesión en el servidor y CSRF |
+
+La cadena móvil se distingue por la **cabecera y no por la ruta**: las dos sirven `/api/**`, que es
+el mismo contrato visto desde dos clientes. Distinguirlas por ruta dejaría dos árboles de URLs que
+mantener en paralelo.
+
+**La web no es un cliente público.** El flujo lo corre el backend como cliente confidencial, guarda
+los tres tokens en la sesión del servidor y le devuelve al navegador una cookie `HttpOnly`
+(Seguridad §5.1). La SPA arranca el login en `GET /bff/login` y cierra sesión con `POST /logout`,
+que también la cierra en Keycloak: si solo se borrara la local, el siguiente login entraría solo.
+
+**La sesión vive en la base** (`spring_session`, migración V6), no en memoria. Así sobrevive a un
+reinicio y se puede revocar, que es lo que necesita "cerrar sesión en todos los dispositivos" de
+§5.3: su columna `PRINCIPAL_NAME` guarda el identificador de la **cuenta de COPROP**.
+
+Una llamada de la SPA que perdió la sesión recibe un **401 en problem+json**, no un 302 hacia
+Keycloak: la redirección la seguiría el XHR y el navegador acabaría pintando el login dentro de una
+respuesta JSON. El CSRF usa los nombres que Angular trae de serie —cookie `XSRF-TOKEN`, cabecera
+`X-XSRF-TOKEN`— para no tener que configurar el cliente.
+
+#### De sujeto de Keycloak a identidad de COPROP
+
+`FiltroDeIdentidad` es el punto donde "autenticado" deja de significar *tiene un token* y pasa a
+significar *es alguien aquí*. Resuelve el `sub` contra el puerto `Identities` del módulo `identity`
+y sustituye la autenticación por una `IdentidadAutenticada`, cuyo `getName()` es el identificador
+de la cuenta. Por eso los controladores no cambiaron: siguen recibiendo un `Principal`, y el actor
+que acaba en los eventos y en la bitácora es el que la aplicación conoce, no un UUID de Keycloak.
+El mismo valor queda en el MDC bajo `actorId`, la segunda clave que el issue #6 dejó declarada.
+
+**Un token válido de quien no tiene cuenta no pasa de ahí**: responde 403 con `SIN_CUENTA`. Es lo
+que pide Seguridad §10.1 —el acceso lo da la invitación, no el haberse autenticado— y es lo que hace
+que encender el login con Google no reparta acceso a nadie.
+
+**El vínculo del primer login exige el correo verificado**, y una cuenta ya vinculada no se
+revincula a otro sujeto. Lo primero es lo que hace que entrar con contraseña y entrar con Google
+caigan en la misma cuenta; lo segundo es la red de seguridad por si alguna vez el realm admitiera
+dos identidades con el mismo correo.
+
+Lo que **no** está: la cadena de webhooks por firma, que llega con los pagos (issue #41), cuando
+exista `/webhooks/**` y haya una firma que comprobar. Y los roles: `IdentidadAutenticada` no lleva
+autoridades todavía porque los roles por condominio se resuelven por petición contra la base
+(§4.2), y de eso se encargan el filtro de condominio del #17 y la matriz del #16.
+
+**Todavía no hay forma de crear la primera cuenta.** Toda la API exige identidad, y la identidad
+exige una cuenta que alguien tuvo que dar de alta. El arranque de la plataforma —el
+superadministrador— es del issue #16; hasta entonces, en local se siembra por SQL.
 
 ### El realm de Keycloak
 

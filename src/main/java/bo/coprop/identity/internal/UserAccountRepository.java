@@ -11,6 +11,14 @@ interface UserAccountRepository extends JpaRepository<UserAccount, UUID> {
 
     boolean existsByEmail(String email);
 
-    /** Lo necesitara el issue #13 para resolver la identidad del token. */
+    /** Por donde entra quien ya se vinculo: el camino de todo login que no es el primero. */
     Optional<UserAccount> findByIdpSubject(String idpSubject);
+
+    /**
+     * Por donde entra el primer login, que todavia no tiene {@code idpSubject}.
+     *
+     * <p>El correo se compara en minusculas porque {@code UNIQUE (email)} distingue mayusculas y
+     * el proveedor de identidad no promete como las escribe.
+     */
+    Optional<UserAccount> findByEmailIgnoreCase(String email);
 }

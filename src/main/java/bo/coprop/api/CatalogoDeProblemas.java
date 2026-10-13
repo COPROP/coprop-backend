@@ -36,7 +36,7 @@ final class CatalogoDeProblemas {
             case NO_ENCONTRADO -> HttpStatus.NOT_FOUND;
             case CONFLICTO -> HttpStatus.CONFLICT;
             case NO_AUTENTICADO -> HttpStatus.UNAUTHORIZED;
-            case SIN_PERMISO -> HttpStatus.FORBIDDEN;
+            case SIN_PERMISO, SIN_CUENTA -> HttpStatus.FORBIDDEN;
             case INTERNO -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
     }
@@ -67,6 +67,7 @@ final class CatalogoDeProblemas {
             case REGLA_DE_NEGOCIO -> "Una regla del negocio rechaza la operacion";
             case NO_AUTENTICADO -> "Hace falta iniciar sesion";
             case SIN_PERMISO -> "No tienes permiso para esta operacion";
+            case SIN_CUENTA -> "Tu cuenta todavia no tiene acceso";
             case INTERNO -> "Error interno";
         };
     }

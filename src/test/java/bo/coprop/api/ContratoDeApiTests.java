@@ -2,6 +2,7 @@ package bo.coprop.api;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -51,6 +52,7 @@ class ContratoDeApiTests {
     @DisplayName("la validacion devuelve 422 con la lista de campos, no el 400 de Spring")
     void validacionDevuelve422ConLaListaDeCampos() throws Exception {
         mockMvc.perform(post("/api/v1/pruebas/validacion")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"numero\":\"\"}"))
                 .andExpect(status().isUnprocessableContent())
@@ -140,6 +142,7 @@ class ContratoDeApiTests {
         // ResponseEntityExceptionHandler y el cuerpo salia sin codigo, contra lo que promete el
         // contrato. Tanto, que el interceptor del frontend tiene que inventarse uno cuando falta.
         mockMvc.perform(post("/api/v1/pruebas/enum")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{esto no es json"))
                 .andExpect(status().isBadRequest())
@@ -157,6 +160,7 @@ class ContratoDeApiTests {
         // El JSON esta bien formado, asi que el 422 es el estado correcto (RFC 9110) y el cliente
         // recibe la misma forma que en cualquier otra validacion: campo, codigo y mensaje.
         mockMvc.perform(post("/api/v1/pruebas/enum")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"color\":\"AZUL\"}"))
                 .andExpect(status().isUnprocessableContent())
@@ -173,6 +177,7 @@ class ContratoDeApiTests {
     @DisplayName("un tipo que no encaja da 422 y señala el campo, aunque no sea un enum")
     void unTipoQueNoEncajaDa422() throws Exception {
         mockMvc.perform(post("/api/v1/pruebas/validacion")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"numero\":{}}"))
                 .andExpect(status().isUnprocessableContent())

@@ -1,5 +1,6 @@
 package bo.coprop.condominium;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -55,6 +56,7 @@ class UnitRelationsControllerTests {
         UUID persona = persona("5000001");
 
         mockMvc.perform(post(ruta(condominio, unidad) + "/propietarios")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"personId\":\"%s\",\"share\":12.5}".formatted(persona)))
                 .andExpect(status().isCreated())
@@ -89,6 +91,7 @@ class UnitRelationsControllerTests {
         UUID persona = persona("5000004");
 
         mockMvc.perform(post(ruta(propio, unidadAjena) + "/propietarios")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"personId\":\"%s\",\"share\":10.0}".formatted(persona)))
                 .andExpect(status().isNotFound())
@@ -104,6 +107,7 @@ class UnitRelationsControllerTests {
         UUID persona = persona("5000005");
 
         mockMvc.perform(post(ruta(condominio, unidad) + "/propietarios")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"personId\":\"%s\",\"share\":150.0}".formatted(persona)))
                 .andExpect(status().isUnprocessableContent())
@@ -122,12 +126,14 @@ class UnitRelationsControllerTests {
         registrarPropietario(condominio, unidad, propietaria, "100.0");
 
         mockMvc.perform(post(ruta(condominio, unidad) + "/ocupantes")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"personId\":\"%s\",\"role\":\"INQUILINO\"}".formatted(inquilino)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.role").value("INQUILINO"));
 
         mockMvc.perform(post(ruta(condominio, unidad) + "/responsables-de-pago")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"personId\":\"%s\"}".formatted(propietaria)))
                 .andExpect(status().isCreated())
@@ -145,6 +151,7 @@ class UnitRelationsControllerTests {
         registrarPropietario(condominio, unidad, persona, "50.0");
 
         mockMvc.perform(post(ruta(condominio, unidad) + "/propietarios")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"personId\":\"%s\",\"share\":50.0}".formatted(persona)))
                 .andExpect(jsonPath("$.codigo").value("REGLA_DE_NEGOCIO"));
@@ -154,6 +161,7 @@ class UnitRelationsControllerTests {
     @DisplayName("sin autenticar no se registran relaciones")
     void sinAutenticarNoSeRegistra() throws Exception {
         mockMvc.perform(post(ruta(UUID.randomUUID(), UUID.randomUUID()) + "/propietarios")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"personId\":\"%s\",\"share\":10.0}".formatted(UUID.randomUUID())))
                 .andExpect(status().isUnauthorized())
@@ -166,6 +174,7 @@ class UnitRelationsControllerTests {
 
     private void registrarPropietario(UUID condominiumId, UUID unitId, UUID personId, String share) throws Exception {
         mockMvc.perform(post(ruta(condominiumId, unitId) + "/propietarios")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"personId\":\"%s\",\"share\":%s}".formatted(personId, share)))
                 .andExpect(status().isCreated());
