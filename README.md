@@ -101,6 +101,12 @@ Con eso, el primer login deja la cuenta en `ACTIVO` y vinculada al sujeto de Key
 
 ### Probar la API desde Postman
 
+Hay una colección lista para importar en
+[`docs/postman/COPROP.postman_collection.json`](docs/postman/COPROP.postman_collection.json): trae
+los 19 endpoints con cuerpos de ejemplo, la autenticación ya configurada y dos peticiones que
+**tienen que fallar**, para ver el aislamiento funcionando. Las altas guardan solas los
+identificadores que devuelven, así que se pueden encadenar de arriba abajo sin copiar nada.
+
 La web entra por el BFF con cookie, que Postman no puede recorrer —hay un formulario de login de por
 medio—. El camino para una herramienta es el del cliente móvil: **Authorization Code con PKCE**
 contra `coprop-movil`, que devuelve un `Bearer` y no depende de ninguna sesión.

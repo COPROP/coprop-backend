@@ -1,0 +1,909 @@
+{
+  "info": {
+    "name": "COPROP — API v1",
+    "_postman_id": "9c6f1b6a-0f2e-4f1f-9a3e-coprop000001",
+    "description": "La API de COPROP, servida en http://localhost:8080 con `./gradlew bootRun`.\n\n## Cómo autenticarse\n\nLa colección entera usa **Authorization Code con PKCE** contra el cliente `coprop-movil`.\nLa web entra por el BFF con cookie, que no se puede recorrer desde Postman porque hay un\nformulario de login de por medio.\n\nAntes de la primera vez, que Keycloak acepte la vuelta de Postman:\n\n```bash\nexport COPROP_MOVIL_REDIRECT_URI=https://oauth.pstmn.io/v1/callback\ndocker compose up -d --force-recreate keycloak\n```\n\nDespués, en esta colección: *Authorization* → **Get New Access Token**, y se entra con\n`dev@coprop.local` / `dev-local-coprop`. **El token dura 5 minutos** (Seguridad §5.3):\ncuando empiece a responder 401, se pide otro.\n\n## Lo que hay que saber antes de probar\n\n1. **Autenticarse no alcanza para ver un condominio.** Hace falta una membresía activa en él,\n   y sin ella todo responde **404** —nunca 403: distinguirlos diría qué condominios existen—.\n2. **Se puede crear un condominio y después no verlo**, por lo mismo. El alta no cuelga de\n   ningún condominio, pero consultarlo sí. La primera membresía se siembra por SQL hasta que\n   el issue #16 traiga el superadministrador; el README del repositorio deja el `insert`.\n3. **Si recreas el contenedor de Keycloak**, la cuenta deja de entrar con `SIN_CUENTA`: nace\n   con un `sub` nuevo y una cuenta ya vinculada no se revincula. También está en el README.\n\n## Variables\n\nLas peticiones de alta **guardan solos** los identificadores que devuelven (`condominiumId`,\n`unitId`, `blockId`, `personId`, `accountId`, `membershipId`), así que se pueden encadenar de\narriba abajo sin copiar nada a mano.\n\nLos errores siguen el RFC 9457: se ramifica por el campo `codigo`, nunca por `title` ni por\n`detail`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "oauth2",
+    "oauth2": [
+      {
+        "key": "grant_type",
+        "value": "authorization_code_with_pkce",
+        "type": "string"
+      },
+      {
+        "key": "authUrl",
+        "value": "{{keycloak}}/realms/coprop/protocol/openid-connect/auth",
+        "type": "string"
+      },
+      {
+        "key": "accessTokenUrl",
+        "value": "{{keycloak}}/realms/coprop/protocol/openid-connect/token",
+        "type": "string"
+      },
+      {
+        "key": "clientId",
+        "value": "coprop-movil",
+        "type": "string"
+      },
+      {
+        "key": "redirect_uri",
+        "value": "https://oauth.pstmn.io/v1/callback",
+        "type": "string"
+      },
+      {
+        "key": "scope",
+        "value": "openid email",
+        "type": "string"
+      },
+      {
+        "key": "challengeAlgorithm",
+        "value": "S256",
+        "type": "string"
+      },
+      {
+        "key": "client_authentication",
+        "value": "body",
+        "type": "string"
+      },
+      {
+        "key": "addTokenTo",
+        "value": "header",
+        "type": "string"
+      },
+      {
+        "key": "tokenName",
+        "value": "Token de COPROP",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "keycloak",
+      "value": "http://localhost:8081",
+      "type": "string"
+    },
+    {
+      "key": "condominiumId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "unitId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "blockId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "personId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "accountId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "membershipId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Personas y cuentas (globales)",
+      "description": "No cuelgan de ningún condominio: una persona es la misma en todos los edificios donde tenga algo (Seguridad §2), y la cuenta con la que entra tampoco es de ninguno.",
+      "item": [
+        {
+          "name": "Dar de alta una persona",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/personas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "personas"
+              ]
+            },
+            "description": "Devuelve **201 siempre**, también cuando la persona ya estaba y se reutilizó la fila. Es deliberado: un 200 para \"ya existía\" le diría al administrador de un condominio que esa persona está en otro.\n\nSin carnet siempre crea una nueva: dos personas pueden llamarse igual, y fusionarlas por el nombre es peor que duplicar una.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstNames\": \"Emma\",\n  \"lastNames\": \"Tola\",\n  \"nationalId\": \"8123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    const cuerpo = pm.response.json();",
+                  "    const id = Array.isArray(cuerpo) ? (cuerpo[0] && cuerpo[0].id) : cuerpo.id;",
+                  "    if (id) {",
+                  "        pm.collectionVariables.set('personId', id);",
+                  "        console.log('personId =', id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Consultar una persona",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/personas/{{personId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "personas",
+                "{{personId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Abrir la cuenta de una persona",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/personas/{{personId}}/cuenta",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "personas",
+                "{{personId}}",
+                "cuenta"
+              ]
+            },
+            "description": "La cuenta nace en `INVITADO` y sin contraseña: esa la guarda Keycloak, no esta aplicación. Pasa a `ACTIVO` en el primer login, que es cuando queda vinculada al sujeto del proveedor de identidad.\n\nUna persona tiene **una sola cuenta**, y dos cuentas no comparten correo.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"emma@coprop.bo\",\n  \"phone\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    const cuerpo = pm.response.json();",
+                  "    const id = Array.isArray(cuerpo) ? (cuerpo[0] && cuerpo[0].id) : cuerpo.id;",
+                  "    if (id) {",
+                  "        pm.collectionVariables.set('accountId', id);",
+                  "        console.log('accountId =', id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Consultar una cuenta",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cuentas/{{accountId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cuentas",
+                "{{accountId}}"
+              ]
+            },
+            "description": "No devuelve el `idpSubject`: es el puente interno hacia Keycloak."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Condominios",
+      "item": [
+        {
+          "name": "Dar de alta un condominio",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios"
+              ]
+            },
+            "description": "`type`: `EDIFICIO`, `CASAS` o `MIXTO`. `timeZone` tiene que ser una zona IANA de verdad, y se valida en el alta y no meses después, cuando ya haya vencimientos mal calculados.\n\n**Ojo**: esta ruta no cuelga de ningún condominio, así que cualquier cuenta puede crear uno. Quién debería poder es el issue #16. Y después del 201, consultarlo responde **404** hasta que tengas membresía.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Torre Sucre\",\n  \"nit\": \"1023456789\",\n  \"type\": \"EDIFICIO\",\n  \"timeZone\": \"America/La_Paz\",\n  \"issueDay\": 5,\n  \"dueDay\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    const cuerpo = pm.response.json();",
+                  "    const id = Array.isArray(cuerpo) ? (cuerpo[0] && cuerpo[0].id) : cuerpo.id;",
+                  "    if (id) {",
+                  "        pm.collectionVariables.set('condominiumId', id);",
+                  "        console.log('condominiumId =', id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Consultar un condominio",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}"
+              ]
+            },
+            "description": "Responde **404** si no tienes membresía activa en él, exactamente igual que si no existiera. Un 403 confirmaría que existe."
+          }
+        },
+        {
+          "name": "Cambiar la configuración",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/configuracion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "configuracion"
+              ]
+            },
+            "description": "La configuración lleva **vigencia**: no se actualiza en sitio, se cierra la fila anterior y se abre otra. Lo que puede cambiar y afecta a documentos ya emitidos nunca se pisa.\n\nLa mora y las tarifas de agua llegan en M2.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"issueDay\": 7,\n  \"dueDay\": 15\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Unidades, bloques y pisos",
+      "item": [
+        {
+          "name": "Dar de alta un bloque",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/bloques",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "bloques"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Torre A\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    const cuerpo = pm.response.json();",
+                  "    const id = Array.isArray(cuerpo) ? (cuerpo[0] && cuerpo[0].id) : cuerpo.id;",
+                  "    if (id) {",
+                  "        pm.collectionVariables.set('blockId', id);",
+                  "        console.log('blockId =', id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Dar de alta un piso",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/bloques/{{blockId}}/pisos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "bloques",
+                "{{blockId}}",
+                "pisos"
+              ]
+            },
+            "description": "El piso cuelga del **bloque**, no del condominio (análisis §5.2). Para usar pisos hay que crear al menos un bloque aunque el edificio sea uno solo.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"number\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Dar de alta una unidad",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/unidades",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "unidades"
+              ]
+            },
+            "description": "`type`: `DEPARTAMENTO`, `CASA`, `LOCAL`, `PARQUEO` o `DEPOSITO`.\n\nLa **alícuota lleva seis decimales** a propósito: a dos, un edificio de 200 unidades deja bolivianos sin repartir cada mes. No se valida contra el 100% —eso no se puede comprobar unidad a unidad; es validación de la emisión, en M2—, solo se acota entre 0 y 100.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"A-301\",\n  \"type\": \"DEPARTAMENTO\",\n  \"aliquot\": \"1.250000\",\n  \"areaM2\": \"82.50\",\n  \"blockId\": null,\n  \"floorId\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    const cuerpo = pm.response.json();",
+                  "    const id = Array.isArray(cuerpo) ? (cuerpo[0] && cuerpo[0].id) : cuerpo.id;",
+                  "    if (id) {",
+                  "        pm.collectionVariables.set('unitId', id);",
+                  "        console.log('unitId =', id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Alta masiva de unidades",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/unidades/lote",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "unidades",
+                "lote"
+              ]
+            },
+            "description": "**Todo o nada**: si una falla no se crea ninguna. Los códigos repetidos se comprueban antes de tocar la base y en una sola consulta, para que el error diga cuáles son en vez de llegar como un choque de integridad.\n\nRecibe una lista, no un archivo: la importación desde Excel es el issue #30.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"unidades\": [\n    {\n      \"code\": \"A-302\",\n      \"type\": \"DEPARTAMENTO\",\n      \"aliquot\": \"1.250000\"\n    },\n    {\n      \"code\": \"P-12\",\n      \"type\": \"PARQUEO\",\n      \"aliquot\": \"0.100000\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Consultar una unidad",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/unidades/{{unitId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "unidades",
+                "{{unitId}}"
+              ]
+            },
+            "description": "La unidad tiene que ser **de este condominio**: pedir la de otro desde esta ruta responde 404, no la unidad ajena. Es un defecto que el PR #72 corrigió en cuatro sitios."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Relaciones de la unidad",
+      "description": "Las tres son **relaciones separadas y con vigencia**, no una sola tabla con un tipo: con una sola no se podría expresar que el inquilino reside y el propietario sigue pagando.",
+      "item": [
+        {
+          "name": "Registrar un propietario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/unidades/{{unitId}}/propietarios",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "unidades",
+                "{{unitId}}",
+                "propietarios"
+              ]
+            },
+            "description": "Una unidad admite varios copropietarios vigentes, cada uno con su porcentaje.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"personId\": \"{{personId}}\",\n  \"share\": \"50.000000\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Listar los propietarios",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/unidades/{{unitId}}/propietarios",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "unidades",
+                "{{unitId}}",
+                "propietarios"
+              ]
+            },
+            "description": "Solo los vigentes. Son a quienes se les cobra."
+          }
+        },
+        {
+          "name": "Registrar un ocupante",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/unidades/{{unitId}}/ocupantes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "unidades",
+                "{{unitId}}",
+                "ocupantes"
+              ]
+            },
+            "description": "`role`: `RESIDENTE` o `INQUILINO`.\n\nLa ocupación **no es un estado de la unidad**: \"ocupada por propietario\", \"alquilada\" y \"desocupada\" se modelan aquí, con vigencia. La unidad solo está `ACTIVA` o `INACTIVA`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"personId\": \"{{personId}}\",\n  \"role\": \"INQUILINO\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Asignar un responsable de pago",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/unidades/{{unitId}}/responsables-de-pago",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "unidades",
+                "{{unitId}}",
+                "responsables-de-pago"
+              ]
+            },
+            "description": "`conceptId` nulo = responde por todo lo que se le cobre a la unidad. El concepto como entidad nace en M2, así que hoy no se comprueba que exista.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"personId\": \"{{personId}}\",\n  \"conceptId\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Membresías",
+      "description": "La membresía cuelga de la **cuenta**, no de la persona: un propietario que nunca se registró existe como persona con su titularidad, y la membresía aparece cuando acepta la invitación.",
+      "item": [
+        {
+          "name": "Conceder una membresía",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/membresias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "membresias"
+              ]
+            },
+            "description": "`roles`, al menos uno: `PLATFORM_ADMIN`, `CONDO_ADMIN`, `FINANCE_ADMIN`, `OWNER`, `TENANT`, `MAINTENANCE`, `BOARD`. Una membresía sin roles no autoriza nada.\n\n`invitedBy` nulo en la del primer administrador, que no la invita nadie.\n\n**Los roles no viajan en el token**: viven aquí y se resuelven en cada petición, para que quitar uno surta efecto sin esperar a que el token expire.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": \"{{accountId}}\",\n  \"roles\": [\n    \"OWNER\"\n  ],\n  \"invitedBy\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    const cuerpo = pm.response.json();",
+                  "    const id = Array.isArray(cuerpo) ? (cuerpo[0] && cuerpo[0].id) : cuerpo.id;",
+                  "    if (id) {",
+                  "        pm.collectionVariables.set('membershipId', id);",
+                  "        console.log('membershipId =', id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar las membresías",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/membresias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "membresias"
+              ]
+            },
+            "description": "Solo las vigentes. Las cerradas son historia y las sacará el issue #19."
+          }
+        },
+        {
+          "name": "Consultar una membresía",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/membresias/{{membershipId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "membresias",
+                "{{membershipId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. El aislamiento, para verlo funcionar",
+      "description": "Dos peticiones que **tienen que fallar**. Si alguna respondiera otra cosa, el aislamiento del issue #17 estaría roto.",
+      "item": [
+        {
+          "name": "Un condominio que no es tuyo → 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/ffffffff-ffff-4fff-8fff-ffffffffffff",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "ffffffff-ffff-4fff-8fff-ffffffffffff"
+              ]
+            },
+            "description": "Nunca 403. Distinguir \"no existe\" de \"no puedes\" le diría a cualquiera con una cuenta qué condominios hay, y con eso se enumeran probando identificadores."
+          }
+        },
+        {
+          "name": "Sin token → 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}"
+              ]
+            },
+            "description": "El aislamiento no se adelanta a la autenticación: un 404 aquí taparía que lo que falta es iniciar sesión.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Plataforma",
+      "item": [
+        {
+          "name": "Especificación OpenAPI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/openapi.json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "openapi.json"
+              ]
+            },
+            "description": "Pública: es el contrato y no tiene datos de nadie.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "actuator",
+                "health"
+              ]
+            },
+            "description": "El health y sus sondas son lo único público del actuator. El resto no se sirve por HTTP a nadie, ni siquiera con un token válido.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
