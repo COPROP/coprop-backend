@@ -12,22 +12,6 @@ spring:
         jwt:
           issuer-uri: ${OIDC_ISSUER_URI}
           audiences: ${OIDC_AUDIENCIA:coprop-api}
-      client:
-        registration:
-          coprop-web:
-            client-id: ${OIDC_CLIENT_ID:coprop-web}
-            client-secret: ${OIDC_CLIENT_SECRET}
-            authorization-grant-type: authorization_code
-            scope: openid,email
-            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
-        provider:
-          coprop-web:
-            issuer-uri: ${OIDC_ISSUER_URI}
-            authorization-uri: ${OIDC_ISSUER_URI}/protocol/openid-connect/auth
-            token-uri: ${OIDC_ISSUER_URI}/protocol/openid-connect/token
-            jwk-set-uri: ${OIDC_ISSUER_URI}/protocol/openid-connect/certs
-            user-info-uri: ${OIDC_ISSUER_URI}/protocol/openid-connect/userinfo
-            user-name-attribute: sub
   mail:
     host: ${MAIL_HOST}
     port: ${MAIL_PORT:587}
@@ -38,6 +22,10 @@ spring:
       mail.smtp.starttls.enable: true
 
 coprop:
+  oidc:
+    emisor: ${OIDC_ISSUER_URI}
+    cliente-id: ${OIDC_CLIENT_ID:coprop-web}
+    cliente-secreto: ${OIDC_CLIENT_SECRET}
   storage:
     endpoint: ${STORAGE_ENDPOINT}
     bucket: ${STORAGE_BUCKET}

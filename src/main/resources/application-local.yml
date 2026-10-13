@@ -12,29 +12,6 @@ spring:
           # La audiencia la pone el mapeador del realm (issue #12). Sin esto, un token emitido para
           # cualquier otro cliente del mismo realm serviria contra esta API.
           audiences: coprop-api
-      client:
-        # El cliente confidencial del BFF. El navegador no lo ve nunca.
-        registration:
-          coprop-web:
-            client-id: coprop-web
-            client-secret: coprop-local-secret-web
-            authorization-grant-type: authorization_code
-            # Sin "profile": el nombre no se saca del token, se saca de la persona. Lo unico que
-            # hace falta del proveedor es a quien identifica y con que correo.
-            scope: openid,email
-            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
-        provider:
-          # Los extremos van escritos uno a uno, y no con issuer-uri, a proposito: con issuer-uri
-          # Spring descarga el documento de descubrimiento AL ARRANCAR, asi que la aplicacion no
-          # levantaria sin Keycloak en pie y los tests necesitarian uno. El resource server si usa
-          # issuer-uri porque ahi la descarga es perezosa.
-          coprop-web:
-            issuer-uri: http://localhost:8081/realms/coprop
-            authorization-uri: http://localhost:8081/realms/coprop/protocol/openid-connect/auth
-            token-uri: http://localhost:8081/realms/coprop/protocol/openid-connect/token
-            jwk-set-uri: http://localhost:8081/realms/coprop/protocol/openid-connect/certs
-            user-info-uri: http://localhost:8081/realms/coprop/protocol/openid-connect/userinfo
-            user-name-attribute: sub
   mail:
     host: localhost
     port: 1025
@@ -43,6 +20,13 @@ spring:
       mail.smtp.starttls.enable: false
 
 coprop:
+  oidc:
+    # El cliente confidencial del BFF. El navegador no lo ve nunca. Va aqui y no en
+    # spring.security.oauth2.client porque con issuer-uri Boot descarga el documento de
+    # descubrimiento al arrancar: ver ConfiguracionDeOidc.
+    emisor: http://localhost:8081/realms/coprop
+    cliente-id: coprop-web
+    cliente-secreto: coprop-local-secret-web
   storage:
     endpoint: http://localhost:9000
     bucket: coprop-local
