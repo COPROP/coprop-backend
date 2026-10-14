@@ -42,4 +42,13 @@ public interface Identities {
      */
     @Nullable
     AccountView signIn(String idpSubject, String email, boolean emailVerificado);
+
+    /**
+     * Si esa cuenta administra la plataforma (Seguridad 3).
+     *
+     * <p>Vive en su propia tabla y no en una membresia, porque no depende de ningun condominio, y
+     * no viaja en el token, porque los roles se resuelven en cada peticion: quitarselo a alguien
+     * tiene que surtir efecto ya, no cuando expire su token.
+     */
+    boolean esSuperadministrador(java.util.UUID accountId);
 }

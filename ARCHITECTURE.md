@@ -492,6 +492,59 @@ cualquier cosa menos 404—. **La segunda mitad no es decorativa**: sin ella, un
 daría 404 en las dos y la batería entera pasaría sin comprobar nada. Pasó: cazó un cuerpo de
 petición que usaba una cuenta inexistente.
 
+#### Quién puede qué
+
+Issue #16. La matriz de Seguridad §3 vive transcrita en `MatrizDePermisos`, en el módulo `identity`,
+y es el único sitio donde se decide. **Es código y no una tabla** —el issue pide "permisos derivados
+del rol, no almacenados por usuario"— porque una tabla se edita a mano: el día que alguien cambie
+una fila en producción, el análisis dirá una cosa y el sistema otra, y nadie se enterará hasta que
+alguien vea lo que no debía. Aquí un cambio pasa por un PR y rompe un test.
+
+Están las veintiuna filas, incluidas las de acciones cuyos endpoints son de M2 y M3. La decisión ya
+está tomada en el análisis, y escribirla entera permite probarla fila por fila hoy; lo que llega con
+cada funcionalidad es la anotación que exige el permiso, no la decisión.
+
+Cada celda tiene tres valores, no dos: `TODO` es el "Sí" de la matriz, `NINGUNO` el "—", y **`PROPIO`
+es el "Propias"** de las columnas del propietario y el inquilino. Esa palabra no es un sí más
+pequeño: es una condición sobre *cuál* recurso, y quien la resuelve es la cadena del issue #15.
+Tratarla como un sí abriría las unidades del vecino; como un no, dejaría al propietario sin su
+estado de cuenta.
+
+Los controladores preguntan con `@PreAuthorize("@autorizacion.puede(authentication, 'X')")`. El bean
+se referencia **por nombre**, que es una cadena: por eso un controlador de `condominium` lo usa sin
+importar nada de `identity` y sin romper la regla de dependencias. El precio es que el compilador no
+ve ese uso —un permiso mal escrito revienta en ejecución, no al compilar— y por eso cada endpoint
+protegido tiene su caso en `PermisosDeApiTests`.
+
+No hace falta consultar la base: los roles del condominio de la ruta ya los dejó el filtro del #17
+como autoridades de la petición. Solo se baja a la base en las rutas que no cuelgan de un condominio
+—el alta de una persona—, donde no hay autoridades de condominio que mirar.
+
+#### El superadministrador y el arranque de la plataforma
+
+`PLATFORM_ADMIN` es el único rol con alcance de plataforma, así que **no cabe en `membership`**, que
+existe para atar una cuenta a un condominio. Vive en su propia tabla (migración V7). Seguridad §4.2
+lo dejaba abierto —"puede ser un rol de realm"— y se eligió la tabla por tres razones: los roles se
+resuelven en cada petición, y el superadministrador es justo el que no conviene tardar en revocar; el
+token no lleva roles a propósito, y meter uno obligaría a devolverle el scope `roles` que el #12 le
+quitó; y el realm se reconstruye desde un archivo versionado, así que otorgarlo exigiría editarlo o
+llamar a la Admin API, mientras que aquí es un `INSERT`.
+
+**El primero lo abre la aplicación al arrancar**, si no hay ninguno y hay un correo en
+`coprop.superadministrador-inicial` —igual que Keycloak con `KC_BOOTSTRAP_ADMIN`—. No es una puerta
+trasera permanente: en cuanto existe uno, la propiedad deja de hacer nada. Y la cuenta nace **sin
+vincular**: la propiedad dice a quién se le abre la puerta, no entra por él.
+
+Con eso, una base limpia arranca sola. Comprobado de punta a punta: el superadministrador crea un
+condominio, **no puede operarlo** —§10.1: no opera condominios—, se concede a sí mismo la primera
+membresía `CONDO_ADMIN`, y a partir de ahí administra. Lo que sigue sin poder, ni siquiera entonces,
+es tocar lo que se cobra: la separación de funciones no tiene excepciones.
+
+El filtro del #17 deja pasar al superadministrador sin membresía, porque sin eso un condominio recién
+creado no tendría forma de tener a nadie dentro. Lo que puede hacer una vez dentro lo decide la
+matriz, y ahí casi todo le dice que no. **Las autoridades se suman, no se sustituyen**: quien
+administra la plataforma y además es miembro de un condominio tiene las dos cosas a la vez.
+
 #### Row-Level Security: evaluado, y por qué todavía no está
 
 §7.2 lo pide como segunda barrera, para que un filtro olvidado en una consulta no cruce

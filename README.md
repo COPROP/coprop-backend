@@ -76,11 +76,33 @@ Entrar no da acceso a nada por sí solo. Hace falta además una **cuenta de COPR
 —si no la hay, la API responde 403 con `SIN_CUENTA`— y una **membresía activa** en el condominio que
 se pida —si no la hay, 404—.
 
+### El primer superadministrador
+
+**La aplicación lo abre sola al arrancar.** Si no hay ninguno y `coprop.superadministrador-inicial`
+trae un correo —en el perfil `local`, `dev@coprop.local`—, crea la persona, la cuenta y el registro.
+Es el mismo arranque que hace Keycloak con `KC_BOOTSTRAP_ADMIN`.
+
+No es una puerta trasera: **solo actúa si la plataforma está vacía de superadministradores**, así que
+dejar la propiedad puesta no abre nada más, y quitarla no cierra lo ya abierto. La cuenta nace sin
+vincular: la propiedad dice a quién se le abre la puerta, no entra por él.
+
+Con eso, una base limpia arranca sin sembrar nada:
+
+```
+POST /api/v1/condominios                      → 201   crea el condominio
+POST /api/v1/condominios/{id}/membresias      → 201   se pone de primer administrador
+POST /api/v1/condominios/{id}/unidades        → 201   y ya administra
+```
+
+Entre medias verás algún **403 `SIN_PERMISO`, y es lo correcto**: el superadministrador no opera
+condominios (Seguridad §10.1). Antes de darse la membresía no puede crear unidades ni personas, y
+después sigue sin poder tocar lo que se cobra —eso es del `FINANCE_ADMIN`—. La matriz está en
+[ARCHITECTURE.md](ARCHITECTURE.md#quién-puede-qué).
+
 ### La semilla de desarrollo
 
-**Todavía no hay forma de crear la primera cuenta ni la primera membresía**: toda la API exige
-identidad, y la identidad exige una cuenta que alguien dio de alta. El arranque de la plataforma es
-el issue #16. Hasta entonces:
+Ya **no hace falta para empezar**: solo ahorra pasos y fija los identificadores con los que viene la
+colección de Postman.
 
 ```bash
 docker exec -i coprop-postgres psql -U coprop -d coprop < docker/postgres/semilla-de-desarrollo.sql
@@ -91,9 +113,12 @@ cuantas veces haga falta. Deja:
 
 | Qué | Identificador | Para qué |
 |---|---|---|
-| Cuenta `dev@coprop.local` | `2222…2222` | La del usuario del realm, lista para el primer login |
-| Condominio *Torre Sucre (desarrollo)* | `aaaa…0001` | Con la cuenta como **CONDO_ADMIN y FINANCE_ADMIN** |
+| Condominio *Torre Sucre (desarrollo)* | `aaaa…0001` | Con `dev@coprop.local` como **CONDO_ADMIN y FINANCE_ADMIN** |
 | Condominio *del vecino* | `bbbb…0002` | **Sin membresía**: todo lo suyo tiene que responder 404 |
+
+La cuenta ya no la crea la semilla —la abre el arranque—, así que la membresía se concede a quien
+tenga ese correo. Si la base está limpia y la aplicación no arrancó todavía, esa parte no hace nada:
+se corre la semilla otra vez después de levantarla.
 
 Los dos roles en la misma persona están permitidos y es una decisión explícita del análisis (§10.1):
 en condominios pequeños, una sola persona administra y maneja el dinero. La concentración queda en

@@ -19,13 +19,25 @@ class IdentitiesService implements Identities {
     private static final Logger log = LoggerFactory.getLogger(IdentitiesService.class);
 
     private final UserAccountRepository cuentas;
+    private final PlatformAdminRepository superadministradores;
     private final ApplicationEventPublisher eventos;
     private final Clock reloj;
 
-    IdentitiesService(UserAccountRepository cuentas, ApplicationEventPublisher eventos, Clock reloj) {
+    IdentitiesService(
+            UserAccountRepository cuentas,
+            PlatformAdminRepository superadministradores,
+            ApplicationEventPublisher eventos,
+            Clock reloj) {
         this.cuentas = cuentas;
+        this.superadministradores = superadministradores;
         this.eventos = eventos;
         this.reloj = reloj;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean esSuperadministrador(java.util.UUID accountId) {
+        return superadministradores.existsById(accountId);
     }
 
     @Override

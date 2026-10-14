@@ -26,7 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
-@WithMockUser(username = "emma")
+@WithMockUser(username = "emma", roles = "CONDO_ADMIN")
 class UnitControllerTests {
 
     @Autowired

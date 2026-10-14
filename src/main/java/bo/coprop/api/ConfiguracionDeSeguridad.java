@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler;
@@ -49,6 +50,10 @@ import tools.jackson.databind.ObjectMapper;
  * (issue <strong>#41</strong>), que es cuando existe {@code /webhooks/**} y hay una firma que
  * comprobar; crear la ruta antes seria abrir un agujero sin nada detras.
  */
+// Enciende @PreAuthorize. Las anotaciones viven en cada controlador, junto a la operacion que
+// protegen, y preguntan por el bean "autorizacion" del modulo identity: quien puede que lo decide
+// la matriz de Seguridad 3, en un solo sitio.
+@EnableMethodSecurity
 @Configuration(proxyBeanMethods = false)
 class ConfiguracionDeSeguridad {
 

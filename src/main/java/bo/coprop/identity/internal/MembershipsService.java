@@ -47,6 +47,15 @@ class MembershipsService implements Memberships {
         if (roles.isEmpty()) {
             throw new ReglaDeNegocioViolada("Una membresia necesita al menos un rol.");
         }
+        // PLATFORM_ADMIN es el unico rol con alcance de plataforma (Seguridad 3): no cuelga de
+        // ningun condominio y por eso vive en su propia tabla, no aqui. Concederlo como membresia
+        // daria un superadministrador "de un condominio", que no significa nada, y dejaria dos
+        // sitios donde mirar quien administra la plataforma. Es el acote que el issue #16 le debia
+        // al catalogo de roles.
+        if (roles.contains(MembershipRole.PLATFORM_ADMIN)) {
+            throw new ReglaDeNegocioViolada(
+                    "PLATFORM_ADMIN no se concede como membresia: su alcance es la plataforma, no un condominio.");
+        }
         // El segundo criterio de aceptacion del issue #11. Tambien lo impone un indice parcial;
         // comprobarlo aqui permite explicar que pasa.
         if (membresias.existsByCondominiumIdAndAccountIdAndValidToIsNull(condominiumId, accountId)) {

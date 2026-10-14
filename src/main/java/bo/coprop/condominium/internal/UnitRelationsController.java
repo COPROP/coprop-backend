@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -48,6 +49,7 @@ class UnitRelationsController {
         this.relaciones = relaciones;
     }
 
+    @PreAuthorize("@autorizacion.puede(authentication, 'GESTIONAR_UNIDADES')")
     @PostMapping("/propietarios")
     ResponseEntity<OwnershipView> registrarPropietario(
             @PathVariable UUID condominiumId,
@@ -65,6 +67,7 @@ class UnitRelationsController {
         return relaciones.ownersOf(condominiumId, unitId);
     }
 
+    @PreAuthorize("@autorizacion.puede(authentication, 'GESTIONAR_UNIDADES')")
     @PostMapping("/ocupantes")
     ResponseEntity<OccupancyView> registrarOcupante(
             @PathVariable UUID condominiumId,
@@ -76,6 +79,7 @@ class UnitRelationsController {
         return ResponseEntity.status(201).body(creada);
     }
 
+    @PreAuthorize("@autorizacion.puede(authentication, 'GESTIONAR_UNIDADES')")
     @PostMapping("/responsables-de-pago")
     ResponseEntity<BillingResponsibilityView> asignarResponsable(
             @PathVariable UUID condominiumId,

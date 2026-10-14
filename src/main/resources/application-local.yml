@@ -28,6 +28,9 @@ springdoc:
     enabled: true
 
 coprop:
+  # El mismo correo que el usuario del realm, para poder entrar y administrar desde el primer
+  # arranque sin sembrar nada a mano.
+  superadministrador-inicial: dev@coprop.local
   oidc:
     # El cliente confidencial del BFF. El navegador no lo ve nunca. Va aqui y no en
     # spring.security.oauth2.client porque con issuer-uri Boot descarga el documento de

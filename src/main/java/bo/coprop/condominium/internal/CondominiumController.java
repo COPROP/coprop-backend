@@ -11,6 +11,7 @@ import java.net.URI;
 import java.security.Principal;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -42,6 +43,8 @@ class CondominiumController {
         this.condominios = condominios;
     }
 
+    // Seguridad 3: crear condominios es del superadministrador, y solo de el.
+    @PreAuthorize("@autorizacion.puede(authentication, 'CREAR_CONDOMINIOS')")
     @PostMapping
     ResponseEntity<CondominiumView> alta(@Valid @RequestBody NewCondominium nuevo, Principal quien) {
         CondominiumView creado = condominios.register(nuevo, quien.getName());
@@ -54,6 +57,11 @@ class CondominiumController {
         return condominios.find(condominiumId);
     }
 
+    // El dia de emision y el de vencimiento deciden CUANDO se cobra, asi que son del que maneja
+    // el dinero. La matriz no tiene una fila con este nombre --lo mas cercano es "configurar
+    // conceptos, tarifas de agua y politica de mora"-- y se resuelve del lado de la separacion de
+    // funciones: quien administra personas y unidades no toca lo que se cobra.
+    @PreAuthorize("@autorizacion.puede(authentication, 'CONFIGURAR_COBROS')")
     @PutMapping("/{condominiumId}/configuracion")
     CondominiumView cambiarConfiguracion(
             @PathVariable UUID condominiumId, @Valid @RequestBody CambioDeConfiguracion cambio, Principal quien) {

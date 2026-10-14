@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -42,6 +43,11 @@ class MembershipController {
         this.membresias = membresias;
     }
 
+    // Dos reglas en una: poder invitar, y poder conceder ESOS roles. El administrador del
+    // condominio puede conceder cualquiera --incluidos los administrativos, decision explicita de
+    // Seguridad 10.1-- y el superadministrador solo los administrativos, que es como pone al primer
+    // administrador de un condominio recien creado.
+    @PreAuthorize("@autorizacion.puedeConceder(authentication, #nueva.roles())")
     @PostMapping
     ResponseEntity<MembershipView> alta(
             @PathVariable UUID condominiumId, @Valid @RequestBody NuevaMembresia nueva, Principal quien) {

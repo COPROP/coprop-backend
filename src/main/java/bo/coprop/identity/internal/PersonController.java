@@ -14,6 +14,7 @@ import java.security.Principal;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -52,6 +53,10 @@ class PersonController {
      * "ya existia" y un 201 para "la cree" le diria al administrador de un condominio que esa
      * persona esta en otro.
      */
+    // La persona es global, asi que la ruta no cuelga de un condominio y no hay autoridades de
+    // condominio que mirar. Basta con administrar alguno: quien da de alta a una persona lo hace
+    // para su edificio.
+    @PreAuthorize("@autorizacion.puedeEnAlgunCondominio(authentication, 'GESTIONAR_UNIDADES')")
     @PostMapping
     ResponseEntity<PersonView> alta(@Valid @RequestBody NewPerson nueva, Principal quien) {
         PersonView persona = personas.register(nueva, quien.getName());
@@ -65,6 +70,7 @@ class PersonController {
     }
 
     /** Abre la cuenta con la que la persona entrara. El envio de la invitacion es el issue #18. */
+    @PreAuthorize("@autorizacion.puedeEnAlgunCondominio(authentication, 'GESTIONAR_UNIDADES')")
     @PostMapping("/{personId}/cuenta")
     ResponseEntity<AccountView> abrirCuenta(
             @PathVariable UUID personId, @Valid @RequestBody AperturaDeCuenta apertura, Principal quien) {
