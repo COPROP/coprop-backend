@@ -48,10 +48,24 @@ class FiltroDeTrazas extends OncePerRequestFilter {
                 StringUtils.hasText(recibido) ? recibido : UUID.randomUUID().toString();
         MDC.put(ClavesDeLog.TRAZA, traza);
         respuesta.setHeader(CABECERA, traza);
+
+        // La IP va al MDC junto con la traza, y por el mismo motivo: es un hecho de la peticion. La
+        // bitacora del issue #21 la necesita --5.2 la pide en AuditLog-- y ningun evento de dominio
+        // puede llevarla dentro, porque un evento no sabe de HTTP. De aqui la lee el oyente de
+        // auditoria, al que el MDC llega por PropagacionDelMdc.
+        //
+        // No se mira X-Forwarded-For a mano: detras de un proxy lo resuelve
+        // server.forward-headers-strategy, y hacerlo aqui ademas significaria confiar en una
+        // cabecera que cualquiera puede escribir.
+        String desde = peticion.getRemoteAddr();
+        if (StringUtils.hasText(desde)) {
+            MDC.put(ClavesDeLog.IP, desde);
+        }
         try {
             cadena.doFilter(peticion, respuesta);
         } finally {
             MDC.remove(ClavesDeLog.TRAZA);
+            MDC.remove(ClavesDeLog.IP);
         }
     }
 }

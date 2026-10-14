@@ -63,7 +63,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
  * La cadena de autorizacion completa del issue #15: <strong>cada endpoint, contra cada rol</strong>.
  *
  * <p>Es el segundo criterio del issue --"existe un test que recorre la matriz de roles y
- * endpoints"-- y recorre las dos dimensiones de verdad: los veinticinco endpoints de la API por los
+ * endpoints"-- y recorre las dos dimensiones de verdad: los veintiseis endpoints de la API por los
  * siete roles de Seguridad 3, con el resultado esperado declarado celda a celda. Los cinco de
  * invitaciones entraron con el issue #18, y asi entra cada endpoint nuevo.
  *
@@ -420,6 +420,19 @@ class CadenaDeAutorizacionTests {
                         "{\"accountId\":\"" + cuentaSuelta + "\",\"roles\":[\"OWNER\"]}",
                         soloPara(CONDO_ADMIN)),
 
+                // La bitacora (issue #21). La matriz da CONSULTAR_AUDITORIA a los dos
+                // administradores del condominio y al superadministrador --que no opera, pero audita
+                // (Seguridad 10.1)--, y a nadie mas: dice que hizo cada vecino.
+                new Endpoint(
+                        "consultar la auditoria",
+                        HttpMethod.GET,
+                        enElCondominio + "/auditoria",
+                        null,
+                        tabla(Map.of(
+                                PLATFORM_ADMIN, PERMITIDO,
+                                CONDO_ADMIN, PERMITIDO,
+                                FINANCE_ADMIN, PERMITIDO))),
+
                 // Lo que se cobra es del que maneja el dinero, y de nadie mas.
                 new Endpoint(
                         "cambiar la configuracion",
@@ -534,7 +547,7 @@ class CadenaDeAutorizacionTests {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("celdas")
-    @DisplayName("la rejilla entera: los veinticinco endpoints por los siete roles")
+    @DisplayName("la rejilla entera: los veintiseis endpoints por los siete roles")
     void laRejillaEntera(Celda celda) throws Exception {
         var resultado =
                 mockMvc.perform(peticion(celda.endpoint(), quien(celda.rol()).autorizacion()));

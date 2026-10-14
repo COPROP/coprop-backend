@@ -133,6 +133,35 @@ frontend y **todavía no existe**: hasta que exista, el token se copia a mano de
 > El token vive **siete días** y sirve **una vez**. Un token usado, revocado o vencido responde `404
 > NO_ENCONTRADO`, igual que uno inventado: los cuatro casos tienen que ser indistinguibles.
 
+### Ver la bitácora
+
+Todo lo sensible que pasa queda registrado: conceder una membresía o el rol de plataforma, emitir,
+reenviar, aceptar o revocar una invitación, cambiar la configuración y el primer acceso de una
+cuenta. Se consulta así, con `CONSULTAR_AUDITORIA` —los dos administradores del condominio—:
+
+```
+GET /api/v1/condominios/{id}/auditoria
+GET /api/v1/condominios/{id}/auditoria?entidad=invitacion&desde=2026-10-01T00:00:00Z
+GET /api/v1/condominios/{id}/auditoria?actor={accountId}&pagina=0&tamano=20
+```
+
+Los tres filtros se combinan y todos son opcionales. `desde` es inclusivo y `hasta` exclusivo, así
+que dos rangos contiguos no devuelven la misma fila dos veces. Cada fila trae el actor, la acción,
+sobre qué, los valores de antes y de después, la IP y el `traceId` de la petición —con ese `traceId`
+se encuentran sus líneas de log—.
+
+**No se puede modificar ni borrar nada.** Lo impide un disparador en la base, no el código:
+
+```bash
+docker exec -i coprop-postgres psql -U coprop -d coprop \
+  -c "update audit_log set actor = 'otro' where true;"
+# ERROR:  audit_log es append-only: no se puede update una fila de la bitacora.
+```
+
+Lo único que quita filas es la purga del año, que corre sola a las 3 de la mañana. Las acciones de
+plataforma —el rol de superadministrador, el primer acceso de una cuenta— van sin condominio y **no
+salen en esta consulta**: su propia consulta llega con el issue #20.
+
 ### La semilla de desarrollo
 
 Ya **no hace falta para empezar**: solo ahorra pasos y fija los identificadores con los que viene la
@@ -170,7 +199,7 @@ es tuyo tiene que responder exactamente igual que uno inventado.
 
 Hay una colección lista para importar en
 [`docs/postman/COPROP.postman_collection.json`](docs/postman/COPROP.postman_collection.json): trae
-las 31 peticiones con cuerpos de ejemplo, la autenticación ya configurada y dos que **tienen que
+las 32 peticiones con cuerpos de ejemplo, la autenticación ya configurada y dos que **tienen que
 fallar**, para ver el aislamiento funcionando. Las altas guardan solas los identificadores que
 devuelven, así que se pueden encadenar de arriba abajo sin copiar nada.
 

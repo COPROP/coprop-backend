@@ -2,7 +2,7 @@
   "info": {
     "name": "COPROP — API v1",
     "_postman_id": "9c6f1b6a-0f2e-4f1f-9a3e-coprop000001",
-    "description": "La API de COPROP, servida en http://localhost:8080 con `./gradlew bootRun`.\n\n## Cómo autenticarse\n\nLa colección entera usa **Authorization Code con PKCE** contra el cliente `coprop-movil`.\nLa web entra por el BFF con cookie, que no se puede recorrer desde Postman porque hay un\nformulario de login de por medio.\n\nAntes de la primera vez, que Keycloak acepte la vuelta de Postman:\n\n```bash\nexport COPROP_MOVIL_REDIRECT_URI=https://oauth.pstmn.io/v1/callback\ndocker compose up -d --force-recreate keycloak\n```\n\nDespués, en esta colección: *Authorization* → **Get New Access Token**, y se entra con\n`dev@coprop.local` / `dev-local-coprop`. **El token dura 5 minutos** (Seguridad §5.3):\ncuando empiece a responder 401, se pide otro.\n\n## Antes: la semilla\n\nLa API entera exige identidad, y la identidad exige una cuenta que alguien dio de alta. Hasta\nque el issue #16 traiga el superadministrador, eso se siembra:\n\n```bash\ndocker exec -i coprop-postgres psql -U coprop -d coprop < docker/postgres/semilla-de-desarrollo.sql\n```\n\nLa cuenta `dev@coprop.local` ya existe sin sembrar nada: la abre la aplicacion al arrancar,\ny un segundo condominio donde NO es miembro. Las variables de esta colección ya apuntan a los\ncondominio, y deja un segundo donde NO es miembro. Se puede repetir, y conviene hacerlo cada\ncontenedor de Keycloak: ahí la cuenta nace con un `sub` nuevo, y como una cuenta ya vinculada\nno se revincula, el login empieza a responder `SIN_CUENTA`. La semilla suelta ese vínculo.\n\n## Lo que sorprende la primera vez\n\n1. **Autenticarse no alcanza para ver un condominio.** Hace falta una membresía activa en él,\n   y sin ella todo responde **404** —nunca 403: distinguirlos diría qué condominios existen—.\n2. **Se puede crear un condominio y después no verlo**, por lo mismo: el alta no cuelga de\n   ningún condominio, pero consultarlo sí. Por eso esa petición no pisa la variable.\n\n## Variables\n\nLos dos condominios vienen puestos con los identificadores de la semilla. Las altas de bloque,\ncuenta y membresía **guardan solas** el id que devuelven, así que se pueden encadenar de\nencadenar de arriba abajo sin copiar nada a mano.\n\nLos errores siguen el RFC 9457: se ramifica por el campo `codigo`, nunca por `title` ni por\n`detail`.",
+    "description": "La API de COPROP, servida en http://localhost:8080 con `./gradlew bootRun`.\n\n## Cómo autenticarse\n\nLa colección entera usa **Authorization Code con PKCE** contra el cliente `coprop-movil`.\nLa web entra por el BFF con cookie, que no se puede recorrer desde Postman porque hay un\nformulario de login de por medio.\n\nAntes de la primera vez, que Keycloak acepte la vuelta de Postman:\n\n```bash\nexport COPROP_MOVIL_REDIRECT_URI=https://oauth.pstmn.io/v1/callback\ndocker compose up -d --force-recreate keycloak\n```\n\nDespués, en esta colección: *Authorization* → **Get New Access Token**, y se entra con\n`dev@coprop.local` / `dev-local-coprop`. **El token dura 5 minutos** (Seguridad §5.3):\ncuando empiece a responder 401, se pide otro.\n\n## Antes: la semilla\n\n**La cuenta `dev@coprop.local` ya existe sin sembrar nada**: la abre la aplicación al arrancar,\nsi no hay ningún superadministrador. La semilla ya no hace falta para empezar; lo que hace es\nahorrar pasos y fijar los identificadores a los que apuntan las variables de esta colección:\n\n```bash\ndocker exec -i coprop-postgres psql -U coprop -d coprop < docker/postgres/semilla-de-desarrollo.sql\n```\n\nDeja esa cuenta como **CONDO_ADMIN y FINANCE_ADMIN** del condominio *Torre Sucre (desarrollo)*,\ny un segundo condominio donde **NO** es miembro, que es el escenario real de fuga.\n\nSe puede repetir, y conviene hacerlo cada vez que se recree el contenedor de Keycloak: ahí la\ncuenta nace con un `sub` nuevo, y como una cuenta ya vinculada no se revincula, el login empieza\na responder `SIN_CUENTA`. La semilla suelta ese vínculo.\n\n## Lo que sorprende la primera vez\n\n1. **Autenticarse no alcanza para ver un condominio.** Hace falta una membresía activa en él,\n   y sin ella todo responde **404** —nunca 403: distinguirlos diría qué condominios existen—.\n2. **Se puede crear un condominio y después no verlo**, por lo mismo: el alta no cuelga de\n   ningún condominio, pero consultarlo sí. Por eso esa petición no pisa la variable.\n\n## Variables\n\nLos dos condominios vienen puestos con los identificadores de la semilla. Las altas de bloque,\nunidad, persona, cuenta, membresía e invitación **guardan solas** el id que devuelven, así que\nlas peticiones se pueden encadenar de arriba abajo sin copiar nada a mano.\n\nLa única excepción es el **token de una invitación**: no sale en ninguna respuesta —en la base\nsolo hay su hash— y se copia del correo, en Mailpit (http://localhost:8025), a la variable\n`invitationToken`.\n\nLos errores siguen el RFC 9457: se ramifica por el campo `codigo`, nunca por `title` ni por\n`detail`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -1069,7 +1069,65 @@
       ]
     },
     {
-      "name": "7. El aislamiento, para verlo funcionar",
+      "name": "7. Auditoría",
+      "description": "La bitácora del issue #21: **append-only de verdad**. Un `UPDATE` o un `DELETE` sobre `audit_log` revienta en la base, no en el código.\n\nLas acciones de plataforma —el rol de superadministrador, el primer acceso de una cuenta— van **sin condominio** y no salen aquí. Su consulta llega con el issue #20.",
+      "item": [
+        {
+          "name": "Consultar la bitácora",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/auditoria?tamano=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "auditoria"
+              ],
+              "query": [
+                {
+                  "key": "tamano",
+                  "value": "20"
+                },
+                {
+                  "key": "pagina",
+                  "value": "0",
+                  "disabled": true
+                },
+                {
+                  "key": "actor",
+                  "value": "{{accountId}}",
+                  "disabled": true
+                },
+                {
+                  "key": "entidad",
+                  "value": "invitacion",
+                  "disabled": true
+                },
+                {
+                  "key": "desde",
+                  "value": "2026-10-01T00:00:00Z",
+                  "disabled": true
+                },
+                {
+                  "key": "hasta",
+                  "value": "2026-11-01T00:00:00Z",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Pide `CONSULTAR_AUDITORIA`: los dos administradores del condominio y el superadministrador, que no opera pero audita (Seguridad §10.1).\n\nLos cuatro filtros de abajo vienen **desactivados**: actívalos para probarlos. Se combinan, y `entidad` toma `membresia`, `invitacion`, `configuracion` o `cuenta`.\n\n`desde` es inclusivo y `hasta` exclusivo, así que dos rangos contiguos no devuelven la misma fila dos veces. Las fechas van en ISO-8601 con zona, igual que las que devuelve la respuesta: lo que se lee en una fila se puede pegar tal cual como filtro.\n\nCada fila trae el actor, la acción, sobre qué, los valores de antes y de después, la IP y el `traceId` de la petición que la originó. Con ese `traceId` se encuentran sus líneas de log.\n\n**Paginada siempre**: es el primer endpoint paginado del sistema, y por él se movió el sobre `Pagina` de `api` a `shared`. El tope de `tamano` es 200."
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. El aislamiento, para verlo funcionar",
       "description": "Dos peticiones que **tienen que fallar**. Si alguna respondiera otra cosa, el aislamiento del issue #17 estaría roto.",
       "item": [
         {
@@ -1118,7 +1176,7 @@
       ]
     },
     {
-      "name": "8. Plataforma",
+      "name": "9. Plataforma",
       "item": [
         {
           "name": "Especificación OpenAPI",

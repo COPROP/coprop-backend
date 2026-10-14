@@ -15,13 +15,13 @@ no declaró, el build falla.
 | Módulo | Responsabilidad | Depende de |
 |---|---|---|
 | `shared` | Tipos comunes: identificadores, dinero, periodo, errores de dominio. Módulo abierto. | — |
-| `api` | Contrato HTTP: problem+json, paginación, prefijo de versión, seguridad, OpenAPI. | `shared` |
-| `identity` | Personas, cuentas de acceso, membresías por condominio, roles, invitaciones. | `shared` |
+| `api` | Contrato HTTP: problem+json, prefijo de versión, seguridad, OpenAPI. | `shared`, `identity`, `condominium` |
+| `identity` | Personas, cuentas de acceso, membresías por condominio, roles, invitaciones. | `shared`, `notifications` |
 | `condominium` | Condominios, su configuración, sus unidades, y las tres relaciones de la unidad con las personas: titularidad, ocupación y responsabilidad de pago. | `shared` |
 | `billing` | `PaymentObligation` y su máquina de estados; expensas, agua, mora. | `shared`, `condominium`, `identity` |
 | `payments` | Intents, QR, inbox de eventos, registro y aplicación de pagos, conciliación. | `shared`, `billing`, `condominium` |
 | `notifications` | Envío de avisos. Solo correo en el MVP. | `shared` |
-| `audit` | Bitácora inmutable, retención de un año. | `shared` |
+| `audit` | Bitácora inmutable append-only, retención de un año. Escucha `EventoAuditable`. | `shared` |
 
 ## Reglas de dependencia
 
@@ -49,8 +49,19 @@ no declaró, el build falla.
    módulo: el resto de la aplicación solo ve el puerto `PaymentProvider` y su
    `ProviderCapabilities`. No hay un solo `if (banco == X)` fuera de ahí (§10.1).
 
-4. **`notifications` y `audit` no dependen de nadie salvo `shared`.** Solo reaccionan a eventos.
-   Añadir un evento auditable o notificable no obliga a tocar a quien lo origina.
+4. **`audit` no depende de nadie salvo `shared`.** Reacciona a eventos, y añadir uno auditable no
+   obliga a tocarlo.
+
+   Eso no sale gratis: **para escuchar un evento hace falta su tipo**, así que escuchar
+   `MembershipGranted` obligaría a depender de `identity`, y después de `condominium`, y de cada
+   módulo que naciera. La salida, desde el **#21**, es que lo que se escucha sea una interfaz de
+   `shared` —`EventoAuditable`—: los dos lados miran a `shared` y ninguno al otro. Con eso,
+   **implementar la interfaz *es* la declaración de que un evento es auditable**; no hay lista en
+   ninguna parte.
+
+   `notifications` empezó igual y **ya no**: desde el #18 publica el puerto `Correo` y `identity`
+   lo declara, porque el correo de una invitación lleva su token y los eventos se persisten. El
+   porqué está en su `package-info` y en *Cómo entra alguien*.
 
 5. **Las transacciones no cruzan módulos.** Un caso de uso que toca dos módulos lo hace por
    evento, no abriendo una transacción compartida. La excepción deliberada es la aplicación de un
@@ -153,9 +164,19 @@ o fragmentos de consulta. Al log sí va entero, con su `traceId`.
 
 ### Paginación
 
-`?page=0&size=20&sort=campo,desc`, con el sobre `Pagina`: `contenido`, `pagina`, `tamano`,
-`total`, `totalPaginas`. **No se serializa el `Page` de Spring Data**: su formato no es contrato
-estable y cambia entre versiones. El tope de `size` está en 100.
+El sobre `Pagina`: `contenido`, `pagina`, `tamano`, `total`, `totalPaginas`. **No se serializa el
+`Page` de Spring Data**: su formato no es contrato estable y cambia entre versiones.
+
+El primer endpoint paginado es la consulta de auditoría (#21), y toma `?pagina=0&tamano=50` —no
+`page`/`size`—, por coherencia con el sobre que devuelve: lo que se lee en la respuesta es lo que se
+escribe en la petición. Su tope de `tamano` está en 200, y existe porque sin él un `tamano=100000`
+convierte la consulta en el listado completo que la paginación existe para evitar.
+
+**`Pagina` vive en `shared`, no en `api`**, desde ese mismo issue. Nació aquí con el contrato del #5,
+cuando ningún endpoint paginaba; el primero que lo hace tiene su controlador en `audit`, y un módulo
+de dominio no puede depender de `api` (regla 6). Es el mismo traslado que ya hizo
+`@ControladorDeApi`, por el mismo motivo, y estaba anotado como deuda desde el #10 —que por esto no
+trajo listado de unidades—.
 
 ### Dinero y fechas
 
@@ -335,12 +356,22 @@ salía en los logs, o las búsquedas dejan de funcionar sin que nadie se entere.
 
 | Clave | Quién la pone |
 |---|---|
-| `traceId` | `FiltroDeTrazas`, ya |
-| `condominiumId` | el filtro de Seguridad §7.2, con el **#17** |
-| `actorId` | la cadena de seguridad, con el **#13** |
+| `traceId` | `FiltroDeTrazas` (#6) |
+| `actorId` | `FiltroDeIdentidad` (#13) |
+| `condominiumId` | `FiltroDeCondominio` (#17) |
+| `ip` | `FiltroDeTrazas` (#21) |
 
-Las dos últimas todavía no las rellena nadie: no hay condominios ni identidad hasta M1. El formato
-estructurado vuelca el MDC entero, así que aparecerán en los logs sin tocar nada más.
+Las cuatro están rellenas. El formato estructurado vuelca el MDC entero, así que aparecen en los
+logs sin tocar nada más.
+
+**La `ip` no está solo para los logs**: el análisis §5.2 la pide en `AuditLog`, y ningún evento de
+dominio puede llevarla dentro —un evento no sabe de HTTP—. El MDC es el único sitio donde el
+contexto de la petición está disponible para quien escribe la bitácora, y de eso salió una decisión
+de diseño que está más abajo, en *La bitácora*.
+
+No se lee `X-Forwarded-For` a mano: detrás de un proxy lo resuelve
+`server.forward-headers-strategy`, que en producción está puesto, y hacerlo aquí además significaría
+confiar en una cabecera que cualquiera puede escribir.
 
 ### Formato
 
@@ -755,6 +786,97 @@ Y una trampa del esquema: **`token_hash` es `VARCHAR(64)` y no `CHAR(64)`** aunq
 `ddl-auto: validate` espera `VARCHAR` para un `String`, de modo que con `CHAR` el arranque falla. Se
 descubrió así.
 
+#### La bitácora
+
+Issue #21. `audit_log` guarda lo que §5.2 le pide —actor, acción, entidad, antes, después, fecha e
+IP— más el `trace_id` que resolvió §13.2, para poder cruzar una fila con la petición que la originó
+en los logs. Retención de un año (§10.1).
+
+**Nadie escribe en la bitácora.** `AuditTrail` no tiene operación de escritura: las filas aparecen
+porque un módulo publicó un evento que implementa `EventoAuditable`. Un método para registrar a mano
+sería la primera forma de que una acción quedara auditada a medias —o dos veces— según se acordara
+quien la escribió.
+
+Hoy la implementan siete eventos, que son los que el issue nombra de lo que existe: conceder una
+membresía, conceder el rol de plataforma, las tres de invitaciones, cambiar la configuración y la
+activación de una cuenta. Las de dinero —emisión, pagos, devoluciones, credenciales del proveedor—
+llegan con M2 y M3, y entrarán implementando la interfaz.
+
+**Un reenvío es una acción distinta de una emisión**, y una revocación por reenvío lo es de una
+revocación a mano. No son una bandera dentro del JSON: quien lee la bitácora busca "a quién se
+invitó" o "a quién hubo que insistirle", y eso con una bandera no se filtra.
+
+##### Append-only de verdad
+
+El issue lo pide de dos formas —"sin `UPDATE` ni `DELETE` concedidos a la aplicación" y "un intento
+de modificar un registro falla a nivel de base de datos"— y **la primera no se puede cumplir hoy**:
+la aplicación se conecta como `coprop`, que la imagen de PostgreSQL crea como **superusuario**, y un
+superusuario se salta cualquier `REVOKE`. Es exactamente lo que se descubrió evaluando RLS, más
+abajo.
+
+Lo que sí muerde a un superusuario es un **disparador**, y es lo que lo hace cumplir: un `UPDATE` o
+un `DELETE` sobre `audit_log` revienta, venga de la aplicación, de un `psql` o de una migración
+escrita por descuido. El `REVOKE` queda escrito y comentado en la V9 para el día que exista el rol
+sin superusuario que RLS también necesita; entonces son dos barreras, y la de privilegios es la que
+no se puede desactivar desde una sesión normal.
+
+La purga del año **no es un `DELETE`**, porque el disparador los rechaza todos: es la función
+`audit_log_purgar`, el único camino autorizado, que apaga el disparador dentro de su propia
+transacción y lo vuelve a dejar puesto. Que lo deje puesto tiene su propio test: si lo dejara
+apagado, la bitácora quedaría modificable desde la primera purga y nadie lo notaría.
+
+##### Después del commit, en su propia transacción, y en el mismo hilo
+
+Las tres cosas importan, y cada una descarta una alternativa:
+
+- *Después del commit*, no dentro de la transacción de quien publicó: un `@EventListener` normal
+  correría dentro de ella, y eso es una transacción compartida entre dos módulos, que la regla 5
+  prohíbe para que un módulo no pueda tumbar la operación de otro.
+- *En su propia transacción* (`REQUIRES_NEW`), porque después del commit ya no hay ninguna abierta y
+  un `save` sin transacción no escribe nada.
+- *En el mismo hilo*, y **no con `@ApplicationModuleListener`**, que es la forma idiomática de Spring
+  Modulith y fue la primera que se escribió. Es asíncrona, y con eso **se pierden la IP y la traza**:
+  viven en el MDC, que es un `ThreadLocal`. Hacerlas viajar exige un `TaskDecorator` que copie el
+  MDC, y **Boot 4 no aplica un bean de `TaskDecorator` al ejecutor que usan los `@Async`** —se
+  comprobó con un log dentro del decorador: no se llama nunca, y las dos columnas quedaban nulas—. Lo
+  que se ganaba a cambio, que la publicación quede registrada en la tabla de eventos de la V2, no
+  reentrega nada por sí solo. Y de paso, síncrono, un test lee la fila justo después de la acción en
+  vez de sondear.
+
+Un fallo al escribir la bitácora **no se relanza**: la acción ya se confirmó y no hay nada que
+deshacer, así que lo único útil es dejarlo gritado en el log con todo lo que hace falta para
+reconstruir la fila a mano.
+
+##### La consulta
+
+`GET /api/v1/condominios/{id}/auditoria`, con `CONSULTAR_AUDITORIA` —los dos administradores del
+condominio y el superadministrador, que no opera pero audita (§10.1)—, y los tres filtros del
+criterio: actor, entidad y rango de fechas, combinables y todos opcionales. `desde` es inclusivo y
+`hasta` exclusivo, para que dos rangos contiguos no devuelvan la misma fila dos veces.
+
+**Siempre acotada a un condominio.** Las acciones de plataforma —conceder el superadministrador, el
+primer login de una cuenta— van con `condominium_id` nulo y no salen aquí; su consulta llega con el
+#20, que es el que trae la operación de concederlo. Sin eso, el administrador de un edificio vería
+acciones de la plataforma entera.
+
+Y dos cosas de la consulta que costaron una corrida de tests:
+
+- **Los filtros opcionales de texto van con `coalesce`, no con `:x is null or ...`**, que es lo
+  primero que se escribe y no funciona: en `? is null` PostgreSQL no tiene de dónde deducir el tipo
+  del parámetro y responde *could not determine data type of parameter*. Dentro de un `coalesce` el
+  parámetro está al lado de una columna tipada, así que lo deduce de ella; y comparar una columna
+  consigo misma cuando el filtro es nulo es cierto siempre, que es justo "no filtrar".
+- Las **fechas no llegan nulas**: el servicio las sustituye por los extremos del tiempo, porque un
+  `<` no se puede escribir con ese truco —comparar una columna consigo misma con `<` es falso
+  siempre, no cierto—.
+
+Los valores de `antes` y `despues` se guardan como **texto con JSON dentro, no como `jsonb`**. Lo que
+se guarda es una foto opaca —valores en cadena, para que la bitácora siga siendo legible dentro de un
+año cuando la forma de la entidad ya no sea la de hoy— y nada la consulta por dentro. `jsonb`
+prometería una consultabilidad en la que no conviene apoyarse, y además obligaría a que Hibernate
+mapeara un `jsonb`: su mapeador de JSON busca el `ObjectMapper` de Jackson 2 y aquí manda Jackson 3,
+que vive en otro paquete.
+
 #### Row-Level Security: evaluado, y por qué todavía no está
 
 §7.2 lo pide como segunda barrera, para que un filtro olvidado en una consulta no cruce
@@ -792,6 +914,12 @@ Así es **imposible** que una fila declare un condominio distinto del de su unid
 depender de que el servicio lo compruebe —que es el defecto que corrigió el PR #72 en cuatro
 sitios—. Lo estableció la V5 para `unit_ownership`, `unit_occupancy`, `billing_responsibility` y
 `floor`; las tablas de M2 y M3 que cuelguen de una unidad siguen el mismo patrón.
+
+**`audit_log` es la excepción declarada, y en dos sitios.** Su `condominium_id` no lleva clave
+foránea y su `actor` es texto en vez de apuntar a `user_account`: la bitácora tiene que sobrevivir a
+la baja de lo que audita —su retención es de un año— y una FK la volvería imborrable o dejaría la
+fila huérfana. Además hay actores que no son cuentas, como el arranque de la plataforma. Es una
+tabla de registro, no de negocio: nadie navega desde ella, y lo que necesita es no poder perderse.
 
 ## Esquema de base de datos
 

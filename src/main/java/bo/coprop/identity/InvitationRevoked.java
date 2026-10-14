@@ -1,5 +1,6 @@
 package bo.coprop.identity;
 
+import bo.coprop.shared.EventoAuditable;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -13,4 +14,37 @@ import java.util.UUID;
  * @param porReenvio si la revoco un reenvio en vez de una decision de revocarla
  */
 public record InvitationRevoked(
-        UUID condominiumId, UUID invitationId, UUID accountId, boolean porReenvio, String actor, Instant occurredAt) {}
+        UUID condominiumId, UUID invitationId, UUID accountId, boolean porReenvio, String actor, Instant occurredAt)
+        implements EventoAuditable {
+
+    /**
+     * Revocar a mano y revocar por un reenvio son dos acciones, por lo mismo que en
+     * {@link InvitationIssued}: quien lee la bitacora busca una decision de cortar el acceso, y las
+     * revocaciones de reenvio la enterrarian.
+     */
+    @Override
+    public String accion() {
+        return porReenvio ? "INVITACION_REVOCADA_POR_REENVIO" : "INVITACION_REVOCADA";
+    }
+
+    @Override
+    public String entidad() {
+        return "invitacion";
+    }
+
+    @Override
+    public UUID entidadId() {
+        return invitationId;
+    }
+
+    /**
+     * Sin valores de despues: lo que cuenta es la accion y su fecha.
+     *
+     * <p>Un {@code revokedAt} aqui seria repetir {@code occurredAt}, que es la columna por la que la
+     * bitacora se ordena y se filtra.
+     */
+    @Override
+    public java.util.Map<String, String> antes() {
+        return java.util.Map.of("accountId", accountId.toString());
+    }
+}

@@ -1,5 +1,6 @@
 package bo.coprop.identity;
 
+import bo.coprop.shared.EventoAuditable;
 import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
@@ -28,4 +29,38 @@ public record InvitationIssued(
         Instant expiresAt,
         boolean reenviada,
         String actor,
-        Instant occurredAt) {}
+        Instant occurredAt)
+        implements EventoAuditable {
+
+    /**
+     * Un reenvio y una primera emision son <strong>dos acciones distintas</strong> en la bitacora,
+     * no la misma con una bandera. Quien la lee busca "a quien se invito" o "a quien hubo que
+     * insistirle", y eso con una bandera dentro del JSON no se filtra.
+     */
+    @Override
+    public String accion() {
+        return reenviada ? "INVITACION_REENVIADA" : "INVITACION_EMITIDA";
+    }
+
+    @Override
+    public String entidad() {
+        return "invitacion";
+    }
+
+    @Override
+    public UUID entidadId() {
+        return invitationId;
+    }
+
+    /** Sin el token ni su hash: el evento no los lleva, y la bitacora tampoco tiene por que. */
+    @Override
+    public java.util.Map<String, String> despues() {
+        return java.util.Map.of(
+                "accountId",
+                accountId.toString(),
+                "roles",
+                roles.stream().map(Enum::name).sorted().collect(java.util.stream.Collectors.joining(",")),
+                "expiresAt",
+                expiresAt.toString());
+    }
+}
