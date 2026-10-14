@@ -99,6 +99,40 @@ condominios (Seguridad §10.1). Antes de darse la membresía no puede crear unid
 después sigue sin poder tocar lo que se cobra —eso es del `FINANCE_ADMIN`—. La matriz está en
 [ARCHITECTURE.md](ARCHITECTURE.md#quién-puede-qué).
 
+### Invitar a alguien, y ver el correo
+
+**El acceso a un condominio nace siempre de una invitación**: no hay registro abierto (Seguridad §6).
+El orden es el de §6.1 —primero la persona y su relación con la unidad, después la invitación—:
+
+```
+POST /api/v1/personas                                 → 201   la persona
+POST /api/v1/personas/{id}/cuenta                     → 201   su cuenta, en estado INVITADO
+POST /api/v1/condominios/{id}/invitaciones            → 201   {"accountId": "...", "roles": ["OWNER"]}
+```
+
+El correo sale al Mailpit del Compose. **Se lee en http://localhost:8025**, y de ahí se copia el
+token del enlace: la respuesta del alta **no lo trae**, y en la base solo hay su SHA-256. Es
+deliberado —quien pudiera leerlo entraría como el invitado— así que no hay forma de recuperarlo: si
+se pierde, se reenvía.
+
+Con ese token, las dos llamadas que hace la persona invitada:
+
+```
+POST /api/v1/invitaciones/apertura    {"token": "..."}   sin autenticar; devuelve credencialEnviada
+POST /api/v1/invitaciones/aceptacion  {"token": "..."}   ya con sesión; concede la membresía
+```
+
+La apertura crea el usuario en Keycloak y le pide a Keycloak que le mande el correo para poner su
+contraseña —ese segundo correo también llega a Mailpit—, porque el realm tiene el registro cerrado y
+COPROP no toca contraseñas. Si la cuenta ya había entrado antes, `credencialEnviada` viene en falso y
+solo le toca iniciar sesión.
+
+El enlace del correo apunta a `http://localhost:4200/invitaciones/{token}`, que es una página del
+frontend y **todavía no existe**: hasta que exista, el token se copia a mano del correo.
+
+> El token vive **siete días** y sirve **una vez**. Un token usado, revocado o vencido responde `404
+> NO_ENCONTRADO`, igual que uno inventado: los cuatro casos tienen que ser indistinguibles.
+
 ### La semilla de desarrollo
 
 Ya **no hace falta para empezar**: solo ahorra pasos y fija los identificadores con los que viene la
@@ -136,9 +170,12 @@ es tuyo tiene que responder exactamente igual que uno inventado.
 
 Hay una colección lista para importar en
 [`docs/postman/COPROP.postman_collection.json`](docs/postman/COPROP.postman_collection.json): trae
-las 24 peticiones con cuerpos de ejemplo, la autenticación ya configurada y dos que **tienen que
+las 31 peticiones con cuerpos de ejemplo, la autenticación ya configurada y dos que **tienen que
 fallar**, para ver el aislamiento funcionando. Las altas guardan solas los identificadores que
 devuelven, así que se pueden encadenar de arriba abajo sin copiar nada.
+
+La única que hay que copiar a mano es el **token de una invitación**: no sale en ninguna respuesta
+—en la base solo hay su hash— y se saca del correo, en Mailpit, a la variable `invitationToken`.
 
 Empieza por **`GET /api/v1/me`**, que es por donde empieza también un cliente de verdad: dice quién
 eres, a qué condominios entras y con qué rol en cada uno. Con la semilla corrida sale un condominio;

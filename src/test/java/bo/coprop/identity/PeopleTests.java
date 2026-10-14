@@ -19,17 +19,25 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.modulith.test.ApplicationModuleTest;
+import org.springframework.modulith.test.ApplicationModuleTest.BootstrapMode;
 import org.springframework.modulith.test.PublishedEvents;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Personas y cuentas: la primera mitad del issue #11.
  *
- * <p>Arranca solo el modulo {@code identity} y sus dependencias declaradas. Si alguien le mete una
- * dependencia que no declaro, este test deja de arrancar.
+ * <p>Arranca el modulo {@code identity} y <strong>sus dependencias declaradas</strong>, que desde el
+ * issue #18 son {@code shared} y {@code notifications}: la emision de una invitacion manda el correo
+ * por el puerto {@code Correo}, porque el token no puede viajar en un evento.
+ *
+ * <p>El modo era {@code STANDALONE} --el de por defecto-- mientras {@code identity} no dependia de
+ * nadie, y entonces decia algo util: que el modulo arrancaba solo. Ya no es cierto, y dejarlo asi
+ * solo obligaria a poner un doble de {@code Correo} en cada test de este modulo. Que nadie meta una
+ * dependencia <em>sin declararla</em> lo sigue comprobando {@code ModularityTests}, que es su
+ * trabajo.
  */
 @Import({TestcontainersConfiguration.class, PeopleTests.RelojFijo.class})
-@ApplicationModuleTest
+@ApplicationModuleTest(BootstrapMode.DIRECT_DEPENDENCIES)
 @Transactional
 class PeopleTests {
 

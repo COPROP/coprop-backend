@@ -105,6 +105,16 @@
       "key": "blockId",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "invitationId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "invitationToken",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -822,7 +832,244 @@
       ]
     },
     {
-      "name": "6. El aislamiento, para verlo funcionar",
+      "name": "6. Invitaciones",
+      "description": "**No hay registro abierto: solo se entra por invitación** (Seguridad §6). El orden es el de §6.1: primero la persona y su relación con la unidad, después la invitación.\n\n**El token no sale en ninguna respuesta** y en la base solo hay su SHA-256: se copia del correo, en Mailpit (http://localhost:8025) y se pega en la variable `invitationToken`. Si se pierde, se reenvía.\n\nVive siete días y sirve una vez. Usado, revocado o vencido responde `404 NO_ENCONTRADO`, igual que uno inventado.",
+      "item": [
+        {
+          "name": "Emitir una invitación",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/invitaciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "invitaciones"
+              ]
+            },
+            "description": "Apunta a una **cuenta que ya existe**, no a un correo suelto: la persona y su cuenta se dan de alta antes, con las peticiones de la carpeta 1.\n\nLas **unidades no viajan aquí** aunque el ticket las nombre: son del módulo `condominium` y se registran con la carpeta 4, antes de invitar.\n\nPide poder conceder esos roles, la misma regla que el alta directa de membresía: es lo mismo diferido. `PLATFORM_ADMIN` no se invita.\n\nManda el correo al emitir. **Mira Mailpit**: ahí está el enlace con el token.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": \"{{accountId}}\",\n  \"roles\": [\n    \"OWNER\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const cuerpo = pm.response.json();",
+                  "    if (cuerpo.id) {",
+                  "        pm.collectionVariables.set('invitationId', cuerpo.id);",
+                  "        console.log('invitationId =', cuerpo.id);",
+                  "    }",
+                  "    // El token NO viene en la respuesta, a proposito: quien pudiera leerlo",
+                  "    // entraria como el invitado. Se copia del correo, en http://localhost:8025",
+                  "    console.log('El token esta en el correo: http://localhost:8025');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar las invitaciones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/invitaciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "invitaciones"
+              ]
+            },
+            "description": "Las vivas y las cerradas: quien administra necesita ver que ya invitó a alguien y no entró.\n\nNinguna lleva el token. No hay campo de estado tampoco: `acceptedAt` y `revokedAt` nulos con `expiresAt` en el futuro significa que sigue viva."
+          }
+        },
+        {
+          "name": "Consultar una invitación",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/invitaciones/{{invitationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "invitaciones",
+                "{{invitationId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reenviar una invitación",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/invitaciones/{{invitationId}}/reenvio",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "invitaciones",
+                "{{invitationId}}",
+                "reenvio"
+              ]
+            },
+            "description": "Revoca esta y emite otra. **No prolonga la anterior**: el enlace viejo deja de valer en el acto, porque dos enlaces vivos son dos accesos y solo uno se controla.\n\nResponde **201** y la `Location` de la nueva, que es el recurso que de verdad queda vivo.\n\nSirve también para una vencida: es el \"EXPIRADO → INVITADO\" del diagrama de Seguridad §6."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const cuerpo = pm.response.json();",
+                  "    if (cuerpo.id) {",
+                  "        pm.collectionVariables.set('invitationId', cuerpo.id);",
+                  "        console.log('invitationId =', cuerpo.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Revocar una invitación",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/invitaciones/{{invitationId}}/revocacion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "invitaciones",
+                "{{invitationId}}",
+                "revocacion"
+              ]
+            },
+            "description": "`POST .../revocacion` y no `DELETE`: la fila no se borra, se cierra con una fecha. Lo que la bitácora del issue #21 querrá es la fila cerrada, no su ausencia.\n\nUna invitación ya aceptada no se revoca: la membresía existe y lo que toca es darla de baja (issue #19)."
+          }
+        },
+        {
+          "name": "Abrir el enlace (sin autenticar)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invitaciones/apertura",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invitaciones",
+                "apertura"
+              ]
+            },
+            "description": "**Pública, y tiene que serlo**: quien acaba de recibir el enlace no tiene con qué autenticarse —el realm tiene el registro cerrado, así que ni contraseña—. Lo que la autoriza es el token.\n\nNo cuelga de un condominio: quien llega con un token todavía no está en ninguno, que es lo que la invitación va a arreglar.\n\nResuelve los dos casos de §6.1. Si la cuenta nunca entró, crea el usuario en Keycloak, le pide a Keycloak que le escriba para poner su contraseña —ese correo también llega a Mailpit— y responde `credencialEnviada: true`. Si ya participa en otro condominio, viene en `false` y solo le toca iniciar sesión.\n\n**No consume el token**: abrirlo dos veces vuelve a mandar el correo.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{invitationToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Aceptar la invitación",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invitaciones/aceptacion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invitaciones",
+                "aceptacion"
+              ]
+            },
+            "description": "Ya **autenticada**, y con el token de la persona invitada: hay que volver a pedir el token de Keycloak con su correo, no con `dev@coprop.local`.\n\nSella la invitación y concede la membresía con los roles que llevaba. El enlace de otro responde **404**, igual que uno inventado: un 403 confirmaría que ese enlace es bueno.\n\nEl token va en el **cuerpo y no en la ruta** porque es una credencial: en la ruta acabaría en el log de accesos y en el historial del navegador.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{invitationToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. El aislamiento, para verlo funcionar",
       "description": "Dos peticiones que **tienen que fallar**. Si alguna respondiera otra cosa, el aislamiento del issue #17 estaría roto.",
       "item": [
         {
@@ -871,7 +1118,7 @@
       ]
     },
     {
-      "name": "7. Plataforma",
+      "name": "8. Plataforma",
       "item": [
         {
           "name": "Especificación OpenAPI",

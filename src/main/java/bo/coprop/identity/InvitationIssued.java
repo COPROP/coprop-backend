@@ -1,0 +1,31 @@
+package bo.coprop.identity;
+
+import java.time.Instant;
+import java.util.Set;
+import java.util.UUID;
+
+/**
+ * Se emitio una invitacion a un condominio.
+ *
+ * <p>Lo quiere la bitacora del issue <strong>#21</strong>, que es el tercer criterio de aceptacion
+ * del #18: toda invitacion, aceptacion y revocacion queda registrada.
+ *
+ * <p><strong>No lleva el token, ni en claro ni en hash.</strong> Es el motivo por el que el correo
+ * de la invitacion NO se envia reaccionando a este evento: los eventos de este sistema se persisten
+ * --el registro de la migracion V2-- asi que meter el token aqui lo dejaria legible en la base, que
+ * es exactamente lo que Seguridad 6.1 evita guardando solo su hash. El envio ocurre en la emision,
+ * que es el unico momento en que el token existe en memoria.
+ *
+ * @param reenviada si sustituye a una invitacion anterior que se revoco en el acto; el
+ *     administrador que reenvia y el que emite por primera vez hacen lo mismo, pero la bitacora
+ *     tiene que poder distinguirlos
+ */
+public record InvitationIssued(
+        UUID condominiumId,
+        UUID invitationId,
+        UUID accountId,
+        Set<MembershipRole> roles,
+        Instant expiresAt,
+        boolean reenviada,
+        String actor,
+        Instant occurredAt) {}

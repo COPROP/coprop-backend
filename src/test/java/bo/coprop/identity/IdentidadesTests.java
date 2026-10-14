@@ -18,6 +18,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.modulith.test.ApplicationModuleTest;
+import org.springframework.modulith.test.ApplicationModuleTest.BootstrapMode;
 import org.springframework.modulith.test.PublishedEvents;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,7 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
  * {@code AutenticacionDeApiTests}.
  */
 @Import({TestcontainersConfiguration.class, IdentidadesTests.RelojFijo.class})
-@ApplicationModuleTest
+@ApplicationModuleTest(BootstrapMode.DIRECT_DEPENDENCIES)
 @Transactional
 class IdentidadesTests {
 

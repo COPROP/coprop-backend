@@ -12,6 +12,8 @@ import bo.coprop.condominium.NewUnit;
 import bo.coprop.condominium.UnitType;
 import bo.coprop.condominium.Units;
 import bo.coprop.identity.AccountView;
+import bo.coprop.identity.DoblesDeInvitacion;
+import bo.coprop.identity.Invitations;
 import bo.coprop.identity.MembershipRole;
 import bo.coprop.identity.Memberships;
 import bo.coprop.identity.NewPerson;
@@ -53,7 +55,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
  * suite pasaria igual con las rutas mal escritas, que es la forma mas facil de tener una bateria de
  * seguridad que no comprueba nada.
  */
-@Import({TestcontainersConfiguration.class, ProveedorDeTokensDePrueba.class})
+@Import({TestcontainersConfiguration.class, ProveedorDeTokensDePrueba.class, DoblesDeInvitacion.class})
 @SpringBootTest
 @AutoConfigureMockMvc
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -74,6 +76,9 @@ class FugaEntreCondominiosTests {
     @Autowired
     private Memberships membresias;
 
+    @Autowired
+    private Invitations invitaciones;
+
     /** El condominio de quien pide, donde si tiene membresia. */
     private UUID propio;
 
@@ -86,6 +91,8 @@ class FugaEntreCondominiosTests {
     private UUID bloqueAjeno;
     private UUID membresiaPropia;
     private UUID membresiaAjena;
+    private UUID invitacionPropia;
+    private UUID invitacionAjena;
     private UUID personaSuelta;
     private UUID cuentaParaInvitar;
     private String autorizacion;
@@ -117,6 +124,24 @@ class FugaEntreCondominiosTests {
         // Una cuenta de verdad a la que invitar: con una inventada, el alta de membresia daria 404
         // por la cuenta y no por el condominio. Lo cazo el control de la suite.
         cuentaParaInvitar = cuentaNueva().id();
+
+        // Una invitacion abierta en cada condominio, para pedirlas por identificador. Se emiten por
+        // el puerto y no por HTTP porque lo que esta suite comprueba es el aislamiento, no la
+        // emision; el correo lo recoge el doble.
+        invitacionPropia = invitaciones
+                .issue(
+                        propio,
+                        cuentaNueva().id(),
+                        Set.of(MembershipRole.OWNER),
+                        cuenta.id().toString())
+                .id();
+        invitacionAjena = invitaciones
+                .issue(
+                        ajeno,
+                        cuentaNueva().id(),
+                        Set.of(MembershipRole.OWNER),
+                        cuenta.id().toString())
+                .id();
 
         String sujeto = ProveedorDeTokensDePrueba.sujetoNuevo();
         autorizacion = "Bearer " + ProveedorDeTokensDePrueba.valido(sujeto, cuenta.email());
@@ -156,8 +181,9 @@ class FugaEntreCondominiosTests {
      */
     private record Endpoint(String nombre, HttpMethod metodo, String plantilla, @Nullable String cuerpo) {
 
-        MockHttpServletRequestBuilder peticion(UUID condominio, UUID unidad, UUID bloque, UUID membresia) {
-            var constructor = request(metodo, plantilla.formatted(condominio, unidad, bloque, membresia))
+        MockHttpServletRequestBuilder peticion(
+                UUID condominio, UUID unidad, UUID bloque, UUID membresia, UUID invitacion) {
+            var constructor = request(metodo, plantilla.formatted(condominio, unidad, bloque, membresia, invitacion))
                     .with(SecurityMockMvcRequestPostProcessors.csrf());
             String json = cuerpo;
             if (json != null) {
@@ -168,11 +194,12 @@ class FugaEntreCondominiosTests {
     }
 
     /**
-     * Los catorce endpoints que cuelgan de un condominio.
+     * Los diecinueve endpoints que cuelgan de un condominio.
      *
-     * <p>Son todos los que hay: los otros cinco --personas y cuentas-- son globales a proposito
-     * (Seguridad 2) y no tienen condominio del que aislarse. Cuando entre uno nuevo bajo
-     * {@code /condominios/{id}}, su caso entra aqui.
+     * <p>Son todos los que hay: los demas --personas, cuentas, el perfil propio y las dos llamadas
+     * de quien llega con un token de invitacion-- son globales a proposito (Seguridad 2 y 6.1) y no
+     * tienen condominio del que aislarse. Cuando entre uno nuevo bajo {@code /condominios/{id}}, su
+     * caso entra aqui; los cinco de invitaciones entraron asi con el issue #18.
      */
     private List<Endpoint> endpoints() {
         String persona = personaSuelta.toString();
@@ -230,15 +257,32 @@ class FugaEntreCondominiosTests {
                         "/api/v1/condominios/%s/membresias",
                         "{\"accountId\":\"" + cuentaParaInvitar + "\",\"roles\":[\"OWNER\"]}"),
                 new Endpoint("listar las membresias", HttpMethod.GET, "/api/v1/condominios/%s/membresias", null),
+                new Endpoint("consultar una membresia", HttpMethod.GET, "/api/v1/condominios/%s/membresias/%4$s", null),
                 new Endpoint(
-                        "consultar una membresia", HttpMethod.GET, "/api/v1/condominios/%s/membresias/%4$s", null));
+                        "emitir una invitacion",
+                        HttpMethod.POST,
+                        "/api/v1/condominios/%s/invitaciones",
+                        "{\"accountId\":\"" + cuentaParaInvitar + "\",\"roles\":[\"OWNER\"]}"),
+                new Endpoint("listar las invitaciones", HttpMethod.GET, "/api/v1/condominios/%s/invitaciones", null),
+                new Endpoint(
+                        "consultar una invitacion", HttpMethod.GET, "/api/v1/condominios/%s/invitaciones/%5$s", null),
+                new Endpoint(
+                        "reenviar una invitacion",
+                        HttpMethod.POST,
+                        "/api/v1/condominios/%s/invitaciones/%5$s/reenvio",
+                        null),
+                new Endpoint(
+                        "revocar una invitacion",
+                        HttpMethod.POST,
+                        "/api/v1/condominios/%s/invitaciones/%5$s/revocacion",
+                        null));
     }
 
     @ParameterizedTest(name = "{0} en el condominio ajeno da 404")
     @MethodSource("endpoints")
     @DisplayName("ningun endpoint del condominio ajeno responde nada que no sea 404")
     void elCondominioAjenoNoExiste(Endpoint endpoint) throws Exception {
-        mockMvc.perform(endpoint.peticion(ajeno, unidadAjena, bloqueAjeno, membresiaAjena)
+        mockMvc.perform(endpoint.peticion(ajeno, unidadAjena, bloqueAjeno, membresiaAjena, invitacionAjena)
                         .header(HttpHeaders.AUTHORIZATION, autorizacion))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
@@ -250,7 +294,7 @@ class FugaEntreCondominiosTests {
     void elCondominioPropioSiResponde(Endpoint endpoint) throws Exception {
         // El control de la suite. Sin esto, una ruta mal escrita daria 404 en las dos mitades y la
         // bateria entera pasaria sin comprobar nada.
-        mockMvc.perform(endpoint.peticion(propio, unidadPropia, bloquePropio, membresiaPropia)
+        mockMvc.perform(endpoint.peticion(propio, unidadPropia, bloquePropio, membresiaPropia, invitacionPropia)
                         .header(HttpHeaders.AUTHORIZATION, autorizacion))
                 .andExpect(resultado -> {
                     int estado = resultado.getResponse().getStatus();

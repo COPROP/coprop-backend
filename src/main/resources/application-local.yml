@@ -38,6 +38,12 @@ coprop:
     emisor: http://localhost:8081/realms/coprop
     cliente-id: coprop-web
     cliente-secreto: coprop-local-secret-web
+    # El cliente de client credentials con el que COPROP crea usuarios en Keycloak al abrirse una
+    # invitacion (issue #18). Seguridad 9 lo acota a manage-users y view-users: no administra el
+    # realm. Los extremos de la Admin API se derivan del emisor de arriba, para que no haya dos
+    # valores que puedan apuntar a realms distintos.
+    admin-cliente-id: coprop-admin
+    admin-cliente-secreto: coprop-local-secret-admin
   storage:
     endpoint: http://localhost:9000
     bucket: coprop-local

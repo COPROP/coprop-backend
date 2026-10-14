@@ -63,8 +63,20 @@ class ConfiguracionDeSeguridad {
      */
     static final String REGISTRO_WEB = "coprop-web";
 
-    /** Lo unico de la API que se sirve sin identidad: el contrato, que no tiene datos de nadie. */
-    private static final String[] PUBLICAS = {"/api/openapi.json"};
+    /**
+     * Lo que se sirve sin identidad, y por que cada cosa.
+     *
+     * <ul>
+     *   <li>El contrato, que no tiene datos de nadie.
+     *   <li>La apertura de una invitacion (issue #18). <strong>Tiene que ser publica</strong>: quien
+     *       acaba de recibir el enlace no tiene con que autenticarse --el realm tiene el registro
+     *       cerrado, asi que ni siquiera tiene contraseña-- y lo que la autoriza es el token, 256
+     *       bits aleatorios de un solo uso con siete dias de vigencia. Lo que responde no son datos
+     *       de un condominio: si el enlace sirve y si hay que mandarle un correo. Aceptar la
+     *       invitacion <strong>no</strong> entra aqui: eso pasa ya con sesion iniciada.
+     * </ul>
+     */
+    private static final String[] PUBLICAS = {"/api/openapi.json", "/api/v1/invitaciones/apertura"};
 
     /**
      * Lo que necesita la consola navegable de springdoc, que solo existe en desarrollo.
