@@ -85,6 +85,14 @@ class MembershipsService implements Memberships {
 
     @Override
     @Transactional(readOnly = true)
+    public List<MembershipView> ofAccount(UUID accountId) {
+        return membresias.findByAccountIdAndValidToIsNull(accountId).stream()
+                .map(MembershipsService::vista)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public @Nullable MembershipView of(UUID condominiumId, UUID accountId) {
         return membresias
                 .findByCondominiumIdAndAccountIdAndValidToIsNull(condominiumId, accountId)

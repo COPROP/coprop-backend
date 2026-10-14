@@ -136,9 +136,13 @@ es tuyo tiene que responder exactamente igual que uno inventado.
 
 Hay una colección lista para importar en
 [`docs/postman/COPROP.postman_collection.json`](docs/postman/COPROP.postman_collection.json): trae
-los 19 endpoints con cuerpos de ejemplo, la autenticación ya configurada y dos peticiones que
-**tienen que fallar**, para ver el aislamiento funcionando. Las altas guardan solas los
-identificadores que devuelven, así que se pueden encadenar de arriba abajo sin copiar nada.
+las 24 peticiones con cuerpos de ejemplo, la autenticación ya configurada y dos que **tienen que
+fallar**, para ver el aislamiento funcionando. Las altas guardan solas los identificadores que
+devuelven, así que se pueden encadenar de arriba abajo sin copiar nada.
+
+Empieza por **`GET /api/v1/me`**, que es por donde empieza también un cliente de verdad: dice quién
+eres, a qué condominios entras y con qué rol en cada uno. Con la semilla corrida sale un condominio;
+el del vecino no sale, y eso es lo que conviene mirar.
 
 La web entra por el BFF con cookie, que Postman no puede recorrer —hay un formulario de login de por
 medio—. El camino para una herramienta es el del cliente móvil: **Authorization Code con PKCE**

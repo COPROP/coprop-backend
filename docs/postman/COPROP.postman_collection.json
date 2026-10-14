@@ -109,6 +109,31 @@
   ],
   "item": [
     {
+      "name": "0. Quién soy",
+      "description": "La primera llamada de todo cliente después del login (análisis §5.4). De aquí sale el selector de condominio y qué menú ve cada rol.",
+      "item": [
+        {
+          "name": "Mi perfil",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "me"
+              ]
+            },
+            "description": "Devuelve la persona, la cuenta, si administra la plataforma, y un elemento por condominio con los roles de esa membresía y las unidades con las que tiene relación vigente.\n\n**No recibe ningún identificador**: todo sale del token. La consulta de una cuenta por id es otra cosa, en `/api/v1/cuentas/{accountId}`.\n\n**200 con `condominios` vacío** si no hay ninguna membresía activa, y no 404: es una respuesta correcta a una pregunta sobre uno mismo. Con la semilla corrida sale un condominio, *Torre Sucre (desarrollo)*; el del vecino no sale, y eso es lo que hay que mirar."
+          }
+        }
+      ]
+    },
+    {
       "name": "1. Personas y cuentas (globales)",
       "description": "No cuelgan de ningún condominio: una persona es la misma en todos los edificios donde tenga algo (Seguridad §2), y la cuenta con la que entra tampoco es de ninguno.",
       "item": [

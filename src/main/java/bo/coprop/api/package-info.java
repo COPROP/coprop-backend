@@ -13,8 +13,16 @@
  * cuenta de COPROP corre en la cadena de seguridad, que vive aqui, y pregunta por el puerto
  * {@code Identities}. Es la direccion permitida --api hacia el dominio-- y no la contraria: quien
  * sabe de HTTP llama a quien sabe de cuentas, nunca al reves.
+ *
+ * <p>Depende tambien de {@code condominium} desde el issue #14, y por eso {@code MeController} vive
+ * aqui y no en ninguno de los dos modulos de dominio. {@code GET /api/v1/me} es la unica respuesta
+ * que cruza los dos: las membresias y la persona son de {@code identity}, y el nombre del
+ * condominio y las unidades relacionadas son de {@code condominium}. Ponerlo en {@code identity}
+ * exigiria que ese modulo dependiera de {@code condominium}, que es justo lo que prohibe la regla 2;
+ * ponerlo en {@code condominium} invertiria la de {@code identity}. Componer en {@code api} lo que
+ * cada dominio publica es la direccion permitida por la regla 6 y no relaja ningun limite.
  */
 @org.springframework.modulith.ApplicationModule(
-        allowedDependencies = {"shared", "identity"},
+        allowedDependencies = {"shared", "identity", "condominium"},
         displayName = "API")
 package bo.coprop.api;

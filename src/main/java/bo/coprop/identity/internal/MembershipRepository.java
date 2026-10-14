@@ -18,6 +18,8 @@ interface MembershipRepository extends JpaRepository<Membership, UUID> {
 
     List<Membership> findByCondominiumIdAndValidToIsNull(UUID condominiumId);
 
+    List<Membership> findByAccountIdAndValidToIsNull(UUID accountId);
+
     /**
      * Si esa cuenta tiene alguna membresia vigente con alguno de esos roles, en el condominio que
      * sea.
