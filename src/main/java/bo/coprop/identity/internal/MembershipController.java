@@ -27,10 +27,9 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>Cuelga del condominio, al contrario que {@link PersonController}: la persona es global y la
  * membresia es de un condominio concreto.
  *
- * <p><strong>Falta la restriccion por rol.</strong> Conceder una membresia le toca al
- * administrador del condominio, y eso es el issue <strong>#20</strong>; los roles llegan con el
- * <strong>#16</strong>. La baja y la suspension son el <strong>#19</strong>, asi que aqui solo hay
- * alta y consulta.
+ * <p>Conceder una membresia y leer el padron piden el permiso de invitar usuarios (#16); quien
+ * puede conceder <em>esos</em> roles es una segunda regla, y de ahi {@code puedeConceder}. La baja
+ * y la suspension son el <strong>#19</strong>, asi que aqui solo hay alta y consulta.
  */
 @ControladorDeApi
 @RestController
@@ -57,12 +56,23 @@ class MembershipController {
                 .body(creada);
     }
 
-    /** Las vigentes. Las cerradas son historia y las sacara el issue #19 cuando haga falta. */
+    /**
+     * Las vigentes. Las cerradas son historia y las sacara el issue #19 cuando haga falta.
+     *
+     * <p>El padron del edificio --quien vive aqui y con que papel-- es dato de los vecinos, asi que
+     * no lo ve cualquier miembro: lo exige el mismo permiso que reparte los roles, que es quien
+     * tiene que mirar la lista para trabajar con ella. <strong>Quien quiera su propia membresia no
+     * viene aqui</strong>: la trae {@code GET /api/v1/me} con sus roles, y por eso esto no necesita
+     * una excepcion para lo propio.
+     */
+    @PreAuthorize("@autorizacion.puede(authentication, 'INVITAR_USUARIOS')")
     @GetMapping
     List<MembershipView> listar(@PathVariable UUID condominiumId) {
         return membresias.ofCondominium(condominiumId);
     }
 
+    /** Una membresia del condominio, para quien reparte los roles. Misma regla que el listado. */
+    @PreAuthorize("@autorizacion.puede(authentication, 'INVITAR_USUARIOS')")
     @GetMapping("/{membershipId}")
     MembershipView consultar(@PathVariable UUID condominiumId, @PathVariable UUID membershipId) {
         return membresias.find(condominiumId, membershipId);

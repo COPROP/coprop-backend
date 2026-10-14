@@ -33,8 +33,13 @@ class AutorizacionService implements Autorizacion {
     }
 
     @Override
+    public Alcance alcanceDe(Authentication quien, String permiso) {
+        return MatrizDePermisos.alcanceDe(rolesDe(quien), permisoDe(permiso));
+    }
+
+    @Override
     public boolean puede(Authentication quien, String permiso) {
-        return MatrizDePermisos.alcanceDe(rolesDe(quien), permisoDe(permiso)) != Alcance.NINGUNO;
+        return alcanceDe(quien, permiso) != Alcance.NINGUNO;
     }
 
     @Override

@@ -29,10 +29,9 @@ import org.springframework.web.bind.annotation.RestController;
  * 2), asi que no cuelgan de {@code /condominios/{id}} como todo lo demas. Lo que si cuelga del
  * condominio es la membresia, en {@link MembershipController}.
  *
- * <p><strong>Falta la restriccion por rol.</strong> Dar de alta personas en un condominio le toca
- * a su administrador, pero los roles llegan con el issue <strong>#16</strong> y la identidad con el
- * <strong>#13</strong>. Hoy solo exige estar autenticado, y como no hay forma de autenticarse,
- * nadie llega aqui.
+ * <p>Dar de alta personas le toca al administrador de un condominio (#16), y como la ruta es global
+ * se pregunta si administra <em>alguno</em>. La consulta añade lo propio, que es la cadena del
+ * <strong>#15</strong> sobre un recurso que no cuelga de ningun condominio.
  */
 @ControladorDeApi
 @RestController
@@ -64,6 +63,13 @@ class PersonController {
                 .body(persona);
     }
 
+    /**
+     * La persona propia, o cualquiera si quien pregunta administra algun condominio.
+     *
+     * <p>Misma regla que el alta, mas lo propio: sin eso, quien no administra nada no veria ni sus
+     * datos. Y niega con <strong>403</strong>, no con 404, por lo mismo que la cuenta.
+     */
+    @PreAuthorize("@acceso.puedeVerLaPersona(authentication, #personId)")
     @GetMapping("/{personId}")
     PersonView consultar(@PathVariable UUID personId) {
         return personas.find(personId);

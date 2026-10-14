@@ -116,6 +116,23 @@ class UnitRelationsService implements UnitRelations {
         return vista(responsabilidad);
     }
 
+    /**
+     * Las tres preguntas en el orden en que es mas probable que una conteste que si.
+     *
+     * <p>El cortocircuito del {@code ||} se aprovecha: la titularidad es la relacion que mas filas
+     * tiene, asi que en el caso corriente --el propietario mirando lo suyo-- esto es una sola
+     * consulta y no tres.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isRelatedTo(UUID condominiumId, UUID unitId, UUID personId) {
+        return titularidades.existsByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(condominiumId, unitId, personId)
+                || ocupaciones.existsByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(
+                        condominiumId, unitId, personId)
+                || responsabilidades.existsByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(
+                        condominiumId, unitId, personId);
+    }
+
     @Override
     @Transactional(readOnly = true)
     public List<UUID> unitsOwnedBy(UUID condominiumId, UUID personId) {

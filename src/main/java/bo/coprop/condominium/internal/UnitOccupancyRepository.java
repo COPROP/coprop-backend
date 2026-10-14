@@ -8,5 +8,8 @@ interface UnitOccupancyRepository extends JpaRepository<UnitOccupancy, UUID> {
 
     boolean existsByUnitIdAndPersonIdAndValidToIsNull(UUID unitId, UUID personId);
 
+    /** Con el condominio en el WHERE, por lo mismo que en {@link UnitOwnershipRepository}. */
+    boolean existsByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(UUID condominiumId, UUID unitId, UUID personId);
+
     List<UnitOccupancy> findByCondominiumIdAndPersonIdAndValidToIsNull(UUID condominiumId, UUID personId);
 }

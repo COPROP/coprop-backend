@@ -72,10 +72,33 @@ public interface UnitRelations {
             UUID condominiumId, UUID unitId, UUID personId, @Nullable UUID conceptId, String actor);
 
     /**
+     * Si una persona tiene <strong>alguna</strong> relacion vigente con esa unidad de ese
+     * condominio: propietaria, ocupante o responsable de sus cobros.
+     *
+     * <p>Es el tercer eslabon de la cadena de autorizacion (Seguridad 7.2, issue
+     * <strong>#15</strong>): el que convierte el "Propias" de la matriz en una respuesta sobre
+     * <em>este</em> recurso. Lo pregunta el control de acceso en cada peticion, asi que contesta
+     * con tres {@code EXISTS} y sin traer una sola fila; si no fuera asi, una pantalla con veinte
+     * unidades costaria veinte listados.
+     *
+     * <p>Las tres relaciones cuentan por igual, y es deliberado: el propietario que alquilo sigue
+     * respondiendo por los cobros y el inquilino residente tiene que poder subir su comprobante.
+     * Reducirlo a la titularidad --que es lo que la palabra "propias" sugiere-- dejaria al
+     * inquilino fuera de lo suyo. Que ademas la <em>operacion</em> le corresponda a su rol no lo
+     * decide este modulo, sino la matriz.
+     *
+     * <p>Una unidad de otro condominio no empareja nunca, porque el condominio entra en la
+     * consulta: asi quien llama no tiene que comprobar aparte de quien es la unidad.
+     */
+    boolean isRelatedTo(UUID condominiumId, UUID unitId, UUID personId);
+
+    /**
      * Las unidades de las que una persona es propietaria vigente en ese condominio.
      *
      * <p>Es media cadena de autorizacion del issue #15: "un propietario ve solo las unidades que
-     * figuran en UnitOwnership vigente" (Seguridad 2).
+     * figuran en UnitOwnership vigente" (Seguridad 2). La otra media --si <em>esta</em> unidad es
+     * suya-- la contesta {@link #isRelatedTo}, que es lo que se pregunta por peticion; esta sirve
+     * para acotar un listado, que es el punto 4 de Seguridad 7.2.
      */
     List<UUID> unitsOwnedBy(UUID condominiumId, UUID personId);
 

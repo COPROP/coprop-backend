@@ -27,10 +27,8 @@ import org.springframework.web.bind.annotation.RestController;
  * {@code api} a todo lo anotado con {@link ControladorDeApi}, asi que esto se sirve bajo
  * {@code /api/v1/condominios}, que es lo que fija Seguridad 5.4.
  *
- * <p><strong>Falta la restriccion por rol.</strong> El alcance del issue #9 dice que el alta la
- * hace el superadministrador, pero los roles llegan con el issue <strong>#16</strong> y la
- * identidad con el <strong>#13</strong>. Hoy estos endpoints solo exigen estar autenticado, y como
- * todavia no hay forma de autenticarse, nadie puede llegar a ellos. Queda derivado al #16.
+ * <p>El alta es del superadministrador y la configuracion del que maneja el dinero (#16). La
+ * consulta no pide permiso a proposito, y el porque esta en ella.
  */
 @ControladorDeApi
 @RestController
@@ -52,6 +50,21 @@ class CondominiumController {
                 .body(creado);
     }
 
+    /**
+     * El condominio de la ruta.
+     *
+     * <p><strong>Sin {@code @PreAuthorize}, y es una decision, no un olvido.</strong> Lo que hace
+     * falta para verlo es pertenecer a el, y eso ya lo exigio el filtro del #17: quien llega aqui
+     * tiene membresia activa o administra la plataforma, y cualquier otro recibio 404 antes de que
+     * existiera un controlador. Los siete roles lo ven, porque un propietario necesita el nombre y
+     * los dias de emision y vencimiento del edificio donde vive tanto como su administrador.
+     *
+     * <p>Exigir un permiso aqui significaria elegir una fila de la matriz que no habla de esto, y
+     * dejaria a porteria o al directorio sin saber en que edificio estan. Lo que no se devuelve
+     * desde aqui es nada de los vecinos: para eso estan las rutas de unidades y membresias, cada
+     * una con su permiso. Lo sostiene un caso de {@code CadenaDeAutorizacionTests} que recorre los
+     * siete roles.
+     */
     @GetMapping("/{condominiumId}")
     CondominiumView consultar(@PathVariable UUID condominiumId) {
         return condominios.find(condominiumId);

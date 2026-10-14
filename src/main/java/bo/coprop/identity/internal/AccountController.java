@@ -4,6 +4,7 @@ import bo.coprop.identity.AccountView;
 import bo.coprop.identity.People;
 import bo.coprop.shared.ControladorDeApi;
 import java.util.UUID;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,6 +32,19 @@ class AccountController {
         this.personas = personas;
     }
 
+    /**
+     * La cuenta propia, o cualquiera si quien pregunta administra algun condominio.
+     *
+     * <p>Lleva el correo, el telefono y si tiene segundo factor, asi que no puede quedar abierta a
+     * cualquiera que este autenticado: con el identificador en la mano, eso seria el directorio de
+     * la plataforma. Quien la abre --el administrador que invita-- la necesita; el resto, solo la
+     * suya, y el perfil propio completo ya lo da {@code GET /api/v1/me} sin pedir identificador.
+     *
+     * <p>Niega con <strong>403</strong> y no con 404: la ruta es global, no cuelga de ningun
+     * condominio, y la respuesta depende solo de los roles de quien pregunta --para cualquier
+     * cuenta que no sea la suya recibe lo mismo--, asi que no hay existencia que filtrar.
+     */
+    @PreAuthorize("@acceso.puedeVerLaCuenta(authentication, #accountId)")
     @GetMapping("/{accountId}")
     AccountView consultar(@PathVariable UUID accountId) {
         return personas.findAccount(accountId);
