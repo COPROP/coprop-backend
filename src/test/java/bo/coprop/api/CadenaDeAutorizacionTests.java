@@ -25,6 +25,8 @@ import bo.coprop.condominium.UnitRelations;
 import bo.coprop.condominium.UnitType;
 import bo.coprop.condominium.Units;
 import bo.coprop.identity.AccountView;
+import bo.coprop.identity.DoblesDeInvitacion;
+import bo.coprop.identity.Invitations;
 import bo.coprop.identity.MembershipRole;
 import bo.coprop.identity.Memberships;
 import bo.coprop.identity.NewPerson;
@@ -61,8 +63,9 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
  * La cadena de autorizacion completa del issue #15: <strong>cada endpoint, contra cada rol</strong>.
  *
  * <p>Es el segundo criterio del issue --"existe un test que recorre la matriz de roles y
- * endpoints"-- y recorre las dos dimensiones de verdad: los veinte endpoints de la API por los
- * siete roles de Seguridad 3, con el resultado esperado declarado celda a celda.
+ * endpoints"-- y recorre las dos dimensiones de verdad: los veinticinco endpoints de la API por los
+ * siete roles de Seguridad 3, con el resultado esperado declarado celda a celda. Los cinco de
+ * invitaciones entraron con el issue #18, y asi entra cada endpoint nuevo.
  *
  * <p><strong>Cada endpoint declara los siete roles, no solo los que pueden.</strong> Es la leccion
  * que dejo el issue #16, donde el test que declaraba las columnas completas encontro que a
@@ -78,7 +81,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
  * 404-- son los casos del final, porque no caben en la rejilla: hacen falta dos unidades y dos
  * personas, y lo que se comprueba es que la respuesta cambie con el recurso y no con el rol.
  */
-@Import({TestcontainersConfiguration.class, ProveedorDeTokensDePrueba.class})
+@Import({TestcontainersConfiguration.class, ProveedorDeTokensDePrueba.class, DoblesDeInvitacion.class})
 @SpringBootTest
 @AutoConfigureMockMvc
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -124,6 +127,9 @@ class CadenaDeAutorizacionTests {
     private Memberships membresias;
 
     @Autowired
+    private Invitations invitaciones;
+
+    @Autowired
     private DataSource dataSource;
 
     private UUID condominio;
@@ -139,6 +145,12 @@ class CadenaDeAutorizacionTests {
     private UUID personaSuelta;
     private UUID cuentaSuelta;
     private UUID personaSinCuenta;
+
+    /** Una invitacion abierta, para reenviarla y revocarla desde la rejilla. */
+    private UUID invitacionAbierta;
+
+    /** Una cuenta sin invitacion ni membresia, para que la emision de la rejilla pueda emitir. */
+    private UUID cuentaParaInvitar;
 
     /** Un token por rol, y la persona y la cuenta detras de el, para preguntar por lo propio. */
     private final Map<MembershipRole, Quien> porRol = new EnumMap<>(MembershipRole.class);
@@ -176,6 +188,18 @@ class CadenaDeAutorizacionTests {
         // Una persona sin cuenta, para que el alta de cuenta de la rejilla no choque con la regla de
         // una cuenta por persona antes de llegar a la autorizacion.
         personaSinCuenta = personas.register(new NewPerson("Luis", "Mamani", null), "admin")
+                .id();
+
+        // Una invitacion abierta para reenviar y revocar, y una cuenta libre para emitir. Son dos
+        // cuentas distintas a proposito: con una sola, la emision chocaria con la invitacion que ya
+        // tiene abierta y la celda daria 422 por el estado del dato en vez de por la autorizacion.
+        cuentaParaInvitar = cuentaNueva().id();
+        invitacionAbierta = invitaciones
+                .issue(
+                        condominio,
+                        cuentaNueva().id(),
+                        Set.of(OWNER),
+                        quien(CONDO_ADMIN).cuenta().toString())
                 .id();
     }
 
@@ -353,6 +377,40 @@ class CadenaDeAutorizacionTests {
                         null,
                         soloPara(CONDO_ADMIN)),
 
+                // Invitaciones (issue #18). Emitir pide poder conceder esos roles, igual que el alta
+                // directa de membresia: es lo mismo diferido. El resto son operaciones sobre el
+                // padron del edificio, y el superadministrador no lo opera (Seguridad 10.1).
+                new Endpoint(
+                        "emitir una invitacion",
+                        HttpMethod.POST,
+                        enElCondominio + "/invitaciones",
+                        "{\"accountId\":\"" + cuentaParaInvitar + "\",\"roles\":[\"OWNER\"]}",
+                        soloPara(CONDO_ADMIN)),
+                new Endpoint(
+                        "listar las invitaciones",
+                        HttpMethod.GET,
+                        enElCondominio + "/invitaciones",
+                        null,
+                        soloPara(CONDO_ADMIN)),
+                new Endpoint(
+                        "consultar una invitacion",
+                        HttpMethod.GET,
+                        enElCondominio + "/invitaciones/" + invitacionAbierta,
+                        null,
+                        soloPara(CONDO_ADMIN)),
+                new Endpoint(
+                        "reenviar una invitacion",
+                        HttpMethod.POST,
+                        enElCondominio + "/invitaciones/" + invitacionAbierta + "/reenvio",
+                        null,
+                        soloPara(CONDO_ADMIN)),
+                new Endpoint(
+                        "revocar una invitacion",
+                        HttpMethod.POST,
+                        enElCondominio + "/invitaciones/" + invitacionAbierta + "/revocacion",
+                        null,
+                        soloPara(CONDO_ADMIN)),
+
                 // Conceder: el administrador cualquiera, el superadministrador solo administrativos,
                 // y estos roles no lo son. Es la celda "Solo administradores" vista por su limite.
                 new Endpoint(
@@ -476,7 +534,7 @@ class CadenaDeAutorizacionTests {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("celdas")
-    @DisplayName("la rejilla entera: los veinte endpoints por los siete roles")
+    @DisplayName("la rejilla entera: los veinticinco endpoints por los siete roles")
     void laRejillaEntera(Celda celda) throws Exception {
         var resultado =
                 mockMvc.perform(peticion(celda.endpoint(), quien(celda.rol()).autorizacion()));

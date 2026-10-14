@@ -29,8 +29,10 @@ no declaró, el build falla.
    tipos. No contiene reglas de negocio ni acceso a datos. Un tipo entra ahí si no pertenece a
    ningún dominio en particular, no por ser reutilizable.
 
-2. **`identity` no depende de `condominium`.** Referencia al condominio por identificador, no por
-   entidad. Una persona tiene una sola cuenta y una membresía por condominio (Seguridad §2), y
+2. **`identity` no depende de `condominium`.** Su única dependencia, desde el #18, es
+   `notifications`: el correo de una invitación lleva su token, y como los eventos se persisten, no
+   puede viajar en uno —lo envía quien lo tiene en memoria, por el puerto `Correo`—. Referencia al
+   condominio por identificador, no por entidad. Una persona tiene una sola cuenta y una membresía por condominio (Seguridad §2), y
    esa relación se resuelve por id.
 
    Esta regla decidió dónde viven `UnitOwnership`, `UnitOccupancy` y `BillingResponsibility`.
@@ -669,6 +671,89 @@ El filtro del #17 deja pasar al superadministrador sin membresía, porque sin es
 creado no tendría forma de tener a nadie dentro. Lo que puede hacer una vez dentro lo decide la
 matriz, y ahí casi todo le dice que no. **Las autoridades se suman, no se sustituyen**: quien
 administra la plataforma y además es miembro de un condominio tiene las dos cosas a la vez.
+
+#### Cómo entra alguien: la invitación
+
+Issue #18. **No hay registro abierto: solo se entra por invitación** (Seguridad §6). La razón no es
+comodidad: si cualquiera pudiera registrarse y declararse propietario del Dpto. 302, vería deudas
+ajenas. La invitación nace de un dato que el administrador ya validó —la persona y su relación con
+la unidad— y es lo que ata una cuenta a un condominio con unos roles.
+
+**Es una membresía diferida**: la invitación lleva los roles y la membresía nace al aceptarse. La vía
+directa, `Memberships.grant`, se queda para la primera membresía de un condominio, que concede el
+superadministrador porque no hay nadie dentro a quien invitar.
+
+El token son **256 bits de `SecureRandom`**, no un UUID: un UUID tiene 122 bits y, lo que importa
+más, *parece* un identificador, así que acaba en un log o en un ticket de soporte. De la base solo
+queda su **SHA-256**, sin sal —no hay diccionario que recorrer con 256 bits aleatorios, y sin sal se
+busca por índice en una consulta—. Vive siete días y sirve una vez.
+
+**El token no viaja en ningún evento, y eso decidió una dependencia.** Los eventos de este sistema
+se persisten (migración V2), así que un `InvitationIssued` con el token dentro lo dejaría legible en
+la base, que es justo lo que el hash evita. Por eso el correo lo envía quien tiene el token en
+memoria —la emisión— a través del puerto `Correo`, y por eso **`identity` declara `notifications`**:
+es su única dependencia. El módulo `notifications` seguía la regla de "nadie lo llama, solo reacciona
+a eventos", y esta es la excepción, escrita en su `package-info`.
+
+El correo se manda **dentro de la transacción y como último paso**: si el servidor de correo falla,
+la emisión entera se deshace. Una invitación que nadie recibió no sirve, y es mejor que el
+administrador vea el error que una fila viva con un enlace que no llegó. Queda una ventana —correo
+entregado y transacción que no confirma— y su arreglo es un reenvío.
+
+**Los tres cierres no son un estado almacenado.** Aceptada y revocada son fechas; vencida se deduce
+del reloj. Un estado `EXPIRADA` habría que ponerlo con una tarea periódica y, entre que vence y que
+alguien la marque, la fila diría que sigue viva. El diagrama de §6 dibuja EXPIRADO en la vida de la
+*cuenta*; aquí lo que vence es el token.
+
+El camino completo, y por qué tiene dos llamadas:
+
+1. `POST /condominios/{id}/invitaciones` — emite y manda el correo. Pide **poder conceder esos
+   roles**, la misma regla que el alta directa de membresía, porque es lo mismo diferido.
+2. El enlace del correo apunta a la **web**, no a la API: la página es la que sabe qué mostrar en
+   cada caso y la que manda al login. Una ruta de la API obligaría al backend a devolver
+   redirecciones y a conocer las rutas de la SPA.
+3. `POST /invitaciones/apertura` — **pública**, porque quien acaba de recibir el enlace no tiene con
+   qué autenticarse; lo que la autoriza es el token. Resuelve los dos casos de §6.1: si ese correo no
+   tiene credencial, se le crea el usuario en Keycloak y se le pide al proveedor que le escriba para
+   poner su contraseña; si ya participa en otro condominio, solo le toca iniciar sesión. **No consume
+   el token**: abrirlo dos veces vuelve a mandar el correo, porque el correo del proveedor se pierde
+   más fácil que el nuestro.
+4. `POST /invitaciones/aceptacion` — ya **autenticada**. Sella la invitación y concede la membresía.
+   Para llegar aquí el filtro del #13 ya vinculó el sujeto del proveedor con la cuenta de COPROP por
+   el correo verificado, y eso es lo que hace que entrar con contraseña y entrar con Google caigan en
+   la misma cuenta.
+
+**El token viaja en el cuerpo, no en la ruta.** Es una credencial: en la ruta acabaría en el log de
+accesos, en el historial del navegador y en cualquier `Referer`. En el cuerpo, además, `Enmascarador`
+ya lo tapa, porque `token` es una de sus claves.
+
+**COPROP no ve contraseñas, ni para ponerlas.** El realm tiene `registrationAllowed: false`, así que
+la persona invitada no puede crearse el usuario; y una pantalla nuestra que recogiera la contraseña
+para enviarla a Keycloak nos pondría en el camino de la credencial, que es lo que el #12 y el #13
+decidieron evitar. De ahí la forma del puerto `ProveedorDeIdentidad`: se crea el usuario con
+`manage-users` del cliente `coprop-admin` y se le pide a Keycloak que le escriba. El usuario nace con
+`emailVerified: false` a propósito —lo verifica la acción que Keycloak envía, y el primer login lo
+exige—: darlo por verificado convertiría "nos dijeron ese correo" en "ese correo es suyo".
+
+Dos cosas del adaptador de la Admin API que costaron tiempo:
+
+- **No se inyecta un `RestClient.Builder`.** En Boot 4 ese bean lo trae la autoconfiguración del
+  cliente REST, que no está en el classpath —el starter de webmvc trae solo el lado servidor— y el
+  contexto no arranca. Se arma a mano, con tiempos de espera explícitos: sin ellos, un Keycloak que
+  acepta la conexión y no contesta deja colgada la petición del navegador, un hilo y una transacción.
+- No hace **ninguna llamada al arrancar**, que es la lección que el #13 ya pagó con `issuer-uri`.
+
+Lo que lo sostiene: `InvitacionesTests` con los cuatro motivos por los que un token no sirve —no
+existe, usado, revocado, vencido— y los dos casos de §6.1; `AceptarInvitacionTests` con un token
+firmado de verdad, para la costura con el #13; y los cinco endpoints nuevos añadidos a
+`FugaEntreCondominiosTests` y a `CadenaDeAutorizacionTests`. **El test lee el token del correo**, con
+un doble del puerto, igual que lo leería la persona invitada: es el único sitio donde existe, y uno
+que lo sacara de la base estaría probando otro sistema.
+
+Y una trampa del esquema: **`token_hash` es `VARCHAR(64)` y no `CHAR(64)`** aunque el largo sea fijo.
+`CHAR` rellena con espacios a la derecha, así que el valor leído no es igual al escrito; y
+`ddl-auto: validate` espera `VARCHAR` para un `String`, de modo que con `CHAR` el arranque falla. Se
+descubrió así.
 
 #### Row-Level Security: evaluado, y por qué todavía no está
 

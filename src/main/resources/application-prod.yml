@@ -26,6 +26,10 @@ coprop:
     emisor: ${OIDC_ISSUER_URI}
     cliente-id: ${OIDC_CLIENT_ID:coprop-web}
     cliente-secreto: ${OIDC_CLIENT_SECRET}
+    admin-cliente-id: ${OIDC_ADMIN_CLIENT_ID:coprop-admin}
+    admin-cliente-secreto: ${OIDC_ADMIN_CLIENT_SECRET}
+  correo:
+    remitente: ${COPROP_CORREO_REMITENTE}
   storage:
     endpoint: ${STORAGE_ENDPOINT}
     bucket: ${STORAGE_BUCKET}

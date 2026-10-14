@@ -84,7 +84,14 @@ coprop:
   web:
     # A donde vuelve el navegador despues de iniciar o cerrar sesion. En produccion la SPA y la API
     # van tras el mismo dominio; en desarrollo la SPA la sirve el dev server de Angular.
+    #
+    # Es tambien la base del enlace de las invitaciones (issue #18): el correo manda a la WEB y no
+    # a la API, porque la pagina es la que sabe que mostrar en cada caso y la que manda al login.
     url: ${COPROP_WEB_URL:http://localhost:4200}
+  correo:
+    # El remitente de todo correo que salga. Sin esto, SimpleMailMessage sale sin From y muchos
+    # servidores lo rechazan; Mailpit lo acepta, asi que el fallo aparece recien en produccion.
+    remitente: ${COPROP_CORREO_REMITENTE:no-responder@coprop.bo}
 
 logging:
   level:
