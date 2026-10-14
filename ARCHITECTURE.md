@@ -61,6 +61,14 @@ no declaró, el build falla.
    eso `@ControladorDeApi`, que un controlador de cualquier módulo necesita, está en `shared` y no
    en `api`.
 
+   `api` declara `identity` desde el #13 y **`condominium` desde el #14**. Ese segundo salió de
+   `GET /api/v1/me`, la única respuesta que cruza los dos dominios: la persona y las membresías son
+   de `identity`, y el nombre del condominio y las unidades relacionadas son de `condominium`.
+   Ponerla en `identity` exigiría que ese módulo dependiera de `condominium`, que es lo que prohíbe
+   la regla 2; ponerla en `condominium` invertiría la de `identity`. Componer en `api` lo que cada
+   dominio ya publica es la dirección que esta regla permite y no relaja ningún límite: lo que
+   sigue prohibido —y lo verifica `ModularityTests`— es que un dominio importe al otro o a `api`.
+
 ## Cómo se verifica
 
 ```
@@ -470,6 +478,44 @@ condominio.
 
 Cuando el recurso no es del condominio de la ruta se responde **404, no 403**, igual que si no
 existiera: distinguirlos ya diría que existe en algún sitio.
+
+#### El perfil y la selección de condominio
+
+Issue #14. `GET /api/v1/me` es la primera llamada de todo cliente después del login: devuelve la
+persona, la cuenta, si administra la plataforma, y un elemento por condominio con **los roles de esa
+membresía y las unidades con las que tiene relación vigente**. Si trae uno, el cliente entra directo;
+si trae varios, pinta un selector.
+
+Vive en `api` —`MeController`— y no en un módulo de dominio porque es la única respuesta que cruza
+`identity` y `condominium`; el porqué está en la regla 6.
+
+Tres decisiones que no son obvias:
+
+- **No recibe ningún identificador.** Todo sale de la identidad que dejó el filtro. Pedir la cuenta
+  en la ruta convertiría "mi perfil" en "el perfil de quien yo diga" y obligaría a decidir quién
+  puede verlo; la consulta por identificador ya existe aparte, en `/api/v1/cuentas/{accountId}`.
+- **Sin `@PreAuthorize`.** No hay nada que autorizar: solo devuelve lo propio de quien pregunta, y
+  quien no tiene cuenta no llegó hasta aquí —el filtro de identidad responde 403 `SIN_CUENTA`—.
+  Exigir un permiso dejaría sin perfil justo a quien acaba de entrar y aún no tiene membresía.
+- **200 con lista vacía a quien no tiene ninguna membresía activa**, ni 404 ni 403: es una respuesta
+  correcta a una pregunta sobre uno mismo. Es también el caso del superadministrador recién abierto
+  por el arranque, que es quien crea el primer condominio.
+
+El superadministrador va en un campo propio, `administraLaPlataforma`, y no como un rol más en la
+lista de algún condominio: su alcance es la plataforma (Seguridad §3), y meterlo ahí le haría creer
+al cliente que ese condominio se lo concedió.
+
+**El condominio activo se elige por el segmento de ruta y no por una cabecera.** El issue admitía
+las dos ("por cabecera o por segmento de ruta") y el análisis §5.4 fija la ruta:
+`/api/v1/condominios/{condominioId}/...`. Se implementa solo esa, y no las dos, porque una cabecera
+sería una segunda forma de nombrar el condominio que el filtro —que lee la ruta— no ve: dos fuentes
+que pueden discrepar, y la que no se comprueba es la que acaba decidiendo. Una membresía
+**suspendida** no se lista por lo mismo: el filtro le responde 404 a todo lo de ese condominio, así
+que ofrecerla en el selector sería ofrecer una puerta cerrada.
+
+Lo sostiene `MeTests`, con más casos de lo que *no* sale que de lo que sale: es la única respuesta de
+la API que habla de varios condominios a la vez, así que es por donde se escaparía la lista de
+condominios de la plataforma.
 
 #### El filtro de membresía
 

@@ -7,13 +7,21 @@ import bo.coprop.condominium.OccupancyRole;
 import bo.coprop.condominium.OccupancyView;
 import bo.coprop.condominium.OwnershipGranted;
 import bo.coprop.condominium.OwnershipView;
+import bo.coprop.condominium.RelatedUnitView;
+import bo.coprop.condominium.UnitRelation;
 import bo.coprop.condominium.UnitRelations;
 import bo.coprop.shared.RecursoNoEncontrado;
 import bo.coprop.shared.ReglaDeNegocioViolada;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Comparator;
+import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
@@ -131,6 +139,45 @@ class UnitRelationsService implements UnitRelations {
                 .map(BillingResponsibility::getUnitId)
                 .distinct()
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<RelatedUnitView> relatedTo(UUID condominiumId, UUID personId) {
+        Map<UUID, EnumSet<UnitRelation>> relaciones = new LinkedHashMap<>();
+        anotar(relaciones, unitsOwnedBy(condominiumId, personId), UnitRelation.PROPIETARIO);
+        anotar(relaciones, unitsOccupiedBy(condominiumId, personId), UnitRelation.OCUPANTE);
+        anotar(relaciones, unitsBilledTo(condominiumId, personId), UnitRelation.RESPONSABLE_DE_PAGO);
+        if (relaciones.isEmpty()) {
+            return List.of();
+        }
+
+        // Las unidades, en bloque y no una por una: una persona con veinte parqueos no puede costar
+        // veinte consultas. Es el mismo criterio con el que el alta masiva comprueba los codigos.
+        return unidades.findAllById(relaciones.keySet()).stream()
+                .map(unidad -> new RelatedUnitView(
+                        unidad.getId(),
+                        unidad.getCode(),
+                        unidad.getType(),
+                        Set.copyOf(Objects.requireNonNull(relaciones.get(unidad.getId())))))
+                .sorted(Comparator.comparing(RelatedUnitView::code))
+                .toList();
+    }
+
+    /**
+     * Acumula una relacion sobre las unidades que la tienen.
+     *
+     * <p>El mapa es la union de las tres tablas: una unidad aparece una sola vez, con todos sus
+     * papeles. Es {@code LinkedHashMap} para que el orden no dependa del hash, aunque despues se
+     * ordene por codigo.
+     */
+    private static void anotar(
+            Map<UUID, EnumSet<UnitRelation>> relaciones, List<UUID> unidades, UnitRelation relacion) {
+        for (UUID unidad : unidades) {
+            relaciones
+                    .computeIfAbsent(unidad, id -> EnumSet.noneOf(UnitRelation.class))
+                    .add(relacion);
+        }
     }
 
     @Override

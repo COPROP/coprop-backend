@@ -52,6 +52,20 @@ public interface Memberships {
     MembershipView of(UUID condominiumId, UUID accountId);
 
     /**
+     * Las membresias vigentes de una cuenta, en todos los condominios.
+     *
+     * <p>Es lo que responde {@code GET /api/v1/me} (issue <strong>#14</strong>): el cliente no sabe
+     * en que condominios esta hasta que se lo digan, asi que esta consulta no puede recibir uno. Es
+     * la segunda excepcion declarada a la regla de que el condominio es el primer argumento de toda
+     * operacion del dominio, y por el mismo motivo que {@link People}: la pregunta es precisamente
+     * cuales son.
+     *
+     * <p>Devuelve las vigentes, activas y suspendidas por igual. Que hacer con una suspendida es de
+     * quien llama: el filtro de aislamiento la rechaza y {@code /me} no la lista.
+     */
+    List<MembershipView> ofAccount(UUID accountId);
+
+    /**
      * @throws bo.coprop.shared.RecursoNoEncontrado si no existe, o si no es de ese condominio
      */
     MembershipView find(UUID condominiumId, UUID membershipId);

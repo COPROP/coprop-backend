@@ -4,6 +4,7 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.UUID;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 
 /**
@@ -49,6 +50,28 @@ final class IdentidadAutenticada extends AbstractAuthenticationToken {
     @Override
     public String getName() {
         return actor.accountId().toString();
+    }
+
+    /**
+     * El actor de una autenticacion que ya paso por el filtro de identidad.
+     *
+     * <p>Existe para que un controlador no tenga que castear {@code getPrincipal()}, que declara
+     * {@code Object} y que NullAway da por anulable con razon: {@link org.springframework.security.core.Authentication}
+     * es un contrato de Spring y no promete nada sobre lo que hay dentro.
+     *
+     * <p>Que no sea una {@code IdentidadAutenticada} <strong>no puede pasar</strong> en un
+     * controlador: las tres cadenas exigen autenticacion en todo lo que no es publico, y el filtro
+     * de identidad sustituye la autenticacion antes de la autorizacion. Si pasara, seria un cambio
+     * en la cadena de seguridad y no una peticion rara, asi que revienta con lo que hace falta para
+     * encontrarlo en vez de responder un 403 que mandaria a mirar los permisos.
+     */
+    static Actor actorDe(Authentication quien) {
+        if (quien instanceof IdentidadAutenticada identidad) {
+            return identidad.actor;
+        }
+        throw new IllegalStateException(
+                "La peticion llego a un controlador sin identidad de COPROP resuelta; la autenticacion es %s. Revisar el orden del FiltroDeIdentidad en la cadena de seguridad."
+                        .formatted(quien.getClass().getName()));
     }
 
     /**

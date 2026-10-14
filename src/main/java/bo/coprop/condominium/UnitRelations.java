@@ -87,4 +87,18 @@ public interface UnitRelations {
 
     /** Las titularidades vigentes de una unidad, para saber a quien se le cobra. */
     List<OwnershipView> ownersOf(UUID condominiumId, UUID unitId);
+
+    /**
+     * Las unidades de ese condominio con las que una persona tiene alguna relacion vigente, y cual.
+     *
+     * <p>Es lo que necesita {@code GET /api/v1/me} (issue <strong>#14</strong>) para decirle a cada
+     * cliente que unidades pintar. Resuelve las tres relaciones de una vez en vez de dejar que
+     * quien llame pida {@link #unitsOwnedBy}, {@link #unitsOccupiedBy} y {@link #unitsBilledTo} y
+     * despues busque el codigo de cada unidad: eso serian tres consultas mas una por unidad, y la
+     * union de las tres relaciones --que una unidad aparezca una sola vez con sus dos papeles-- es
+     * trabajo de este modulo, que es el que sabe que son tres tablas.
+     *
+     * <p>Ordenadas por codigo, para que la pantalla no cambie de orden entre dos peticiones.
+     */
+    List<RelatedUnitView> relatedTo(UUID condominiumId, UUID personId);
 }
