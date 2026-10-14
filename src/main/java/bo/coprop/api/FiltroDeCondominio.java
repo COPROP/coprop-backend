@@ -1,5 +1,6 @@
 package bo.coprop.api;
 
+import bo.coprop.identity.MembershipRole;
 import bo.coprop.identity.MembershipStatus;
 import bo.coprop.identity.MembershipView;
 import bo.coprop.identity.Memberships;
@@ -10,6 +11,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -17,6 +19,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -88,8 +91,15 @@ class FiltroDeCondominio extends OncePerRequestFilter {
         }
 
         var actor = (IdentidadAutenticada.Actor) identidad.getPrincipal();
-        MembershipView membresia = membresias.of(condominio, actor.accountId());
-        if (membresia == null || membresia.status() != MembershipStatus.ACTIVA) {
+
+        MembresiaVigente membresia = vigente(condominio, actor.accountId());
+
+        // El superadministrador no necesita membresia para entrar --su alcance es la plataforma, y
+        // sin esto un condominio recien creado no tendria forma de tener a nadie dentro--. Lo que
+        // puede hacer una vez dentro lo decide la matriz del issue #16, y ahi casi todo le dice que
+        // no. El acceso de soporte con motivo y caducidad que pide Seguridad 10.1 llega con la
+        // bitacora del issue #21.
+        if (!membresia.activa() && !esSuperadministrador(identidad)) {
             log.info(
                     "La cuenta {} pidio el condominio {} sin membresia activa; se responde 404.",
                     actor.accountId(),
@@ -98,13 +108,53 @@ class FiltroDeCondominio extends OncePerRequestFilter {
             return;
         }
 
-        SecurityContextHolder.getContext().setAuthentication(new IdentidadAutenticada(actor, autoridadesDe(membresia)));
+        // Las autoridades que ya traia MAS las de la membresia, y no unas en vez de otras. Quien
+        // administra la plataforma y ademas es miembro de un condominio tiene las dos cosas a la
+        // vez; quedarse solo con una le quitaba en silencio la mitad de lo suyo.
+        var autoridades = new ArrayList<GrantedAuthority>(identidad.getAuthorities());
+        if (membresia.activa()) {
+            autoridades.addAll(autoridadesDe(membresia.vista()));
+        }
+        SecurityContextHolder.getContext().setAuthentication(new IdentidadAutenticada(actor, autoridades));
+        conElCondominioEnElLog(condominio, peticion, respuesta, cadena);
+    }
+
+    private static void conElCondominioEnElLog(
+            UUID condominio, HttpServletRequest peticion, HttpServletResponse respuesta, FilterChain cadena)
+            throws ServletException, IOException {
         MDC.put(ClavesDeLog.CONDOMINIO, condominio.toString());
         try {
             cadena.doFilter(peticion, respuesta);
         } finally {
             MDC.remove(ClavesDeLog.CONDOMINIO);
         }
+    }
+
+    /**
+     * La membresia vigente, o la ausencia de una.
+     *
+     * <p>Existe para no tener que preguntar dos veces si hay y si esta activa, que es justo donde se
+     * cuela un {@code null} cuando alguien toca esto despues.
+     */
+    private record MembresiaVigente(@Nullable MembershipView encontrada) {
+
+        boolean activa() {
+            return encontrada != null && encontrada.status() == MembershipStatus.ACTIVA;
+        }
+
+        MembershipView vista() {
+            return java.util.Objects.requireNonNull(encontrada);
+        }
+    }
+
+    private MembresiaVigente vigente(UUID condominio, UUID cuenta) {
+        return new MembresiaVigente(membresias.of(condominio, cuenta));
+    }
+
+    private static boolean esSuperadministrador(IdentidadAutenticada identidad) {
+        String deLaPlataforma = "ROLE_" + MembershipRole.PLATFORM_ADMIN.name();
+        return identidad.getAuthorities().stream()
+                .anyMatch(autoridad -> deLaPlataforma.equals(autoridad.getAuthority()));
     }
 
     private static @Nullable UUID condominioDe(String ruta) {

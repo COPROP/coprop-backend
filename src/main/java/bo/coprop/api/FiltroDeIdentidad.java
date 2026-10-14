@@ -2,6 +2,7 @@ package bo.coprop.api;
 
 import bo.coprop.identity.AccountView;
 import bo.coprop.identity.Identities;
+import bo.coprop.identity.MembershipRole;
 import bo.coprop.shared.ClavesDeLog;
 import bo.coprop.shared.CodigoDeError;
 import jakarta.servlet.FilterChain;
@@ -9,9 +10,12 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.MDC;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -77,8 +81,14 @@ class FiltroDeIdentidad extends OncePerRequestFilter {
             return;
         }
 
-        var identidad = new IdentidadAutenticada(
-                new IdentidadAutenticada.Actor(cuenta.id(), cuenta.personId()), autenticacion.getAuthorities());
+        // La autoridad de plataforma se pone aqui y no en el filtro de condominio porque no depende
+        // de ninguno: el superadministrador la lleva tambien en las rutas globales, que es donde
+        // crea condominios.
+        var autoridades = identidades.esSuperadministrador(cuenta.id())
+                ? List.<GrantedAuthority>of(new SimpleGrantedAuthority("ROLE_" + MembershipRole.PLATFORM_ADMIN.name()))
+                : List.<GrantedAuthority>of();
+        var identidad =
+                new IdentidadAutenticada(new IdentidadAutenticada.Actor(cuenta.id(), cuenta.personId()), autoridades);
         SecurityContextHolder.getContext().setAuthentication(identidad);
         MDC.put(ClavesDeLog.ACTOR, identidad.getName());
         try {

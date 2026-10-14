@@ -17,6 +17,7 @@ import java.security.Principal;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -50,6 +51,7 @@ class UnitController {
         this.unidades = unidades;
     }
 
+    @PreAuthorize("@autorizacion.puede(authentication, 'GESTIONAR_UNIDADES')")
     @PostMapping("/unidades")
     ResponseEntity<UnitView> alta(
             @PathVariable UUID condominiumId, @Valid @RequestBody NewUnit nueva, Principal quien) {
@@ -65,12 +67,14 @@ class UnitController {
      * que resolver el parseo y el informe de errores fila a fila; hacerla tambien aqui seria
      * hacerla dos veces.
      */
+    @PreAuthorize("@autorizacion.puede(authentication, 'GESTIONAR_UNIDADES')")
     @PostMapping("/unidades/lote")
     ResponseEntity<List<UnitView>> altaMasiva(
             @PathVariable UUID condominiumId, @Valid @RequestBody LoteDeUnidades lote, Principal quien) {
         return ResponseEntity.status(201).body(unidades.registerAll(condominiumId, lote.unidades(), quien.getName()));
     }
 
+    @PreAuthorize("@autorizacion.puede(authentication, 'GESTIONAR_UNIDADES')")
     @PostMapping("/bloques")
     ResponseEntity<BlockView> altaDeBloque(
             @PathVariable UUID condominiumId, @Valid @RequestBody NuevoBloque nuevo, Principal quien) {
@@ -78,6 +82,7 @@ class UnitController {
         return ResponseEntity.status(201).body(creado);
     }
 
+    @PreAuthorize("@autorizacion.puede(authentication, 'GESTIONAR_UNIDADES')")
     @PostMapping("/bloques/{blockId}/pisos")
     ResponseEntity<FloorView> altaDePiso(
             @PathVariable UUID condominiumId,

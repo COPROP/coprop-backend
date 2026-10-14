@@ -48,7 +48,7 @@ class UnitRelationsControllerTests {
     private People personas;
 
     @Test
-    @WithMockUser(username = "emma")
+    @WithMockUser(username = "emma", roles = "CONDO_ADMIN")
     @DisplayName("registrar un propietario devuelve 201 con su porcentaje")
     void registrarPropietarioDevuelve201() throws Exception {
         UUID condominio = condominio("4000000001");
@@ -66,7 +66,7 @@ class UnitRelationsControllerTests {
     }
 
     @Test
-    @WithMockUser(username = "emma")
+    @WithMockUser(username = "emma", roles = "CONDO_ADMIN")
     @DisplayName("los propietarios de una unidad se listan con su porcentaje")
     void losPropietariosSeListan() throws Exception {
         UUID condominio = condominio("4000000002");
@@ -82,7 +82,7 @@ class UnitRelationsControllerTests {
     }
 
     @Test
-    @WithMockUser(username = "emma")
+    @WithMockUser(username = "emma", roles = "CONDO_ADMIN")
     @DisplayName("la unidad de otro condominio da 404, no 403")
     void laUnidadAjenaDa404() throws Exception {
         UUID propio = condominio("4000000003");
@@ -99,7 +99,7 @@ class UnitRelationsControllerTests {
     }
 
     @Test
-    @WithMockUser(username = "emma")
+    @WithMockUser(username = "emma", roles = "CONDO_ADMIN")
     @DisplayName("un porcentaje por encima de 100 da 422 con el campo senalado")
     void unPorcentajeImposibleDa422() throws Exception {
         UUID condominio = condominio("4000000005");
@@ -116,7 +116,7 @@ class UnitRelationsControllerTests {
     }
 
     @Test
-    @WithMockUser(username = "emma")
+    @WithMockUser(username = "emma", roles = "CONDO_ADMIN")
     @DisplayName("el inquilino ocupa y el propietario responde por el pago, en dos llamadas")
     void elInquilinoOcupaYElPropietarioPaga() throws Exception {
         UUID condominio = condominio("4000000006");
@@ -142,7 +142,7 @@ class UnitRelationsControllerTests {
     }
 
     @Test
-    @WithMockUser(username = "emma")
+    @WithMockUser(username = "emma", roles = "CONDO_ADMIN")
     @DisplayName("repetir la titularidad da 409 o 422 segun la regla, nunca un 500")
     void repetirLaTitularidadNoDa500() throws Exception {
         UUID condominio = condominio("4000000007");

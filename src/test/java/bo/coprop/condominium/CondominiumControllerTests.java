@@ -44,7 +44,7 @@ class CondominiumControllerTests {
     private MockMvc mockMvc;
 
     @Test
-    @WithMockUser(username = "emma")
+    @WithMockUser(username = "emma", roles = "PLATFORM_ADMIN")
     @DisplayName("el alta devuelve 201 con la cabecera Location y el condominio creado")
     void elAltaDevuelve201() throws Exception {
         mockMvc.perform(post("/api/v1/condominios")
@@ -60,7 +60,7 @@ class CondominiumControllerTests {
     }
 
     @Test
-    @WithMockUser(username = "emma")
+    @WithMockUser(username = "emma", roles = "PLATFORM_ADMIN")
     @DisplayName("un dia de emision fuera de rango da 422 en problem+json, con el campo senalado")
     void elDiaFueraDeRangoDa422() throws Exception {
         String conDia31 = ALTA_VALIDA.replace("\"issueDay\":1", "\"issueDay\":31");
@@ -76,7 +76,7 @@ class CondominiumControllerTests {
     }
 
     @Test
-    @WithMockUser(username = "emma")
+    @WithMockUser(username = "emma", roles = "CONDO_ADMIN")
     @DisplayName("consultar uno que no existe da 404 con su codigo, no un 500")
     void elQueNoExisteDa404() throws Exception {
         mockMvc.perform(get("/api/v1/condominios/" + UUID.randomUUID()))
@@ -96,7 +96,7 @@ class CondominiumControllerTests {
     }
 
     @Test
-    @WithMockUser(username = "emma")
+    @WithMockUser(username = "emma", roles = "PLATFORM_ADMIN")
     @DisplayName("una zona horaria que no existe se rechaza en el alta, no meses despues")
     void laZonaHorariaInventadaDa422() throws Exception {
         // Sin la barra baja no es una zona IANA. El analisis 12.2 calcula los vencimientos y la

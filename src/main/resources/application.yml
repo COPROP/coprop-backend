@@ -77,6 +77,10 @@ management:
       application: ${spring.application.name}
 
 coprop:
+  # El correo del primer superadministrador. La aplicacion lo abre al arrancar SOLO si no hay
+  # ninguno, asi que dejarlo puesto no es una puerta trasera: en cuanto existe uno, deja de hacer
+  # nada. Vacio por defecto; en produccion llega por variable de entorno.
+  superadministrador-inicial: ${COPROP_SUPERADMIN_INICIAL:}
   web:
     # A donde vuelve el navegador despues de iniciar o cerrar sesion. En produccion la SPA y la API
     # van tras el mismo dominio; en desarrollo la SPA la sirve el dev server de Angular.

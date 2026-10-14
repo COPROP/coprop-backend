@@ -1,49 +1,23 @@
--- Semilla de desarrollo: deja la base lista para probar la API sin pelearse con el arranque.
+-- Semilla de desarrollo: dos condominios con identificadores fijos, para que la coleccion de
+-- Postman funcione de entrada.
 --
--- NO corre sola y NO es una migracion: Flyway no la ve, y por eso no puede acabar en produccion.
--- Se invoca a mano, y se puede repetir cuantas veces haga falta --es idempotente--.
+-- NO corre sola y NO es una migracion: Flyway no la ve, y por eso no puede acabar en produccion. Se
+-- invoca a mano, y se puede repetir cuantas veces haga falta --es idempotente--.
 --
 --     docker exec -i coprop-postgres psql -U coprop -d coprop < docker/postgres/semilla-de-desarrollo.sql
 --
--- Hace falta porque toda la API exige identidad, y la identidad exige una cuenta que alguien dio de
--- alta. El arranque de la plataforma --quien crea la primera cuenta y la primera membresia-- es el
--- issue #16; mientras tanto, esto.
+-- **Ya no hace falta para empezar.** Desde el issue #16, la aplicacion abre sola el primer
+-- superadministrador al arrancar --el correo sale de coprop.superadministrador-inicial, que en el
+-- perfil local es dev@coprop.local-- y con el se pueden crear condominios y poner su primer
+-- administrador desde la API. Esto solo ahorra esos pasos y fija los identificadores.
 --
 -- Deja:
---   * la persona y la cuenta de dev@coprop.local, que es el usuario del realm;
---   * un condominio PROPIO con la cuenta como CONDO_ADMIN y FINANCE_ADMIN;
+--   * un condominio PROPIO, con la cuenta de dev@coprop.local como CONDO_ADMIN y FINANCE_ADMIN;
 --   * un condominio AJENO, sin membresia, para ver el aislamiento del issue #17 funcionando.
---
--- Los identificadores son fijos a proposito: la coleccion de Postman los trae puestos.
 
 BEGIN;
 
--- La persona. ON CONFLICT para poder repetir la semilla sin limpiar nada.
-INSERT INTO person (id, first_names, last_names, national_id, created_at)
-VALUES ('11111111-1111-4111-8111-111111111111', 'Emma', 'Tola', '8123456', now())
-ON CONFLICT (id) DO NOTHING;
-
--- La cuenta con la que se entra. El correo tiene que ser el MISMO que el del usuario del realm:
--- el primer login vincula por correo, y es lo que hace que entrar con contrasena y entrar con
--- Google caigan en la misma cuenta.
-INSERT INTO user_account (id, person_id, email, status, mfa_enabled, created_at)
-VALUES ('22222222-2222-4222-8222-222222222222', '11111111-1111-4111-8111-111111111111',
-        'dev@coprop.local', 'INVITADO', FALSE, now())
-ON CONFLICT (id) DO NOTHING;
-
--- Suelta el vinculo con el proveedor de identidad.
---
--- Esto es lo que arregla el caso que mas desconcierta en local: Keycloak en start-dev NO persiste su
--- base, asi que al recrear el contenedor dev@coprop.local nace con un "sub" nuevo mientras la cuenta
--- sigue apuntando al viejo. Como una cuenta ya vinculada no se revincula a otro sujeto --la
--- proteccion del issue #13, que impide que una segunda identidad con el mismo correo se quede con la
--- cuenta ajena-- el login responde SIN_CUENTA y parece que la cuenta esta rota. Volver a correr esta
--- semilla la deja lista para el siguiente login.
-UPDATE user_account
-SET idp_subject = NULL, status = 'INVITADO'
-WHERE id = '22222222-2222-4222-8222-222222222222';
-
--- El condominio propio, donde la cuenta si es miembro.
+-- El condominio propio.
 INSERT INTO condominium (id, name, nit, type, time_zone, currency, status, created_at)
 VALUES ('aaaaaaaa-0000-4000-8000-000000000001', 'Torre Sucre (desarrollo)', '1023456789',
         'EDIFICIO', 'America/La_Paz', 'BOB', 'ACTIVO', now())
@@ -72,21 +46,35 @@ WHERE NOT EXISTS (
 
 -- La membresia administrativa en el condominio propio.
 --
+-- La cuenta se busca por correo y no por un identificador fijo: la crea el arranque de la
+-- aplicacion, con el suyo. Si la base esta limpia y la aplicacion no arranco todavia, aqui no hay
+-- cuenta y esta parte no hace nada: se corre la semilla otra vez despues de levantarla.
+--
 -- Dos roles en la misma persona esta permitido y es una decision explicita del analisis (10.1): en
 -- condominios pequenos, una sola persona administra y maneja el dinero. La concentracion queda en
 -- auditoria.
---
--- invited_by va nulo porque a la membresia del primer administrador no la invita nadie. Es justo el
--- hueco que cierra el issue #16.
 INSERT INTO membership (id, user_id, condominium_id, status, valid_from, invited_by)
-VALUES ('cccccccc-0000-4000-8000-000000000003', '22222222-2222-4222-8222-222222222222',
-        'aaaaaaaa-0000-4000-8000-000000000001', 'ACTIVA', now(), NULL)
+SELECT 'cccccccc-0000-4000-8000-000000000003', c.id, 'aaaaaaaa-0000-4000-8000-000000000001',
+       'ACTIVA', now(), NULL
+FROM user_account c
+WHERE lower(c.email) = lower('dev@coprop.local')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO membership_role (membership_id, role)
-VALUES ('cccccccc-0000-4000-8000-000000000003', 'CONDO_ADMIN'),
-       ('cccccccc-0000-4000-8000-000000000003', 'FINANCE_ADMIN')
+SELECT 'cccccccc-0000-4000-8000-000000000003', rol
+FROM (VALUES ('CONDO_ADMIN'), ('FINANCE_ADMIN')) AS roles(rol)
+WHERE EXISTS (SELECT 1 FROM membership WHERE id = 'cccccccc-0000-4000-8000-000000000003')
 ON CONFLICT (membership_id, role) DO NOTHING;
+
+-- Suelta el vinculo con el proveedor de identidad.
+--
+-- Arregla el caso que mas desconcierta en local: Keycloak en start-dev NO persiste su base, asi que
+-- al recrear el contenedor dev@coprop.local nace con un "sub" nuevo mientras la cuenta sigue
+-- apuntando al viejo. Como una cuenta ya vinculada no se revincula a otro sujeto --la proteccion
+-- del issue #13-- el login responde SIN_CUENTA y parece que la cuenta esta rota.
+UPDATE user_account
+SET idp_subject = NULL, status = 'INVITADO'
+WHERE lower(email) = lower('dev@coprop.local');
 
 COMMIT;
 
@@ -100,8 +88,8 @@ SELECT c.name AS condominio,
 FROM condominium c
 LEFT JOIN membership m
        ON m.condominium_id = c.id
-      AND m.user_id = '22222222-2222-4222-8222-222222222222'
       AND m.valid_to IS NULL
+      AND m.user_id IN (SELECT id FROM user_account WHERE lower(email) = lower('dev@coprop.local'))
 LEFT JOIN membership_role r ON r.membership_id = m.id
 WHERE c.id IN ('aaaaaaaa-0000-4000-8000-000000000001', 'bbbbbbbb-0000-4000-8000-000000000002')
 GROUP BY c.name, c.id
