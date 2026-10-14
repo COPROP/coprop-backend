@@ -69,6 +69,11 @@ no declaró, el build falla.
    dominio ya publica es la dirección que esta regla permite y no relaja ningún límite: lo que
    sigue prohibido —y lo verifica `ModularityTests`— es que un dominio importe al otro o a `api`.
 
+   Desde el **#15** vive aquí por lo mismo `ControlDeAcceso`, la cadena de autorización completa: la
+   matriz de permisos es de `identity` y las relaciones de la unidad son de `condominium`, y hace
+   falta mirar las dos a la vez. Los controladores de los dos dominios lo invocan por nombre de bean
+   desde `@PreAuthorize`, así que ninguno lo importa.
+
 ## Cómo se verifica
 
 ```
@@ -552,9 +557,9 @@ cada funcionalidad es la anotación que exige el permiso, no la decisión.
 
 Cada celda tiene tres valores, no dos: `TODO` es el "Sí" de la matriz, `NINGUNO` el "—", y **`PROPIO`
 es el "Propias"** de las columnas del propietario y el inquilino. Esa palabra no es un sí más
-pequeño: es una condición sobre *cuál* recurso, y quien la resuelve es la cadena del issue #15.
-Tratarla como un sí abriría las unidades del vecino; como un no, dejaría al propietario sin su
-estado de cuenta.
+pequeño: es una condición sobre *cuál* recurso, y quien la resuelve es la cadena del issue #15
+—la sección siguiente—. Tratarla como un sí abriría las unidades del vecino; como un no, dejaría al
+propietario sin su estado de cuenta.
 
 Los controladores preguntan con `@PreAuthorize("@autorizacion.puede(authentication, 'X')")`. El bean
 se referencia **por nombre**, que es una cadena: por eso un controlador de `condominium` lo usa sin
@@ -565,6 +570,80 @@ protegido tiene su caso en `PermisosDeApiTests`.
 No hace falta consultar la base: los roles del condominio de la ruta ya los dejó el filtro del #17
 como autoridades de la petición. Solo se baja a la base en las rutas que no cuelgan de un condominio
 —el alta de una persona—, donde no hay autoridades de condominio que mirar.
+
+#### Y sobre cuál recurso
+
+Issue #15. La cadena de Seguridad §7.2 tiene cuatro eslabones y los tres primeros ya estaban: la
+identidad (#13), la membresía y los roles del condominio (#17), y si el rol hace esa clase de cosas
+(#16). Falta el que ninguno de ellos puede contestar: **si *este* recurso, el de la ruta, es suyo.**
+Es el `canPayFor` del ejemplo del análisis, y lo resuelve `ControlDeAcceso`.
+
+Vive en `api`, con el bean `acceso`, porque es **el único módulo que ve las dos mitades**: la matriz
+es de `identity` y las relaciones de la unidad son de `condominium`, y las reglas 2 y 6 prohíben que
+esos dos se miren entre sí. Mismo motivo que `MeController`, y no relaja ningún límite: `api`
+compone lo que cada dominio ya publica. Los controladores lo invocan por nombre de bean desde
+`@PreAuthorize`, igual que `@autorizacion`.
+
+**Las tres relaciones cuentan por igual** —`UnitOwnership`, `UnitOccupancy` y
+`BillingResponsibility`—, no solo la titularidad. El propietario que alquiló ya no ocupa y sigue
+pagando; el inquilino residente tiene que poder subir su comprobante. Reducirlo a lo que la palabra
+"propias" sugiere dejaría a uno de los dos fuera de lo suyo. Lo contesta `UnitRelations.isRelatedTo`
+con tres `EXISTS` y sin traer una fila, porque se pregunta en cada petición, y **lleva el condominio
+en el WHERE**: así una unidad de otro condominio no empareja nunca y quien pregunta no tiene que
+comprobar aparte de quién es la unidad.
+
+**Las dos negativas no responden lo mismo, y es el criterio del issue:**
+
+| Qué falla | Respuesta | Por qué |
+| --- | --- | --- |
+| El rol no hace esto (`NINGUNO`) | **403** `SIN_PERMISO` | La respuesta depende solo de los roles de quien pregunta, no de qué recurso pidió: no hay existencia que filtrar. |
+| El recurso no es suyo (`PROPIO` sin relación) | **404** `NO_ENCONTRADO` | Aquí sí depende del recurso. Un 403 confirmaría que esa unidad existe, y con eso un vecino enumera el edificio probando identificadores. |
+
+El 404 sale de una **excepción lanzada dentro de la expresión de `@PreAuthorize`**, no de un
+`false`: devolver `false` siempre acaba en 403. SpEL deja pasar sin envolver las excepciones no
+comprobadas del método que invoca, así que `ManejadorDeErrores` ve el `RecursoNoEncontrado` y lo
+traduce. Es un detalle del que depende el criterio entero y no está a la vista en el código, así que
+lo prueba un caso propio.
+
+Dos endpoints de hoy pasan por aquí, y cada uno muestra una mitad:
+
+- `GET .../unidades/{id}/propietarios` va por `VER_ESTADO_DE_CUENTA`, que es una fila con "Propias":
+  los dos administradores ven cualquier unidad, el propietario y el inquilino solo la suya —otra da
+  404—, y portería y el directorio reciben 403. Las tres salidas de la cadena en una sola fila.
+- `GET .../unidades/{id}` no tiene fila en la matriz —sus veintiuna son acciones sobre dinero y
+  administración, ninguna dice "ver una unidad"—, así que **la decisión se toma en el endpoint y
+  queda escrita ahí**, como ya se hizo con `CONFIGURAR_COBROS` en la configuración del condominio:
+  la ve quien administra unidades, y cualquier otro miembro solo aquellas con las que tiene relación
+  vigente. La consecuencia conocida es que `FINANCE_ADMIN` recibe 404 en la ficha de una unidad; su
+  caso de uso real es un listado para cobrar, que llega con M2 y traerá su propio permiso.
+
+`GET /api/v1/condominios/{id}` **no pide permiso a propósito**: lo único que hace falta para verlo
+es pertenecer, y eso ya lo exigió el filtro del #17. Los siete roles lo ven, porque un propietario
+necesita el nombre y los días de emisión y vencimiento del edificio donde vive tanto como su
+administrador. Exigir un permiso significaría elegir una fila que no habla de esto y dejar a
+portería sin saber en qué edificio está.
+
+Fuera del condominio, `GET /personas/{id}` y `GET /cuentas/{id}` añaden **lo propio** a la regla del
+alta: la suya, o cualquiera si administra algún condominio. Sin esa excepción, la cabecera `Location`
+del alta de una cuenta apuntaría a una ruta que a su dueño responde 403. Niegan con 403, no con 404,
+porque la ruta es global y la respuesta no cambia con el identificador.
+
+Lo que lo sostiene es `CadenaDeAutorizacionTests`: **los veinte endpoints por los siete roles**, con
+el resultado declarado celda a celda y un caso que falla si una fila se olvida de un rol. Es el
+mismo descuido que en el #16 dejó un permiso de menos en `CONDO_ADMIN`, y lo cazó justo el test que
+exigía las columnas completas. Dos cosas que esa rejilla enseñó y conviene no volver a descubrir:
+
+- **La validación del cuerpo corre antes de la autorización.** Spring resuelve los argumentos del
+  método —y con ellos el `@Valid`— antes de invocarlo, y `@PreAuthorize` es un consejo alrededor de
+  esa invocación. Un cuerpo inválido da 422 a quien no tiene permiso, así que una celda con un
+  cuerpo mal formado no prueba la autorización.
+- Para los permitidos se comprueba que **no sea ninguna de las dos negativas**, no un 200 exacto:
+  que un alta repetida acabe en 422 es asunto de su propio test, y atarlo aquí convertiría la
+  rejilla en una batería funcional de ciento cuarenta casos.
+
+Lo que esta cadena todavía no hace es el **segundo factor** de las tres celdas "Sí (step-up)":
+`MatrizDePermisos.pideSegundoFactor` ya las nombra y hacerlo cumplir es el issue **#22**. Y la
+segunda barrera que §7.2 pide en su punto 5 —RLS— sigue evaluada y sin implementar, más abajo.
 
 #### El superadministrador y el arranque de la plataforma
 

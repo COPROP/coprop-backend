@@ -21,6 +21,12 @@
  * exigiria que ese modulo dependiera de {@code condominium}, que es justo lo que prohibe la regla 2;
  * ponerlo en {@code condominium} invertiria la de {@code identity}. Componer en {@code api} lo que
  * cada dominio publica es la direccion permitida por la regla 6 y no relaja ningun limite.
+ *
+ * <p>Por ese mismo motivo vive aqui {@code ControlDeAcceso} desde el issue #15: la cadena de
+ * autorizacion completa cruza los dos dominios --la matriz de permisos es de {@code identity} y las
+ * relaciones de la unidad son de {@code condominium}-- y este es el unico modulo que ve las dos.
+ * Los controladores lo invocan por nombre de bean desde {@code @PreAuthorize}, igual que
+ * {@code @autorizacion}, asi que ninguno de los dos dominios tiene que importarlo.
  */
 @org.springframework.modulith.ApplicationModule(
         allowedDependencies = {"shared", "identity", "condominium"},

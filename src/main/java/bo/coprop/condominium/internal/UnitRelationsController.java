@@ -33,10 +33,10 @@ import org.springframework.web.bind.annotation.RestController;
  * condominio: asi la comprobacion de que pertenece a este condominio es la misma que en el resto
  * del modulo, y un identificador de otro condominio responde 404 y no 403.
  *
- * <p><strong>Falta la restriccion por rol</strong>, como en el resto de M1: registrar titularidades
- * le toca al administrador del condominio y eso llega con el issue <strong>#16</strong>. Cerrar
- * una relacion --un cambio de propietario, una mudanza-- es el <strong>#19</strong>, asi que aqui
- * solo hay alta y consulta.
+ * <p>Registrar una relacion es del administrador del condominio (#16). Consultarlas va por la
+ * cadena completa del <strong>#15</strong>, y es el unico endpoint de hoy que resuelve un "Propias"
+ * de la matriz sobre un recurso de la ruta. Cerrar una relacion --un cambio de propietario, una
+ * mudanza-- es el <strong>#19</strong>, asi que aqui solo hay alta y consulta.
  */
 @ControladorDeApi
 @RestController
@@ -61,7 +61,19 @@ class UnitRelationsController {
         return ResponseEntity.status(201).body(creada);
     }
 
-    /** Los propietarios vigentes, con su porcentaje. Es a quienes se les cobra. */
+    /**
+     * Los propietarios vigentes, con su porcentaje. Es a quienes se les cobra.
+     *
+     * <p>Por eso lo gobierna {@code VER_ESTADO_DE_CUENTA} y no el permiso de gestionar unidades:
+     * saber quien responde por una unidad es la cabecera de su estado de cuenta. La matriz da esa
+     * fila entera a los dos administradores, "Propias" al propietario y al inquilino --que asi ven
+     * a sus copropietarios y a nadie mas-- y nada a porteria ni al directorio.
+     *
+     * <p>Las tres consecuencias de esa celda, en orden: el administrador ve cualquier unidad; el
+     * propietario que pide la de un vecino recibe <strong>404</strong>; y porteria recibe
+     * <strong>403</strong>, porque ahi lo que falla es el rol y no el recurso.
+     */
+    @PreAuthorize("@acceso.puedeSobreLaUnidad(authentication, 'VER_ESTADO_DE_CUENTA', #condominiumId, #unitId)")
     @GetMapping("/propietarios")
     List<OwnershipView> propietarios(@PathVariable UUID condominiumId, @PathVariable UUID unitId) {
         return relaciones.ownersOf(condominiumId, unitId);

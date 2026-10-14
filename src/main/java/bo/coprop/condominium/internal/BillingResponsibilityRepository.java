@@ -16,5 +16,15 @@ interface BillingResponsibilityRepository extends JpaRepository<BillingResponsib
 
     boolean existsByUnitIdAndPersonIdAndConceptIdAndValidToIsNull(UUID unitId, UUID personId, UUID conceptId);
 
+    /**
+     * Si responde por algun concepto de esa unidad, el general incluido.
+     *
+     * <p>Aqui el concepto no entra en la pregunta a proposito: para la cadena de autorizacion del
+     * issue #15 basta con responder por algo de esa unidad. Acotar por concepto es de la operacion
+     * que se autorice --un QR de agua, un comprobante de expensas-- y le toca a M2, cuando el
+     * concepto exista como entidad.
+     */
+    boolean existsByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(UUID condominiumId, UUID unitId, UUID personId);
+
     List<BillingResponsibility> findByCondominiumIdAndPersonIdAndValidToIsNull(UUID condominiumId, UUID personId);
 }

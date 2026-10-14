@@ -49,8 +49,9 @@ import java.util.Set;
  * por fila hoy. Lo que llega con cada funcionalidad es la anotacion que exige el permiso.
  *
  * <p><strong>Lo que esta matriz no decide</strong>: si <em>este</em> recurso es tuyo. Eso es
- * {@link Alcance#PROPIO}, y lo resuelve la cadena de autorizacion del issue #15. Y si hizo falta
- * segundo factor hace poco, que es {@link #pideSegundoFactor} y lo hara cumplir el #22.
+ * {@link Alcance#PROPIO}, y lo resuelve {@code ControlDeAcceso} en el modulo {@code api} (issue
+ * #15), que es el unico sitio donde se ven a la vez la matriz y las relaciones de la unidad. Y si
+ * hizo falta segundo factor hace poco, que es {@link #pideSegundoFactor} y lo hara cumplir el #22.
  */
 public final class MatrizDePermisos {
 
@@ -148,7 +149,9 @@ public final class MatrizDePermisos {
         matriz.put(MembershipRole.FINANCE_ADMIN, finanzas);
 
         // El propietario y el inquilino ven y hacen lo SUYO. La diferencia entre ellos no esta en
-        // esta matriz: esta en que relacion tienen con la unidad, y la resuelve el issue #15.
+        // esta matriz: esta en que relacion tienen con la unidad, y por eso las dos columnas son
+        // identicas. Quien las separa es ControlDeAcceso, que pregunta por las tres relaciones
+        // --titularidad, ocupacion y responsabilidad de pago-- y no solo por la titularidad.
         var propietario = Map.of(
                 VER_ESTADO_DE_CUENTA, PROPIO,
                 VER_SALDOS_A_FAVOR, PROPIO,

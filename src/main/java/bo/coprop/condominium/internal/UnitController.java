@@ -38,7 +38,9 @@ import org.springframework.web.bind.annotation.RestController;
  * existiera (Seguridad 7.1). Lo que falta para cerrar el aislamiento es la membresia, y esa es
  * del #17.
  *
- * <p>Igual que en el alta de condominios, la restriccion por rol llega con el issue #16.
+ * <p>Las altas las exige el permiso de gestionar unidades (#16). La consulta de una unidad va por
+ * la cadena completa del <strong>#15</strong>: quien administra unidades las ve todas, y quien no,
+ * solo las que son suyas.
  */
 @ControladorDeApi
 @RestController
@@ -93,6 +95,17 @@ class UnitController {
                 .body(unidades.addFloor(condominiumId, blockId, nuevo.number(), quien.getName()));
     }
 
+    /**
+     * La ficha de una unidad.
+     *
+     * <p>La matriz no tiene una fila que diga "ver una unidad": sus veintiuna son acciones sobre
+     * dinero y administracion. Asi que esto lo gobierna el cruce de los dos eslabones anteriores de
+     * la cadena, y lo resuelve {@code @acceso}: el administrador de unidades las ve todas, y
+     * cualquier otro miembro solo aquellas con las que tiene una relacion vigente. Una ajena
+     * responde <strong>404</strong>, igual que si no existiera, para que nadie recorra el edificio
+     * probando identificadores.
+     */
+    @PreAuthorize("@acceso.puedeVerLaUnidad(authentication, #condominiumId, #unitId)")
     @GetMapping("/unidades/{unitId}")
     UnitView consultar(@PathVariable UUID condominiumId, @PathVariable UUID unitId) {
         return unidades.find(condominiumId, unitId);
