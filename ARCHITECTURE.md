@@ -696,6 +696,10 @@ token no lleva roles a propósito, y meter uno obligaría a devolverle el scope 
 quitó; y el realm se reconstruye desde un archivo versionado, así que otorgarlo exigiría editarlo o
 llamar a la Admin API, mientras que aquí es un `INSERT`.
 
+Concederlo y revocarlo a otra cuenta llegó con el **#20**, en
+[Quién reparte los roles](#quién-reparte-los-roles): hasta entonces sólo lo abría el arranque, así que
+la plataforma podía empezar pero no crecer.
+
 **El primero lo abre la aplicación al arrancar**, si no hay ninguno y hay un correo en
 `coprop.superadministrador-inicial` —igual que Keycloak con `KC_BOOTSTRAP_ADMIN`—. No es una puerta
 trasera permanente: en cuanto existe uno, la propiedad deja de hacer nada. Y la cuenta nace **sin
@@ -863,9 +867,10 @@ criterio: actor, entidad y rango de fechas, combinables y todos opcionales. `des
 `hasta` exclusivo, para que dos rangos contiguos no devuelvan la misma fila dos veces.
 
 **Siempre acotada a un condominio.** Las acciones de plataforma —conceder el superadministrador, el
-primer login de una cuenta— van con `condominium_id` nulo y no salen aquí; su consulta llega con el
-#20, que es el que trae la operación de concederlo. Sin eso, el administrador de un edificio vería
-acciones de la plataforma entera.
+primer login de una cuenta— van con `condominium_id` nulo y no salen aquí: sin eso, el administrador
+de un edificio vería acciones de la plataforma entera. Tienen su propia consulta desde el **#20**,
+que es el que trae la operación de concederlo; está más abajo, en
+[Quién reparte los roles](#quién-reparte-los-roles).
 
 Y dos cosas de la consulta que costaron una corrida de tests:
 
@@ -1029,7 +1034,7 @@ ese comprobante.
   que recibiera `SIN_CUENTA` en vez de autenticar, y el primer criterio del issue pide justo lo
   contrario —que autentique y no vea el condominio—. Es otro ticket.
 - **La revocación de sesiones al retirar un rol administrativo**, que §8 nombra junto a la
-  desactivación: es del **#20**, que es el que trae el cambio de roles, y usará `CierreDeAcceso`.
+  desactivación: la trajo el **#20**, en `CierreDeAcceso`.
 - **Listar las sesiones activas** de alguien, también de §8: es del **#22**.
 
 ##### Los tres eventos nuevos de `condominium` se auditan, y los tres viejos también
@@ -1049,6 +1054,157 @@ o "a quién se le devolvió el acceso", y una bandera dentro del JSON no se filt
 En todos ellos la entidad auditada es **la unidad o la membresía**, no la fila de la relación: las
 relaciones llevan vigencia, así que su identificador cambia en cada cierre y no serviría para seguir
 la historia de un recurso.
+
+#### Quién reparte los roles
+
+Issue **#20**. El administrador del condominio asigna y quita `CONDO_ADMIN` y `FINANCE_ADMIN` dentro
+de **su** condominio, sin pasar por el superadministrador (§10.1), y el rol de plataforma se concede
+y se revoca por su propia puerta. Son dos operaciones y no una, porque los dos roles no viven en la
+misma tabla ni tienen el mismo alcance.
+
+##### El cambio edita la fila; no la cierra y abre otra
+
+Era la decisión abierta del issue, y se resolvió por lo que significa la vigencia de `membership`:
+**el tiempo que esa cuenta perteneció al condominio**. De eso vive el padrón del #19 —quién estuvo y
+ya no está, con sus fechas—, así que un cambio de rol que cerrara la fila dejaría ahí **una baja que
+nadie dio**, y encima sin `MembershipRevoked` que la explicara. La alternativa prometía un historial
+de roles consultable en la tabla; lo que da en realidad es un segundo historial, parcial, que puede
+discrepar del primero.
+
+**La historia de los roles es la bitácora**, que para esto es mejor sitio: es append-only de verdad
+(V9), y cada fila trae actor, motivo, fecha, IP y las dos mitades del cambio. `MembershipRolesChanged`
+lleva los roles de antes y los de después dentro, porque lo que se pregunta después no es qué roles
+tiene —eso lo dice la fila— sino **cuál le quitaron y quién**. El precio conocido es la retención: la
+bitácora se purga al año (§10.1), así que pasado un año la tabla dirá qué roles hay y no cómo se
+llegó a ellos. Es el mismo precio ya aceptado para el motivo de una baja.
+
+Es un `PUT` del **conjunto completo** y no un `PATCH` que añada o quite: los roles de una membresía
+son un solo valor. Así la petición es idempotente —y repetir los roles que ya hay no publica evento,
+porque la bitácora registra cambios y no peticiones— y el cliente no tiene que adivinar el estado
+anterior para describir el que quiere.
+
+##### La autorización pide las dos mitades, y en ese orden
+
+```java
+@PreAuthorize("@autorizacion.puedeCambiar(authentication, #condominiumId, #membershipId)"
+        + " and @autorizacion.puedeConceder(authentication, #nuevos.roles())")
+```
+
+`puedeCambiar` por los roles que se van, `puedeConceder` por los que llegan. Con una sola mitad se
+escapa justo lo que la celda "Solo administradores" acota: con sólo `puedeConceder`, el
+superadministrador convertiría a un propietario en `CONDO_ADMIN`; con sólo `puedeCambiar`, podría
+quitarle a un administrador sus roles y dejarle `OWNER`, que es repartir un rol que no le toca. Las
+dos negativas se prueban en `RolesAdministrativosTests`, una por mitad.
+
+**El orden no es estético.** `puedeCambiar` *lanza* cuando la membresía es de otro condominio, y SpEL
+corta en el primer `and` que falla: puesto primero, el segundo criterio del issue —"un `CONDO_ADMIN`
+no puede tocar roles de otro condominio"— responde **404** y no un 403 que confirmaría que esa
+membresía existe. Al revés, un rol sin permiso vería el 403 antes de que nadie comprobara de qué
+condominio es la membresía.
+
+El primer criterio —"un `CONDO_ADMIN` no puede asignar `SUPER_ADMIN`"— son **dos puertas, y responden
+distinto a propósito**:
+
+| Por dónde | Respuesta | Por qué |
+|---|---|---|
+| `POST /api/v1/superadministradores` | **403** `SIN_PERMISO` | La ruta es global, así que el filtro del #17 no corre y no lleva las autoridades de su membresía. Le falta el permiso. |
+| `PUT .../membresias/{id}/roles` con `PLATFORM_ADMIN` | **422** `REGLA_DE_NEGOCIO` | Aquí no le falta permiso —un `CONDO_ADMIN` concede cualquier rol de su condominio— sino que ese rol **no cabe en una membresía**, y no cabe para nadie: ni el superadministrador puede colarlo por ahí. |
+
+La segunda fila es la misma regla que el alta ya tenía desde el #16, y las dos la comparten en
+`exigirRolesDeMembresia` para que no puedan separarse: un alta que rechaza `PLATFORM_ADMIN` y un
+cambio que lo admitiera dejarían entrar por la segunda puerta lo que la primera prohíbe.
+
+##### Las dos reglas del #19 se heredan tal cual, con su precio
+
+- **Nadie se cambia los roles a sí mismo.** Misma razón de recuperación: quien se quitara
+  `CONDO_ADMIN` se dejaría fuera de la única pantalla desde la que podría devolvérselo. El precio
+  conocido es que un administrador que quiera **quitarse** `FINANCE_ADMIN` —para que haya separación
+  de funciones— tiene que pedírselo a otro. La alternativa, permitir el cambio propio salvo que se
+  quite `CONDO_ADMIN`, es una regla más y no cierra nada que esta no cierre.
+- **No se le quita `CONDO_ADMIN` al último administrador**, por lo mismo que no se le da de baja:
+  el edificio quedaría sin nadie que pueda invitar ni repartir roles. Es el mismo
+  `exigirQueNoSeaElUltimoAdministrador`, llamado sólo cuando el conjunto que llega no lo trae.
+
+##### Retirar un rol administrativo cierra las sesiones, aunque le queden condominios
+
+§8 pide revocar las sesiones "al retirar un rol administrativo", y esa es la **segunda entrada** de
+`CierreDeAcceso`. Su regla es distinta de la del #19 y conviene verlas juntas:
+
+| Entrada | Cuándo cierra |
+|---|---|
+| `siSeQuedaSinCondominios` (#19) | Sólo si a la cuenta no le queda ninguna membresía que dé acceso y no administra la plataforma |
+| `siPierdeAlgunRolAdministrativo` (#20) | **Aunque le queden**: basta con que los roles retirados incluyan uno administrativo |
+| `deTodasFormas` (#20) | Sin condición: la revocación del rol de plataforma |
+
+La segunda **no hace falta para cortar lo que ese rol permitía** —los roles se releen en cada
+petición, así que la siguiente ya va con los nuevos— y por eso podría parecer de adorno. No lo es: lo
+que caducó no es el acceso sino el **nivel de confianza** con el que se abrió esa sesión, y la
+política que el **#22** le pondrá encima —una hora de inactividad para los roles administrativos y
+veinticuatro para el resto (§5.3)— se decide por petición justamente porque la sesión no sabe con qué
+roles nació. Mientras eso no exista, cerrarla es la única forma de que un rol retirado no deje detrás
+una sesión que se comporta como la de un administrador.
+
+Sólo cuando se **quita**: añadir `FINANCE_ADMIN` a quien ya administra no cierra nada —echarle de la
+pantalla en la que está trabajando sin que haya perdido nada— y cambiar entre roles que no son
+administrativos tampoco.
+
+##### El aviso de concentración es la bitácora, no la respuesta
+
+El alcance del issue pide "aviso cuando una misma persona concentra `CONDO_ADMIN` y `FINANCE_ADMIN`".
+**Avisa, no impide**: §10.1 permite la concentración como decisión explícita del condominio —en
+edificios pequeños una sola persona administra y maneja el dinero— a condición de que quede
+registrada. De ahí las dos salidas: un `WARN` en el log, para quien opera, y `concentraFunciones` en
+la fila de la bitácora, que es donde el análisis lo exige.
+
+**No va en la respuesta de la API**, y es deliberado: quien hace el cambio ya sabe qué roles mandó. El
+aviso existe para quien lea después y se pregunte si en ese edificio hay separación de funciones.
+
+##### El rol de plataforma: se concede, y al revocarlo se borra la fila
+
+Hasta este issue el rol sólo lo abría el arranque, y sólo cuando no había ninguno: la plataforma
+podía empezar pero no crecer, y el segundo superadministrador salía de un `INSERT` a mano.
+`Identities.grantPlatformAdmin` y `revokePlatformAdmin` son esa operación, con actor, motivo y
+bitácora.
+
+Las tres rutas son **globales** —`/api/v1/superadministradores`— y eso es lo que decide quién pasa:
+sin condominio en la ruta, el filtro del #17 no corre y las únicas autoridades de la petición son las
+que puso el de identidad. Un `CONDO_ADMIN` llega sin ninguna y recibe 403 **por la forma de la ruta**,
+sin una regla escrita aparte. El permiso es `INVITAR_SOLO_ADMINISTRADORES`, que es la celda de
+`PLATFORM_ADMIN` en la fila "Invitar usuarios y asignar roles": conceder el rol de plataforma es
+asignar un rol administrativo, el mayor de ellos, así que la celda ya lo cubre y **no hace falta
+añadir una fila a la matriz**, que sería cambiar el análisis.
+
+**Revocar borra la fila**, al contrario que la baja de una membresía, que la cierra. Las dos
+decisiones son coherentes con lo que cada tabla significa: `membership` describe un periodo y
+`platform_admin` describe el presente —o administras la plataforma o no, sin grados—. Y hay un motivo
+práctico que pesa igual: `existsById` sobre esa tabla es lo que pregunta el filtro de identidad en
+cada petición, y lo que mira el arranque para decidir si abre el primero. Una fila cerrada habría que
+filtrarla en los dos sitios, y eso es exactamente lo que se olvida.
+
+De ahí que `PlatformAdminRevoked` sea más importante que la mayoría de los eventos: sin esa fila,
+haber tenido el rol sería indistinguible de no haberlo tenido nunca.
+
+**Nadie se lo concede ni se lo revoca a sí mismo.** Lo primero lo impide además un `CHECK` de la V7;
+se comprueba antes para poder explicarlo, porque un fallo de integridad saldría como un 500 sin decir
+nada útil. Lo segundo es la regla de recuperación de siempre. Y revocárselo a una cuenta que no lo
+tiene responde **404 y no 422**: quién administra la plataforma no es dato público.
+
+##### La bitácora de plataforma: dos consultas y no una
+
+`GET /api/v1/auditoria` devuelve las filas con `condominium_id` nulo —conceder y revocar el rol de
+superadministrador, y el primer acceso de una cuenta—. Llega con este issue porque es el que trae la
+operación de concederlo: antes, la única fila de plataforma la escribía el arranque y no había a quién
+enseñársela.
+
+**Son dos consultas y no una con el condominio opcional.** Los dos públicos no son el mismo —el
+administrador de un edificio no tiene por qué ver acciones de la plataforma entera— y una sola donde
+olvidarse de pasar el filtro lo muestra todo es la clase de endpoint que acaba filtrando lo que no
+debía. Además no podría ser una ni queriendo: en `a.condominiumId = :condominio` un parámetro nulo no
+empareja con las filas nulas, porque en SQL `null = null` no es cierto.
+
+Las dos piden `CONSULTAR_AUDITORIA` y **el alcance de la ruta hace el resto**, igual que con el rol de
+plataforma. Por eso viven en el mismo controlador aunque sus rutas no se parezcan: lo que hay que
+poder leer junto es en qué se diferencian.
 
 #### Row-Level Security: evaluado, y por qué todavía no está
 

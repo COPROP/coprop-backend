@@ -3,9 +3,17 @@ package bo.coprop.identity.internal;
 import bo.coprop.identity.AccountActivated;
 import bo.coprop.identity.AccountView;
 import bo.coprop.identity.Identities;
+import bo.coprop.identity.PlatformAdminGranted;
+import bo.coprop.identity.PlatformAdminRevoked;
+import bo.coprop.identity.PlatformAdminView;
+import bo.coprop.shared.ConflictoDeEstado;
+import bo.coprop.shared.RecursoNoEncontrado;
+import bo.coprop.shared.ReglaDeNegocioViolada;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,16 +28,19 @@ class IdentitiesService implements Identities {
 
     private final UserAccountRepository cuentas;
     private final PlatformAdminRepository superadministradores;
+    private final CierreDeAcceso cierre;
     private final ApplicationEventPublisher eventos;
     private final Clock reloj;
 
     IdentitiesService(
             UserAccountRepository cuentas,
             PlatformAdminRepository superadministradores,
+            CierreDeAcceso cierre,
             ApplicationEventPublisher eventos,
             Clock reloj) {
         this.cuentas = cuentas;
         this.superadministradores = superadministradores;
+        this.cierre = cierre;
         this.eventos = eventos;
         this.reloj = reloj;
     }
@@ -38,6 +49,66 @@ class IdentitiesService implements Identities {
     @Transactional(readOnly = true)
     public boolean esSuperadministrador(java.util.UUID accountId) {
         return superadministradores.existsById(accountId);
+    }
+
+    @Override
+    @Transactional
+    public PlatformAdminView grantPlatformAdmin(UUID accountId, String actor) {
+        UUID quienConcede = cuentaDe(actor);
+        if (accountId.equals(quienConcede)) {
+            // Lo impide tambien el CHECK de la migracion V7. Comprobarlo aqui permite explicarlo:
+            // un fallo de integridad saldria como un 500 sin decir nada util.
+            throw new ReglaDeNegocioViolada("Nadie se concede a si mismo el rol de plataforma.");
+        }
+        if (!cuentas.existsById(accountId)) {
+            throw RecursoNoEncontrado.de("la cuenta", accountId);
+        }
+        if (superadministradores.existsById(accountId)) {
+            throw new ConflictoDeEstado("La cuenta %s ya administra la plataforma.".formatted(accountId));
+        }
+
+        Instant ahora = reloj.instant();
+        PlatformAdmin concedido = superadministradores.save(new PlatformAdmin(accountId, quienConcede, ahora));
+        eventos.publishEvent(new PlatformAdminGranted(accountId, quienConcede, ahora));
+
+        log.warn(
+                "La cuenta {} administra la plataforma desde ahora; se lo concedio {}. Crea condominios y puede abrir accesos de soporte (Seguridad 10.1).",
+                accountId,
+                actor);
+        return vista(concedido);
+    }
+
+    @Override
+    @Transactional
+    public void revokePlatformAdmin(UUID accountId, String motivo, String actor) {
+        if (accountId.equals(cuentaDe(actor))) {
+            throw new ReglaDeNegocioViolada(
+                    "Nadie se revoca a si mismo el rol de plataforma: pideselo a otro superadministrador.");
+        }
+        PlatformAdmin quienLoTiene = superadministradores
+                .findById(accountId)
+                // 404 y no un 422: quien administra la plataforma no es dato publico, asi que
+                // preguntar por una cuenta que no lo administra responde lo mismo que preguntar por
+                // una que no existe. Mismo criterio que el 404-no-403 del #17.
+                .orElseThrow(() -> RecursoNoEncontrado.de("el superadministrador", accountId));
+
+        Instant ahora = reloj.instant();
+        superadministradores.delete(quienLoTiene);
+        // Hace falta que la fila se vaya ANTES de cerrar las sesiones: el cierre pregunta por los
+        // superadministradores --no le cierra las sesiones a quien lo es-- y leeria la fila vieja.
+        superadministradores.flush();
+        boolean sesionesCerradas = cierre.deTodasFormas(accountId);
+
+        eventos.publishEvent(new PlatformAdminRevoked(accountId, motivo, sesionesCerradas, actor, ahora));
+        log.warn("La cuenta {} ya no administra la plataforma; se lo quito {}. Motivo: {}.", accountId, actor, motivo);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PlatformAdminView> platformAdmins() {
+        return superadministradores.findAllByOrderByGrantedAtDescAccountIdDesc().stream()
+                .map(IdentitiesService::vista)
+                .toList();
     }
 
     @Override
@@ -86,8 +157,8 @@ class IdentitiesService implements Identities {
         // distintas con el mismo correo, y vincular la segunda le entregaria la cuenta de la
         // primera. El realm no deberia permitirlo --no admite correos repetidos-- asi que esto es
         // una red de seguridad: si algun dia se afloja esa opcion, o se añade un proveedor que no
-        // la respete, el agujero no se abre solo. Rehacer el vinculo sera una operacion explicita
-        // del issue #19.
+        // la respete, el agujero no se abre solo. Rehacer el vinculo es una operacion explicita
+        // del issue #86, que es el del ciclo de vida de la credencial.
         if (cuenta.getIdpSubject() != null) {
             log.warn(
                     "Acceso denegado: la cuenta {} ya esta vinculada a otro sujeto y llego {}.",
@@ -100,5 +171,22 @@ class IdentitiesService implements Identities {
         eventos.publishEvent(new AccountActivated(cuenta.getId(), cuenta.getPersonId(), idpSubject, ahora));
 
         return cuenta.vista();
+    }
+
+    private static PlatformAdminView vista(PlatformAdmin fila) {
+        return new PlatformAdminView(fila.getAccountId(), fila.getGrantedBy(), fila.getGrantedAt());
+    }
+
+    /**
+     * El actor como cuenta.
+     *
+     * <p>En toda operacion de escritura el actor es el identificador de la cuenta en texto, que es
+     * lo que pone {@code IdentidadAutenticada}. Aqui hace falta como {@code UUID} porque va a la
+     * columna {@code granted_by}, que tiene clave foranea. Un actor que no sea un identificador
+     * --el "arranque" del primer superadministrador-- no puede llegar a estas operaciones: entran
+     * por HTTP, y alli siempre hay una cuenta.
+     */
+    private static UUID cuentaDe(String actor) {
+        return UUID.fromString(actor);
     }
 }

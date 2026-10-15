@@ -3,16 +3,19 @@ package bo.coprop.identity;
 /**
  * Los siete roles del catalogo de Seguridad 3.
  *
- * <p>Aqui esta solo el enum. El catalogo {@code Role} con su alcance --PLATAFORMA o CONDOMINIO-- y
- * la matriz de permisos son el issue <strong>#16</strong>, que es tambien quien desbloquea la
- * restriccion de superadministrador que arrastran el #9 y el #10. Por eso
- * {@link #PLATFORM_ADMIN} se admite en una membresia como cualquier otro: acotarlo ahora seria
- * adelantarse a esa decision.
+ * <p>Aqui esta solo el enum. La matriz de permisos es {@link MatrizDePermisos}, del issue
+ * <strong>#16</strong>, y el alcance de cada rol --plataforma o condominio-- lo hacen valer dos
+ * sitios: {@code Memberships.grant} y {@code Memberships.changeRoles} rechazan
+ * {@link #PLATFORM_ADMIN} en una membresia, y {@code Identities.grantPlatformAdmin} es la unica
+ * puerta por la que ese rol se concede.
  *
  * <p>Los nombres estan en ingles porque los nombra asi el analisis, igual que las entidades.
  */
 public enum MembershipRole {
-    /** Alcance de plataforma, no de condominio. Lo acotara el #16. */
+    /**
+     * Alcance de plataforma, no de condominio: vive en su propia tabla y no en una membresia. Se
+     * concede y se revoca por {@link Identities}, desde el issue <strong>#20</strong>.
+     */
     PLATFORM_ADMIN,
     CONDO_ADMIN,
     FINANCE_ADMIN,

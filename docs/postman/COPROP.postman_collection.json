@@ -974,6 +974,43 @@
           }
         },
         {
+          "name": "Cambiar los roles de una membresía",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/membresias/{{membershipId}}/roles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "membresias",
+                "{{membershipId}}",
+                "roles"
+              ]
+            },
+            "description": "El administrador del condominio asigna y quita roles dentro de SU condominio, sin pasar por el superadministrador (#20, §10.1).\n\nEl conjunto llega COMPLETO: lo que no venga aquí es lo que se quita. Es un PUT y no un PATCH porque los roles de una membresía son un solo valor; así repetir la petición no cambia nada y la bitácora puede guardar las dos mitades del cambio.\n\nNO cierra la membresía: edita la fila, así que la respuesta sigue trayendo validTo nulo. El padrón no muestra una baja que nadie dio, y la historia de los roles vive en la bitácora.\n\nSurte efecto en la SIGUIENTE petición: los roles se releen en cada request y nunca estuvieron en el token.\n\nCuatro rechazos que conviene conocer:\n- PLATFORM_ADMIN en el cuerpo → 422. No es un rol de condominio, y no lo es para nadie: se concede por POST /api/v1/superadministradores.\n- Una membresía de otro condominio → 404, nunca 403.\n- Quitarle CONDO_ADMIN al último administrador → 422.\n- Cambiarse los roles a sí mismo → 422.\n\nSi el cambio RETIRA un rol administrativo, se le cierran las sesiones aunque siga en el condominio (§8). Y si quedan CONDO_ADMIN y FINANCE_ADMIN en la misma persona, la bitácora lo registra con concentraFunciones: true.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roles\": [\"OWNER\", \"CONDO_ADMIN\"],\n  \"motivo\": \"se hace cargo del edificio\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
           "name": "Dar de baja una membresía",
           "request": {
             "method": "POST",
@@ -1325,7 +1362,7 @@
     },
     {
       "name": "7. Auditoría",
-      "description": "La bitácora del issue #21: **append-only de verdad**. Un `UPDATE` o un `DELETE` sobre `audit_log` revienta en la base, no en el código.\n\nLas acciones de plataforma —el rol de superadministrador, el primer acceso de una cuenta— van **sin condominio** y no salen aquí. Su consulta llega con el issue #20.",
+      "description": "La bitácora del issue #21: **append-only de verdad**. Un `UPDATE` o un `DELETE` sobre `audit_log` revienta en la base, no en el código.\n\n**Son dos consultas y no una con el condominio opcional.** Las acciones de plataforma —conceder y revocar el rol de superadministrador, el primer acceso de una cuenta— van sin condominio y no salen en la del condominio, para que el administrador de un edificio no vea acciones de la plataforma entera. La segunda llegó con el issue #20.",
       "item": [
         {
           "name": "Consultar la bitácora",
@@ -1377,6 +1414,36 @@
               ]
             },
             "description": "Pide `CONSULTAR_AUDITORIA`: los dos administradores del condominio y el superadministrador, que no opera pero audita (Seguridad §10.1).\n\nLos cuatro filtros de abajo vienen **desactivados**: actívalos para probarlos. Se combinan, y `entidad` toma `membresia`, `invitacion`, `configuracion` o `cuenta`.\n\n`desde` es inclusivo y `hasta` exclusivo, así que dos rangos contiguos no devuelven la misma fila dos veces. Las fechas van en ISO-8601 con zona, igual que las que devuelve la respuesta: lo que se lee en una fila se puede pegar tal cual como filtro.\n\nCada fila trae el actor, la acción, sobre qué, los valores de antes y de después, la IP y el `traceId` de la petición que la originó. Con ese `traceId` se encuentran sus líneas de log.\n\n**Paginada siempre**: es el primer endpoint paginado del sistema, y por él se movió el sobre `Pagina` de `api` a `shared`. El tope de `tamano` es 200."
+          }
+        },
+        {
+          "name": "Consultar la bitácora de plataforma",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auditoria?tamano=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auditoria"
+              ],
+              "query": [
+                {
+                  "key": "tamano",
+                  "value": "20"
+                },
+                {
+                  "key": "entidad",
+                  "value": "superadministrador",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Las acciones que no cuelgan de ningún condominio (#20): conceder y revocar el rol de superadministrador, y el primer acceso de una cuenta.\n\n**Sólo para el superadministrador, y no hace falta ninguna regla para eso**: la ruta es global, así que el filtro de condominio no corre y un CONDO_ADMIN llega sin las autoridades de su membresía. Con el mismo permiso que la otra consulta, recibe 403.\n\nMismos filtros y misma paginación que la del condominio: lo que cambia es qué filas se ven, no cómo se piden."
           }
         }
       ]
@@ -1432,7 +1499,95 @@
     },
     {
       "name": "9. Plataforma",
+      "description": "Lo que no cuelga de ningún condominio: quién administra la plataforma (#20) y los dos endpoints públicos del contrato.\n\n**Las tres primeras son del superadministrador y de nadie más.** La ruta es global, así que no lleva las autoridades de ninguna membresía: un CONDO_ADMIN recibe 403 sin que haya una regla escrita para él.",
       "item": [
+        {
+          "name": "Quién administra la plataforma",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/superadministradores",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "superadministradores"
+              ]
+            },
+            "description": "Quién lo administra HOY, de la concesión más reciente a la más antigua.\n\nNo sale quien lo tuvo: revocar borra la fila —o administras la plataforma o no, sin grados ni vigencias— y esa historia la cuenta la bitácora de plataforma.\n\nEl primero de todos viene con `grantedBy` nulo: no lo concedió nadie, lo abrió el arranque."
+          }
+        },
+        {
+          "name": "Conceder el rol de plataforma",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/superadministradores",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "superadministradores"
+              ]
+            },
+            "description": "Hasta el issue #20 el rol sólo lo abría el arranque, y sólo cuando no había ninguno: la plataforma podía empezar pero no crecer, y el segundo superadministrador salía de un INSERT a mano.\n\nSin motivo, igual que el alta de una membresía: lo que hay que explicar es por qué se quita.\n\n**Nadie se lo concede a sí mismo** (422), y lo impide además un CHECK en la base. A quien ya lo tiene responde 409: la fila existe y no hay grados.\n\nSurte efecto en la siguiente petición. Para verlo: pedir POST /api/v1/condominios con el token de esa cuenta antes —403— y después —201—.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": \"{{accountId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Revocar el rol de plataforma",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/superadministradores/{{accountId}}/revocacion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "superadministradores",
+                "{{accountId}}",
+                "revocacion"
+              ]
+            },
+            "description": "Borra la fila y le cierra las sesiones en el momento, las del BFF y las de Keycloak: §8 pide revocar sesiones al retirar un rol administrativo, y no hay rol más administrativo que este.\n\nResponde **204**: no hay recurso que devolver, porque el rol ya no está.\n\nEs un POST con motivo y no un DELETE, por lo mismo que la baja de una membresía: la fila se borra, así que el motivo de la bitácora es lo único que queda explicando el cambio.\n\n**Nadie se lo revoca a sí mismo** (422): se quedaría sin la única pantalla desde la que podría devolvérselo. Para dejar el puesto se le pide a otro.\n\nY a una cuenta que no lo tiene responde **404**, no 422: quién administra la plataforma no es dato público.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"dejo la empresa\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
         {
           "name": "Especificación OpenAPI",
           "request": {

@@ -481,6 +481,227 @@ class MembershipsTests {
                         new MembershipReinstated(condominio, unica.id(), cuenta, "pago al dia", "emma", AHORA));
     }
 
+    // --- El cambio de roles (issue #20) -----------------------------------------------------
+
+    @Test
+    @DisplayName("el cambio sustituye los roles por los que llegan, sin cerrar la membresia")
+    void elCambioSustituyeLosRoles() {
+        UUID condominio = condominio("2000000034");
+        UUID cuenta = cuentaDe("treinta@coprop.bo", "7000030");
+        MembershipView suya = membresias.grant(condominio, cuenta, Set.of(MembershipRole.OWNER), null, "admin");
+
+        MembershipView cambiada = membresias.changeRoles(
+                condominio,
+                suya.id(),
+                Set.of(MembershipRole.BOARD, MembershipRole.TENANT),
+                "entro al directorio",
+                "admin");
+
+        assertThat(cambiada.roles()).containsExactlyInAnyOrder(MembershipRole.BOARD, MembershipRole.TENANT);
+        // La fila es la MISMA y sigue abierta: un cambio de rol no es una baja. Si cerrara y abriera
+        // otra, el padron del #19 mostraria una baja que nadie dio.
+        assertThat(cambiada.id()).isEqualTo(suya.id());
+        assertThat(cambiada.validTo()).isNull();
+        assertThat(cambiada.validFrom()).isEqualTo(suya.validFrom());
+        assertThat(membresias.of(condominio, cuenta)).isEqualTo(cambiada);
+    }
+
+    @Test
+    @DisplayName("repetir los roles que ya hay no es un error y no publica ningun evento")
+    void repetirLosMismosRolesNoEsUnCambio(PublishedEvents eventos) {
+        UUID condominio = condominio("2000000035");
+        UUID cuenta = cuentaDe("treintayuno@coprop.bo", "7000031");
+        MembershipView suya = membresias.grant(condominio, cuenta, Set.of(MembershipRole.OWNER), null, "admin");
+
+        MembershipView igual =
+                membresias.changeRoles(condominio, suya.id(), Set.of(MembershipRole.OWNER), "sin cambios", "admin");
+
+        // Un PUT es idempotente, asi que repetirlo no puede fallar; pero publicar el evento dejaria
+        // en la bitacora una fila diciendo que alguien cambio algo cuando no cambio nada.
+        assertThat(igual.roles()).containsExactly(MembershipRole.OWNER);
+        assertThat(eventos.ofType(MembershipRolesChanged.class)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("no se le quita CONDO_ADMIN al ultimo administrador del condominio")
+    void noSeQuitaElUltimoAdministrador() {
+        UUID condominio = condominio("2000000036");
+        UUID cuenta = cuentaDe("treintaydos@coprop.bo", "7000032");
+        MembershipView unica = membresias.grant(condominio, cuenta, Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
+
+        // Misma regla que la baja y por lo mismo: el edificio quedaria sin nadie que pueda invitar
+        // ni repartir roles, y recuperarlo exigiria al superadministrador.
+        assertThatThrownBy(() -> membresias.changeRoles(
+                        condominio, unica.id(), Set.of(MembershipRole.OWNER), "ya no administra", "admin"))
+                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .hasMessageContaining("ultima membresia con CONDO_ADMIN");
+    }
+
+    @Test
+    @DisplayName("si queda otro administrador, quitarle CONDO_ADMIN si se puede")
+    void conOtroAdministradorSiSePuede() {
+        UUID condominio = condominio("2000000037");
+        UUID unaCuenta = cuentaDe("treintaytres@coprop.bo", "7000033");
+        UUID otraCuenta = cuentaDe("treintaycuatro@coprop.bo", "7000034");
+        MembershipView una = membresias.grant(condominio, unaCuenta, Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
+        membresias.grant(condominio, otraCuenta, Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
+
+        MembershipView sinAdministrar =
+                membresias.changeRoles(condominio, una.id(), Set.of(MembershipRole.OWNER), "paso el cargo", "admin");
+
+        assertThat(sinAdministrar.roles()).containsExactly(MembershipRole.OWNER);
+    }
+
+    @Test
+    @DisplayName("nadie se cambia los roles a si mismo")
+    void nadieSeCambiaLosRolesASiMismo() {
+        UUID condominio = condominio("2000000038");
+        UUID cuenta = cuentaDe("treintaycinco@coprop.bo", "7000035");
+        MembershipView suya = membresias.grant(
+                condominio, cuenta, Set.of(MembershipRole.CONDO_ADMIN, MembershipRole.FINANCE_ADMIN), null, "admin");
+
+        // Es la regla de recuperacion de la baja, heredada: quien se quitara CONDO_ADMIN se dejaria
+        // fuera de la unica pantalla desde la que podria devolverselo. El precio conocido es que
+        // para quitarse FINANCE_ADMIN --y que haya separacion de funciones-- hay que pedirselo a
+        // otro administrador.
+        assertThatThrownBy(() -> membresias.changeRoles(
+                        condominio,
+                        suya.id(),
+                        Set.of(MembershipRole.CONDO_ADMIN),
+                        "me quito el dinero",
+                        cuenta.toString()))
+                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .hasMessageContaining("si mismo");
+    }
+
+    @Test
+    @DisplayName("el cambio no es la puerta de atras de PLATFORM_ADMIN, ni deja una membresia sin roles")
+    void elCambioNoAdmiteNiPlataformaNiVacio() {
+        UUID condominio = condominio("2000000039");
+        UUID cuenta = cuentaDe("treintayseis@coprop.bo", "7000036");
+        MembershipView suya = membresias.grant(condominio, cuenta, Set.of(MembershipRole.OWNER), null, "admin");
+
+        // Las dos reglas son las del alta, compartidas a proposito: un alta que rechaza
+        // PLATFORM_ADMIN y un cambio que lo admitiera dejarian entrar por la segunda puerta justo lo
+        // que la primera prohibe.
+        assertThatThrownBy(() -> membresias.changeRoles(
+                        condominio, suya.id(), Set.of(MembershipRole.PLATFORM_ADMIN), "que administre todo", "admin"))
+                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .hasMessageContaining("PLATFORM_ADMIN");
+
+        assertThatThrownBy(() -> membresias.changeRoles(condominio, suya.id(), Set.of(), "sin nada", "admin"))
+                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .hasMessageContaining("al menos un rol");
+    }
+
+    @Test
+    @DisplayName("a una membresia dada de baja no se le cambian los roles")
+    void unaMembresiaCerradaNoCambiaDeRoles() {
+        UUID condominio = condominio("2000000040");
+        UUID cuenta = cuentaDe("treintaysiete@coprop.bo", "7000037");
+        MembershipView suya = membresias.grant(condominio, cuenta, Set.of(MembershipRole.OWNER), null, "admin");
+        membresias.revoke(condominio, suya.id(), "se mudo", "admin");
+
+        // Conflicto de estado y no 404: la fila existe y se puede leer. Lo que se hace para que
+        // vuelva es conceder una membresia nueva.
+        assertThatThrownBy(() ->
+                        membresias.changeRoles(condominio, suya.id(), Set.of(MembershipRole.TENANT), "volvio", "admin"))
+                .isInstanceOf(ConflictoDeEstado.class);
+    }
+
+    @Test
+    @DisplayName("la membresia de otro condominio no cambia de roles desde aqui: 404 y no 403")
+    void laDeOtroCondominioNoCambia() {
+        UUID propio = condominio("2000000041");
+        UUID ajeno = condominio("2000000042");
+        UUID cuenta = cuentaDe("treintayocho@coprop.bo", "7000038");
+        MembershipView enElAjeno = membresias.grant(ajeno, cuenta, Set.of(MembershipRole.OWNER), null, "admin");
+
+        assertThatThrownBy(() -> membresias.changeRoles(
+                        propio, enElAjeno.id(), Set.of(MembershipRole.TENANT), "no es mia", "admin"))
+                .isInstanceOf(RecursoNoEncontrado.class);
+    }
+
+    @Test
+    @DisplayName("retirar un rol administrativo le cierra las sesiones, aunque siga en el condominio")
+    void retirarUnRolAdministrativoCierraLasSesiones() {
+        UUID condominio = condominio("2000000043");
+        UUID cuenta = cuentaDe("treintaynueve@coprop.bo", "7000039");
+        MembershipView suya = membresias.grant(
+                condominio, cuenta, Set.of(MembershipRole.CONDO_ADMIN, MembershipRole.FINANCE_ADMIN), null, "admin");
+
+        membresias.changeRoles(
+                condominio, suya.id(), Set.of(MembershipRole.CONDO_ADMIN), "separacion de funciones", "admin");
+
+        // Seguridad 8 pide revocar las sesiones al retirar un rol administrativo, y la regla es
+        // distinta de la de la baja: aqui la cuenta SIGUE teniendo a donde entrar y se le cierran
+        // igual. Lo que caduco no es el acceso, es el nivel de confianza de esa sesion.
+        assertThat(sesiones.cerradas()).containsExactly(Set.of(cuenta.toString()));
+        assertThat(proveedor.aQuienSeLeCerraronSesiones()).containsExactly("treintaynueve@coprop.bo");
+    }
+
+    @Test
+    @DisplayName("anadir un rol administrativo no cierra ninguna sesion")
+    void anadirUnRolNoCierraSesiones() {
+        UUID condominio = condominio("2000000044");
+        UUID cuenta = cuentaDe("cuarenta@coprop.bo", "7000040");
+        MembershipView suya = membresias.grant(condominio, cuenta, Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
+
+        membresias.changeRoles(
+                condominio,
+                suya.id(),
+                Set.of(MembershipRole.CONDO_ADMIN, MembershipRole.FINANCE_ADMIN),
+                "tambien lleva el dinero",
+                "admin");
+
+        // Solo cuando se QUITA. Cerrarle la sesion a quien acaba de recibir un rol seria echarle de
+        // la pantalla en la que esta trabajando sin que haya perdido nada.
+        assertThat(sesiones.cerradas()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("cambiar entre roles que no son administrativos no cierra ninguna sesion")
+    void cambiarEntreRolesNoAdministrativosNoCierraSesiones() {
+        UUID condominio = condominio("2000000045");
+        UUID cuenta = cuentaDe("cuarentayuno@coprop.bo", "7000041");
+        MembershipView suya = membresias.grant(condominio, cuenta, Set.of(MembershipRole.OWNER), null, "admin");
+
+        membresias.changeRoles(condominio, suya.id(), Set.of(MembershipRole.TENANT), "ahora alquila", "admin");
+
+        assertThat(sesiones.cerradas()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("el cambio publica su evento con las dos mitades, el motivo y la concentracion")
+    void elCambioPublicaSuEvento(PublishedEvents eventos) {
+        UUID condominio = condominio("2000000046");
+        UUID cuenta = cuentaDe("cuarentaydos@coprop.bo", "7000042");
+        MembershipView suya = membresias.grant(condominio, cuenta, Set.of(MembershipRole.CONDO_ADMIN), null, "emma");
+
+        membresias.changeRoles(
+                condominio,
+                suya.id(),
+                Set.of(MembershipRole.CONDO_ADMIN, MembershipRole.FINANCE_ADMIN),
+                "en este edificio administra una sola persona",
+                "emma");
+
+        // Las dos mitades van dentro porque lo que se pregunta despues no es que roles tiene --eso
+        // lo dice la fila-- sino cual le quitaron y quien. Y la concentracion viaja como dato: 10.1
+        // la permite a condicion de que quede registrada.
+        assertThat(eventos.ofType(MembershipRolesChanged.class))
+                .containsExactly(new MembershipRolesChanged(
+                        condominio,
+                        suya.id(),
+                        cuenta,
+                        Set.of(MembershipRole.CONDO_ADMIN),
+                        Set.of(MembershipRole.CONDO_ADMIN, MembershipRole.FINANCE_ADMIN),
+                        "en este edificio administra una sola persona",
+                        true,
+                        false,
+                        "emma",
+                        AHORA));
+    }
+
     /**
      * El condominio por SQL: este modulo no puede crear uno, y es justo lo que la regla 2 quiere.
      */

@@ -103,6 +103,44 @@ public interface Memberships {
     MembershipView reinstate(UUID condominiumId, UUID membershipId, String motivo, String actor);
 
     /**
+     * Cambia los roles de una membresia vigente. Issue <strong>#20</strong>.
+     *
+     * <p>Recibe el conjunto <strong>completo</strong>, no un rol que se añade o se quita: los roles
+     * de una membresia son un solo valor y se sustituyen de una vez. Asi la operacion es idempotente
+     * --repetirla deja lo mismo-- y la bitacora puede guardar las dos mitades, que es lo que se
+     * pregunta despues: no que roles tiene, sino cual le quitaron.
+     *
+     * <p><strong>Edita la fila; no la cierra ni abre otra.</strong> La vigencia de una membresia
+     * significa el tiempo que esa cuenta pertenecio al condominio, y en eso se apoya el padron del
+     * #19: cerrarla aqui haria que apareciera una baja que nadie dio. La historia de los roles vive
+     * en la bitacora, que es append-only y guarda actor, motivo y fecha.
+     *
+     * <p>Surte efecto en la <strong>siguiente peticion</strong>: los roles se resuelven en cada
+     * request contra la base (Seguridad 4.2) y nunca estuvieron en el token. Lo que si hace falta
+     * ademas es cerrar las sesiones cuando el cambio <strong>retira un rol administrativo</strong>,
+     * que es lo que pide Seguridad 8; cuando solo añade, o cuando los roles que se van no son
+     * administrativos, no se cierra nada.
+     *
+     * <p>Publica {@link MembershipRolesChanged}, y <strong>solo si algo cambio</strong>: una
+     * peticion que repite los roles que ya hay no deja fila en la bitacora. La bitacora registra
+     * cambios, no peticiones.
+     *
+     * @param roles el conjunto completo que la membresia tendra. Al menos uno, y ninguno puede ser
+     *     {@code PLATFORM_ADMIN}: ese rol no cuelga de un condominio y se concede por su propia
+     *     operacion, {@link Identities#grantPlatformAdmin}
+     * @param motivo por que se le cambian. Obligatorio, por lo mismo que en la baja: acaba en la
+     *     bitacora y es lo unico que explica el cambio dentro de un año
+     * @throws bo.coprop.shared.RecursoNoEncontrado si la membresia no existe o no es de ese
+     *     condominio
+     * @throws bo.coprop.shared.ConflictoDeEstado si esta dada de baja
+     * @throws bo.coprop.shared.ReglaDeNegocioViolada si no llega ningun rol, si llega
+     *     {@code PLATFORM_ADMIN}, si quien lo pide es el dueño de esa membresia, o si el cambio
+     *     dejaria al condominio sin ningun {@code CONDO_ADMIN} activo
+     */
+    MembershipView changeRoles(
+            UUID condominiumId, UUID membershipId, Set<MembershipRole> roles, String motivo, String actor);
+
+    /**
      * Las membresias vigentes de un condominio.
      *
      * <p>Solo las vigentes. El padron con las cerradas lo da {@link #allOfCondominium}.

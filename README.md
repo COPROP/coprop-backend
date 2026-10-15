@@ -135,9 +135,10 @@ frontend y **todavía no existe**: hasta que exista, el token se copia a mano de
 
 ### Ver la bitácora
 
-Todo lo sensible que pasa queda registrado: conceder una membresía o el rol de plataforma, emitir,
-reenviar, aceptar o revocar una invitación, cambiar la configuración y el primer acceso de una
-cuenta. Se consulta así, con `CONSULTAR_AUDITORIA` —los dos administradores del condominio—:
+Todo lo sensible que pasa queda registrado: conceder una membresía, **cambiarle los roles**, darla de
+baja o suspenderla; conceder y revocar el rol de plataforma; emitir, reenviar, aceptar o revocar una
+invitación; cambiar la configuración, vender una unidad y el primer acceso de una cuenta. Se consulta
+así, con `CONSULTAR_AUDITORIA` —los dos administradores del condominio—:
 
 ```
 GET /api/v1/condominios/{id}/auditoria
@@ -158,9 +159,70 @@ docker exec -i coprop-postgres psql -U coprop -d coprop \
 # ERROR:  audit_log es append-only: no se puede update una fila de la bitacora.
 ```
 
-Lo único que quita filas es la purga del año, que corre sola a las 3 de la mañana. Las acciones de
-plataforma —el rol de superadministrador, el primer acceso de una cuenta— van sin condominio y **no
-salen en esta consulta**: su propia consulta llega con el issue #20.
+Lo único que quita filas es la purga del año, que corre sola a las 3 de la mañana.
+
+Las acciones de plataforma —conceder y revocar el rol de superadministrador, el primer acceso de una
+cuenta— van sin condominio y **no salen en esa consulta**, para que el administrador de un edificio
+no vea acciones de la plataforma entera. Tienen la suya, con los mismos filtros y sólo para el
+superadministrador:
+
+```
+GET /api/v1/auditoria
+GET /api/v1/auditoria?entidad=superadministrador
+```
+
+Son dos consultas y no una con el condominio opcional, a propósito: una donde olvidarse de pasarlo
+lo muestra todo es la clase de endpoint que acaba filtrando lo que no debía.
+
+### Repartir roles
+
+El administrador del condominio asigna y quita roles dentro de **su** condominio, sin pasar por el
+superadministrador (§10.1):
+
+```
+PUT /api/v1/condominios/{id}/membresias/{membershipId}/roles
+    {"roles": ["OWNER", "CONDO_ADMIN"], "motivo": "se hace cargo del edificio"}
+```
+
+El conjunto llega **completo**: lo que no venga ahí es lo que se quita. Surte efecto en la
+**siguiente petición** —los roles se releen en cada request y nunca estuvieron en el token— y **no
+cierra la membresía**: edita la fila, así que el padrón no muestra una baja que nadie dio. La
+historia de los roles vive en la bitácora, que es append-only y guarda actor, motivo y fecha.
+
+Cuatro rechazos que conviene conocer:
+
+| Qué | Respuesta |
+|---|---|
+| `PLATFORM_ADMIN` en el cuerpo | **422** `REGLA_DE_NEGOCIO`: no es un rol de condominio, y no lo es para nadie |
+| Una membresía de otro condominio | **404** `NO_ENCONTRADO`, nunca 403: un 403 confirmaría que existe |
+| Quitarle `CONDO_ADMIN` al último administrador | **422**: el edificio quedaría sin nadie que pueda invitar |
+| Cambiarse los roles a sí mismo | **422**: se pide a otro administrador, por lo mismo que la baja |
+
+**Si el cambio retira un rol administrativo, se le cierran las sesiones** —las del BFF y las de
+Keycloak— aunque siga perteneciendo al condominio. Lo pide Seguridad §8, y la regla es distinta de la
+de la baja: ahí se cierran sólo si la cuenta se queda sin ningún condominio.
+
+Y cuando los dos roles administrativos quedan en la misma persona, **la concentración queda
+registrada**: `concentraFunciones: true` en la fila de la bitácora, más un `WARN` en el log. Está
+permitida —§10.1 la contempla para edificios pequeños— a condición de que se vea.
+
+### El rol de plataforma
+
+Lo concede y lo quita otro superadministrador, por una ruta global:
+
+```
+GET    /api/v1/superadministradores                         quién administra hoy
+POST   /api/v1/superadministradores                         {"accountId": "..."}
+POST   /api/v1/superadministradores/{id}/revocacion         {"motivo": "dejó la empresa"}
+```
+
+Un `CONDO_ADMIN` recibe **403** en las tres, y no hace falta ninguna regla para eso: la ruta no
+cuelga de un condominio, así que no lleva las autoridades de su membresía y el permiso es de
+plataforma.
+
+**Nadie se lo concede ni se lo revoca a sí mismo.** Revocar **borra la fila** —o administras la
+plataforma o no, sin grados ni vigencias— y le cierra las sesiones en el momento. Lo que queda de la
+historia es la bitácora de plataforma.
 
 ### La semilla de desarrollo
 
@@ -199,7 +261,7 @@ es tuyo tiene que responder exactamente igual que uno inventado.
 
 Hay una colección lista para importar en
 [`docs/postman/COPROP.postman_collection.json`](docs/postman/COPROP.postman_collection.json): trae
-las 32 peticiones con cuerpos de ejemplo, la autenticación ya configurada y dos que **tienen que
+las 45 peticiones con cuerpos de ejemplo, la autenticación ya configurada y dos que **tienen que
 fallar**, para ver el aislamiento funcionando. Las altas guardan solas los identificadores que
 devuelven, así que se pueden encadenar de arriba abajo sin copiar nada.
 

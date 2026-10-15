@@ -95,9 +95,10 @@ class PermisosDeApiTests {
     /**
      * Una cuenta con alcance de plataforma, y el token con el que entra.
      *
-     * <p>Se concede por SQL porque todavia no hay operacion que lo haga: conceder y revocar el rol
-     * de plataforma a otra cuenta es lo que falta del issue #20. El primero lo abre el arranque, y
-     * eso tiene su propio test.
+     * <p>Se concede por SQL porque usar la operacion del issue #20 exigiria ya tener un
+     * superadministrador con el que autenticarse: el primero de todos no lo concede nadie, lo abre
+     * el arranque, y eso tiene su propio test. La operacion tiene los suyos en
+     * {@code SuperadministradoresTests} y {@code RolesAdministrativosTests}.
      */
     private String tokenDeSuperadministrador() {
         AccountView cuenta = cuentaNueva();

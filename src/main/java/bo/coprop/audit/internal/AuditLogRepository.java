@@ -52,4 +52,28 @@ interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
             @Param("desde") Instant desde,
             @Param("hasta") Instant hasta,
             Pageable pagina);
+
+    /**
+     * Las filas que no cuelgan de ningun condominio: la bitacora de plataforma del issue #20.
+     *
+     * <p>Es la misma consulta con {@code is null} en vez de la igualdad, y va aparte en vez de
+     * aceptar un condominio nulo en la anterior: en {@code a.condominiumId = :condominio} un
+     * parametro nulo no empareja con las filas nulas --en SQL {@code null = null} no es cierto-- asi
+     * que una sola consulta no puede servir para las dos cosas ni queriendo.
+     */
+    @Query(
+            """
+            select a from AuditLog a
+            where a.condominiumId is null
+              and a.actor = coalesce(:actor, a.actor)
+              and a.entidad = coalesce(:entidad, a.entidad)
+              and a.occurredAt >= :desde
+              and a.occurredAt < :hasta
+            """)
+    Page<AuditLog> buscarDePlataforma(
+            @Param("actor") @Nullable String actor,
+            @Param("entidad") @Nullable String entidad,
+            @Param("desde") Instant desde,
+            @Param("hasta") Instant hasta,
+            Pageable pagina);
 }

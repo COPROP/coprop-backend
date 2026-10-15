@@ -164,10 +164,6 @@ class AuditTrailService implements AuditTrail {
             @Nullable Instant hasta,
             int pagina,
             int tamano) {
-        // Por fecha descendente siempre: una bitacora se lee empezando por lo ultimo. El segundo
-        // criterio de orden es el identificador, para que dos filas del mismo instante --una
-        // operacion que publica dos eventos-- no cambien de sitio entre dos paginas.
-        var orden = Sort.by(Sort.Order.desc("occurredAt"), Sort.Order.desc("id"));
         return Pagina.de(
                 bitacora.buscar(
                         condominiumId,
@@ -175,8 +171,37 @@ class AuditTrailService implements AuditTrail {
                         entidad,
                         desde == null ? PRINCIPIO_DE_LOS_TIEMPOS : desde,
                         hasta == null ? FIN_DE_LOS_TIEMPOS : hasta,
-                        PageRequest.of(pagina, tamano, orden)),
+                        PageRequest.of(pagina, tamano, loUltimoPrimero())),
                 this::vista);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Pagina<AuditEntryView> ofPlatform(
+            @Nullable String actor,
+            @Nullable String entidad,
+            @Nullable Instant desde,
+            @Nullable Instant hasta,
+            int pagina,
+            int tamano) {
+        return Pagina.de(
+                bitacora.buscarDePlataforma(
+                        actor,
+                        entidad,
+                        desde == null ? PRINCIPIO_DE_LOS_TIEMPOS : desde,
+                        hasta == null ? FIN_DE_LOS_TIEMPOS : hasta,
+                        PageRequest.of(pagina, tamano, loUltimoPrimero())),
+                this::vista);
+    }
+
+    /**
+     * Por fecha descendente: una bitacora se lee empezando por lo ultimo.
+     *
+     * <p>El segundo criterio de orden es el identificador, para que dos filas del mismo instante
+     * --una operacion que publica dos eventos-- no cambien de sitio entre dos paginas.
+     */
+    private static Sort loUltimoPrimero() {
+        return Sort.by(Sort.Order.desc("occurredAt"), Sort.Order.desc("id"));
     }
 
     /**
