@@ -4,7 +4,15 @@ import java.time.Clock;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
+/**
+ * El arranque.
+ *
+ * <p><strong>{@code @EnableScheduling} no es automatico</strong>, y lo necesita la purga anual de la
+ * bitacora (issue #21): sin el, la tarea no corre nunca y no avisa.
+ */
+@EnableScheduling
 @SpringBootApplication
 public class CopropBackendApplication {
 

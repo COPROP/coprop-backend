@@ -1,5 +1,6 @@
 package bo.coprop.identity;
 
+import bo.coprop.shared.EventoAuditable;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -14,4 +15,32 @@ import java.util.UUID;
  * <p>El actor es la propia cuenta invitada: aceptar es un acto de quien entra, no de quien invito.
  */
 public record InvitationAccepted(
-        UUID condominiumId, UUID invitationId, UUID accountId, UUID membershipId, String actor, Instant occurredAt) {}
+        UUID condominiumId, UUID invitationId, UUID accountId, UUID membershipId, String actor, Instant occurredAt)
+        implements EventoAuditable {
+
+    @Override
+    public String accion() {
+        return "INVITACION_ACEPTADA";
+    }
+
+    @Override
+    public String entidad() {
+        return "invitacion";
+    }
+
+    @Override
+    public UUID entidadId() {
+        return invitationId;
+    }
+
+    /**
+     * Lleva la membresia que nacio.
+     *
+     * <p>Es lo que ata las dos filas de la bitacora --esta y la de {@code MEMBRESIA_CONCEDIDA}-- y
+     * lo que permite responder por que esa persona esta dentro: porque acepto esta invitacion.
+     */
+    @Override
+    public java.util.Map<String, String> despues() {
+        return java.util.Map.of("membershipId", membershipId.toString(), "accountId", accountId.toString());
+    }
+}

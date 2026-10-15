@@ -35,5 +35,18 @@ public final class ClavesDeLog {
      */
     public static final String ACTOR = "actorId";
 
+    /**
+     * Desde donde llega la peticion.
+     *
+     * <p>Lo pone {@code FiltroDeTrazas} (issue #21), junto con la traza y por el mismo motivo: es un
+     * hecho de la peticion y no del dominio. La bitacora la necesita --5.2 la pide en
+     * {@code AuditLog}-- y ningun evento de dominio puede llevarla, porque un evento no sabe de
+     * HTTP.
+     *
+     * <p>Detras de un proxy, {@code getRemoteAddr()} devuelve el del proxy: lo corrige
+     * {@code server.forward-headers-strategy}, que en produccion esta puesto.
+     */
+    public static final String IP = "ip";
+
     private ClavesDeLog() {}
 }

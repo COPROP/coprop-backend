@@ -194,12 +194,12 @@ class FugaEntreCondominiosTests {
     }
 
     /**
-     * Los diecinueve endpoints que cuelgan de un condominio.
+     * Los veinte endpoints que cuelgan de un condominio.
      *
      * <p>Son todos los que hay: los demas --personas, cuentas, el perfil propio y las dos llamadas
      * de quien llega con un token de invitacion-- son globales a proposito (Seguridad 2 y 6.1) y no
      * tienen condominio del que aislarse. Cuando entre uno nuevo bajo {@code /condominios/{id}}, su
-     * caso entra aqui; los cinco de invitaciones entraron asi con el issue #18.
+     * caso entra aqui; los cinco de invitaciones entraron asi con el issue #18, y la auditoria con el #21.
      */
     private List<Endpoint> endpoints() {
         String persona = personaSuelta.toString();
@@ -275,7 +275,8 @@ class FugaEntreCondominiosTests {
                         "revocar una invitacion",
                         HttpMethod.POST,
                         "/api/v1/condominios/%s/invitaciones/%5$s/revocacion",
-                        null));
+                        null),
+                new Endpoint("consultar la auditoria", HttpMethod.GET, "/api/v1/condominios/%s/auditoria", null));
     }
 
     @ParameterizedTest(name = "{0} en el condominio ajeno da 404")
