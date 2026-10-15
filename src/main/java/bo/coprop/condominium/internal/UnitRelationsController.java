@@ -18,11 +18,13 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -35,8 +37,12 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>Registrar una relacion es del administrador del condominio (#16). Consultarlas va por la
  * cadena completa del <strong>#15</strong>, y es el unico endpoint de hoy que resuelve un "Propias"
- * de la matriz sobre un recurso de la ruta. Cerrar una relacion --un cambio de propietario, una
- * mudanza-- es el <strong>#19</strong>, asi que aqui solo hay alta y consulta.
+ * de la matriz sobre un recurso de la ruta.
+ *
+ * <p>Cerrarlas es el <strong>#19</strong>, y son tres operaciones y no una: la venta de la unidad
+ * --que cierra las tres relaciones del vendedor de una vez-- la mudanza del ocupante y el fin de
+ * una responsabilidad de pago. Ninguna borra nada: cierran la vigencia, de modo que lo historico
+ * queda consultable, que es el segundo criterio de ese issue.
  */
 @ControladorDeApi
 @RestController
@@ -102,6 +108,89 @@ class UnitRelationsController {
                 relaciones.assignBilling(condominiumId, unitId, nuevo.personId(), nuevo.conceptId(), quien.getName());
         return ResponseEntity.status(201).body(creada);
     }
+
+    /**
+     * El historico de titularidades: quien ha sido dueño de esta unidad y cuando. Issue #19.
+     *
+     * <p>Lo pide {@code GESTIONAR_UNIDADES} y no {@code VER_ESTADO_DE_CUENTA} como el listado de
+     * arriba, y la diferencia es la que marca Seguridad 6.2: al propietario anterior se le entrega
+     * un comprobante de su epoca <strong>a traves del administrador</strong>, no mirando el
+     * historico el mismo. Dejar que un copropietario de hoy vea la cadena entera de dueños le daria
+     * el nombre de gente que ya no tiene nada que ver con el edificio.
+     *
+     * <p>Incluye la titularidad vigente, para que la lista se lea como una cadena y no haya que
+     * juntarla con la otra consulta.
+     */
+    @PreAuthorize("@autorizacion.puede(authentication, 'GESTIONAR_UNIDADES')")
+    @GetMapping("/propietarios/historico")
+    List<OwnershipView> historicoDePropietarios(@PathVariable UUID condominiumId, @PathVariable UUID unitId) {
+        return relaciones.ownershipHistoryOf(condominiumId, unitId);
+    }
+
+    /**
+     * La venta de la unidad: la titularidad pasa de una persona a otra. Issue #19.
+     *
+     * <p>Es un {@code POST} a un sub-recurso propio y no un {@code PUT} sobre los propietarios: lo
+     * que se registra no es un estado nuevo de la lista de dueños sino <em>un hecho con fecha</em>,
+     * y de ese hecho sale el cierre de las relaciones del vendedor. Un {@code PUT} con la lista
+     * nueva dejaria que el cliente decidiera que se cierra y que no.
+     *
+     * <p>Responde la titularidad del comprador, que es lo unico que queda abierto al terminar.
+     */
+    @PreAuthorize("@autorizacion.puede(authentication, 'GESTIONAR_UNIDADES')")
+    @PostMapping("/transferencia")
+    OwnershipView transferir(
+            @PathVariable UUID condominiumId,
+            @PathVariable UUID unitId,
+            @Valid @RequestBody Transferencia venta,
+            Principal quien) {
+        return relaciones.transferOwnership(
+                condominiumId, unitId, venta.fromPersonId(), venta.toPersonId(), quien.getName());
+    }
+
+    /**
+     * La mudanza: esa persona deja de ocupar la unidad. Issue #19.
+     *
+     * <p>{@code DELETE} aunque la fila no se borre: lo que el cliente pide es que la relacion deje
+     * de existir, y que por debajo se cierre una vigencia en vez de borrarse es asunto del dominio.
+     * Responde 204 por lo mismo: no hay nada vigente que devolver.
+     */
+    @PreAuthorize("@autorizacion.puede(authentication, 'GESTIONAR_UNIDADES')")
+    @DeleteMapping("/ocupantes/{personId}")
+    ResponseEntity<Void> terminarOcupacion(
+            @PathVariable UUID condominiumId, @PathVariable UUID unitId, @PathVariable UUID personId, Principal quien) {
+        relaciones.endOccupancy(condominiumId, unitId, personId, quien.getName());
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Esa persona deja de responder por los cobros de la unidad. Issue #19.
+     *
+     * @param conceptId sin valor = la responsabilidad general. Hay que pasar el mismo con el que se
+     *     asigno: cerrar la general no cierra las de un concepto concreto, porque son filas
+     *     distintas y responden por cosas distintas
+     */
+    @PreAuthorize("@autorizacion.puede(authentication, 'GESTIONAR_UNIDADES')")
+    @DeleteMapping("/responsables-de-pago/{personId}")
+    ResponseEntity<Void> terminarResponsabilidad(
+            @PathVariable UUID condominiumId,
+            @PathVariable UUID unitId,
+            @PathVariable UUID personId,
+            @RequestParam(required = false) @Nullable UUID conceptId,
+            Principal quien) {
+        relaciones.endBilling(condominiumId, unitId, personId, conceptId, quien.getName());
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Lo que hace falta para registrar una venta.
+     *
+     * @param fromPersonId quien vende, que tiene que ser propietario vigente de la unidad
+     * @param toPersonId quien compra. Recibe el mismo porcentaje que tenia el vendedor, y por eso
+     *     el porcentaje no viaja aqui: una venta parcial cambia el reparto de la unidad y se
+     *     registra titularidad por titularidad
+     */
+    record Transferencia(@NotNull UUID fromPersonId, @NotNull UUID toPersonId) {}
 
     /**
      * @param share porcentaje de copropiedad. Seis decimales, igual que la alicuota de la unidad y

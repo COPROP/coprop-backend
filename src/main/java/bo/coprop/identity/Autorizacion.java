@@ -1,5 +1,6 @@
 package bo.coprop.identity;
 
+import java.util.UUID;
 import org.springframework.security.core.Authentication;
 
 /**
@@ -70,4 +71,25 @@ public interface Autorizacion {
      * administradores" de la matriz.
      */
     boolean puedeConceder(Authentication quien, java.util.Set<MembershipRole> roles);
+
+    /**
+     * Si puede dar de baja, suspender o reactivar <strong>esa</strong> membresia. Issue
+     * <strong>#19</strong>.
+     *
+     * <p>Es {@link #puedeConceder} leido al reves, con los roles que la membresia tiene en vez de
+     * los que se van a conceder: <strong>quien no puede nombrar a un administrador tampoco puede
+     * quitarlo</strong>. Sin esto, el superadministrador --que segun la matriz solo reparte roles
+     * administrativos-- podria dar de baja a cualquier propietario de cualquier edificio, que es
+     * justo lo que esa celda acota.
+     *
+     * <p>Existe como metodo propio y no se compone en la anotacion porque los roles hay que leerlos
+     * de la base: una expresion de {@code @PreAuthorize} que llamara al servicio de membresias para
+     * traerlos dependeria del nombre del bean y gastaria una consulta mas.
+     *
+     * @throws bo.coprop.shared.RecursoNoEncontrado si la membresia no existe o no es de ese
+     *     condominio. Se lanza desde dentro de la expresion a proposito, que es como el issue #15
+     *     consigue un 404 donde un {@code false} daria 403: si la membresia no es de este
+     *     condominio, la respuesta no puede confirmar que existe
+     */
+    boolean puedeCambiar(Authentication quien, UUID condominiumId, UUID membershipId);
 }

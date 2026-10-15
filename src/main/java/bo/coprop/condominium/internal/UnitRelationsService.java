@@ -1,11 +1,14 @@
 package bo.coprop.condominium.internal;
 
 import bo.coprop.condominium.BillingResponsibilityAssigned;
+import bo.coprop.condominium.BillingResponsibilityEnded;
 import bo.coprop.condominium.BillingResponsibilityView;
+import bo.coprop.condominium.OccupancyEnded;
 import bo.coprop.condominium.OccupancyGranted;
 import bo.coprop.condominium.OccupancyRole;
 import bo.coprop.condominium.OccupancyView;
 import bo.coprop.condominium.OwnershipGranted;
+import bo.coprop.condominium.OwnershipTransferred;
 import bo.coprop.condominium.OwnershipView;
 import bo.coprop.condominium.RelatedUnitView;
 import bo.coprop.condominium.UnitRelation;
@@ -117,6 +120,122 @@ class UnitRelationsService implements UnitRelations {
     }
 
     /**
+     * La venta: cierra lo del vendedor, abre lo del comprador, y lo hace en una transaccion.
+     *
+     * <p><strong>Hace falta el {@code flush()} entre cerrar y abrir</strong>, y es la misma trampa
+     * que enseño la configuracion con vigencia del issue #9: Hibernate ordena todos los INSERT antes
+     * que los UPDATE dentro de un flush, asi que sin esto la titularidad nueva llegaria a la base
+     * mientras la vieja sigue abierta y el indice parcial de "una sola vigente por persona y
+     * unidad" la rechazaria. Aqui solo muerde cuando comprador y vendedor son la misma persona
+     * --que se rechaza antes-- pero se deja puesto porque el orden correcto es el correcto: cerrar
+     * y despues abrir.
+     */
+    @Override
+    @Transactional
+    public OwnershipView transferOwnership(
+            UUID condominiumId, UUID unitId, UUID fromPersonId, UUID toPersonId, String actor) {
+        exigirUnidadDelCondominio(condominiumId, unitId);
+        if (fromPersonId.equals(toPersonId)) {
+            throw new ReglaDeNegocioViolada("Una unidad no se vende a su propio dueño.");
+        }
+        UnitOwnership delVendedor = titularidades
+                .findByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(condominiumId, unitId, fromPersonId)
+                .orElseThrow(() -> RecursoNoEncontrado.de("la titularidad vigente de la persona", fromPersonId));
+        // Una venta a quien ya es copropietario cambia el reparto de la unidad, y eso no es esta
+        // operacion: el porcentaje del comprador tendria que ser la suma de los dos, y aqui el que
+        // se transfiere es el del vendedor. Se registra cerrando y abriendo a mano.
+        if (titularidades.existsByUnitIdAndPersonIdAndValidToIsNull(unitId, toPersonId)) {
+            throw new ReglaDeNegocioViolada(
+                    "La persona %s ya es propietaria vigente de la unidad %s; una venta entre copropietarios cambia el reparto y se registra titularidad por titularidad."
+                            .formatted(toPersonId, unitId));
+        }
+
+        Instant ahora = reloj.instant();
+        BigDecimal porcentaje = delVendedor.getShare();
+
+        delVendedor.close(ahora);
+        // Las otras dos relaciones del vendedor con esta unidad se cierran tambien: las tres dan
+        // acceso por igual, asi que dejar una abierta dejaria al vendedor viendo lo que ya no es
+        // suyo, que es justo el criterio del issue.
+        int cerradas = 1
+                + cerrarOcupacionSiLaHay(condominiumId, unitId, fromPersonId, ahora, actor)
+                + cerrarResponsabilidades(condominiumId, unitId, fromPersonId, ahora, actor);
+        titularidades.flush();
+
+        UnitOwnership delComprador =
+                titularidades.save(new UnitOwnership(condominiumId, unitId, toPersonId, porcentaje, ahora));
+
+        eventos.publishEvent(new OwnershipTransferred(
+                condominiumId, unitId, fromPersonId, toPersonId, porcentaje, cerradas, actor, ahora));
+
+        return vista(delComprador);
+    }
+
+    /**
+     * Cierra la ocupacion del vendedor, si la tenia, y devuelve cuantas cerro.
+     *
+     * <p>Publica su evento igual que si la hubiera cerrado el administrador a mano: lo que pasa es
+     * lo mismo --alguien dejo de ocupar-- y la bitacora no tiene por que saber que fue a cuenta de
+     * una venta. El evento de la venta ya cuenta cuantas relaciones se cerraron con ella.
+     */
+    private int cerrarOcupacionSiLaHay(UUID condominiumId, UUID unitId, UUID personId, Instant ahora, String actor) {
+        return ocupaciones
+                .findByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(condominiumId, unitId, personId)
+                .map(ocupacion -> {
+                    ocupacion.close(ahora);
+                    eventos.publishEvent(
+                            new OccupancyEnded(condominiumId, unitId, personId, ocupacion.getRole(), actor, ahora));
+                    return 1;
+                })
+                .orElse(0);
+    }
+
+    /** Cierra todas las responsabilidades de pago del vendedor sobre esa unidad. */
+    private int cerrarResponsabilidades(UUID condominiumId, UUID unitId, UUID personId, Instant ahora, String actor) {
+        List<BillingResponsibility> suyas = responsabilidades.findByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(
+                condominiumId, unitId, personId);
+        for (BillingResponsibility responsabilidad : suyas) {
+            responsabilidad.close(ahora);
+            eventos.publishEvent(new BillingResponsibilityEnded(
+                    condominiumId, unitId, personId, responsabilidad.getConceptId(), actor, ahora));
+        }
+        return suyas.size();
+    }
+
+    @Override
+    @Transactional
+    public void endOccupancy(UUID condominiumId, UUID unitId, UUID personId, String actor) {
+        exigirUnidadDelCondominio(condominiumId, unitId);
+        UnitOccupancy ocupacion = ocupaciones
+                .findByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(condominiumId, unitId, personId)
+                .orElseThrow(() -> RecursoNoEncontrado.de("la ocupacion vigente de la persona", personId));
+
+        Instant ahora = reloj.instant();
+        ocupacion.close(ahora);
+
+        eventos.publishEvent(new OccupancyEnded(condominiumId, unitId, personId, ocupacion.getRole(), actor, ahora));
+    }
+
+    @Override
+    @Transactional
+    public void endBilling(UUID condominiumId, UUID unitId, UUID personId, @Nullable UUID conceptId, String actor) {
+        exigirUnidadDelCondominio(condominiumId, unitId);
+        // Como en el alta, el caso del concepto nulo necesita su propia consulta.
+        BillingResponsibility responsabilidad = (conceptId == null
+                        ? responsabilidades.findByCondominiumIdAndUnitIdAndPersonIdAndConceptIdIsNullAndValidToIsNull(
+                                condominiumId, unitId, personId)
+                        : responsabilidades.findByCondominiumIdAndUnitIdAndPersonIdAndConceptIdAndValidToIsNull(
+                                condominiumId, unitId, personId, conceptId))
+                .orElseThrow(
+                        () -> RecursoNoEncontrado.de("la responsabilidad de pago vigente de la persona", personId));
+
+        Instant ahora = reloj.instant();
+        responsabilidad.close(ahora);
+
+        eventos.publishEvent(new BillingResponsibilityEnded(condominiumId, unitId, personId, conceptId, actor, ahora));
+    }
+
+    /**
      * Las tres preguntas en el orden en que es mas probable que una conteste que si.
      *
      * <p>El cortocircuito del {@code ||} se aprovecha: la titularidad es la relacion que mas filas
@@ -224,13 +343,24 @@ class UnitRelationsService implements UnitRelations {
         }
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<OwnershipView> ownershipHistoryOf(UUID condominiumId, UUID unitId) {
+        exigirUnidadDelCondominio(condominiumId, unitId);
+        return titularidades.findByCondominiumIdAndUnitIdOrderByValidFromDescIdDesc(condominiumId, unitId).stream()
+                .map(UnitRelationsService::vista)
+                .toList();
+    }
+
     private static OwnershipView vista(UnitOwnership titularidad) {
         return new OwnershipView(
                 titularidad.getId(),
                 titularidad.getCondominiumId(),
                 titularidad.getUnitId(),
                 titularidad.getPersonId(),
-                titularidad.getShare());
+                titularidad.getShare(),
+                titularidad.getValidFrom(),
+                titularidad.getValidTo());
     }
 
     private static OccupancyView vista(UnitOccupancy ocupacion) {

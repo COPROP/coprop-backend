@@ -36,7 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
  * dependencia <em>sin declararla</em> lo sigue comprobando {@code ModularityTests}, que es su
  * trabajo.
  */
-@Import({TestcontainersConfiguration.class, PeopleTests.RelojFijo.class})
+@Import({TestcontainersConfiguration.class, DoblesDeAcceso.class, PeopleTests.RelojFijo.class})
 @ApplicationModuleTest(BootstrapMode.DIRECT_DEPENDENCIES)
 @Transactional
 class PeopleTests {

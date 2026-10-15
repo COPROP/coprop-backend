@@ -12,16 +12,23 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 
 /**
- * Los tres dobles que necesitan las invitaciones: el correo, el proveedor de identidad y el reloj.
+ * Los tres dobles que necesitan las invitaciones: el correo, el reloj y --via
+ * {@link DoblesDeAcceso}-- el proveedor de identidad.
  *
  * <p>Ninguno de los tres se puede usar de verdad en un test. El correo saldria a un SMTP; el
  * proveedor de identidad a la Admin API de Keycloak, que en CI no existe --y arrancarlo costaria
  * mas que todo el build, que es la razon por la que {@code RealmDeKeycloakTests} comprueba el realm
  * como archivo--; y el reloj real no deja probar que una invitacion vence en siete dias sin esperar
  * siete dias.
+ *
+ * <p>El del proveedor <strong>vive en {@link DoblesDeAcceso} y se importa</strong>, no se duplica
+ * aqui: lo necesitan tambien los tests de la baja del issue #19, que no pueden importar esta clase
+ * porque su reloj movible choca con el parado que tienen. Dos dobles del mismo puerto en dos sitios
+ * serian dos cosas que mantener de acuerdo.
  *
  * <p><strong>El correo es por donde el test lee el token</strong>, y eso no es un atajo: es el unico
  * sitio donde el token existe, igual que para la persona invitada. Un test que lo sacara de la base
@@ -33,18 +40,13 @@ import org.springframework.context.annotation.Primary;
  * #9. El {@code @Primary} es el que decide cual se inyecta.
  */
 @TestConfiguration(proxyBeanMethods = false)
+@Import(DoblesDeAcceso.class)
 public class DoblesDeInvitacion {
 
     @Bean
     @Primary
     CorreoDePrueba buzon() {
         return new CorreoDePrueba();
-    }
-
-    @Bean
-    @Primary
-    ProveedorDeIdentidadDePrueba proveedorDePrueba() {
-        return new ProveedorDeIdentidadDePrueba();
     }
 
     @Bean
@@ -91,25 +93,6 @@ public class DoblesDeInvitacion {
         }
 
         public record Enviado(String destinatario, String asunto, String cuerpo) {}
-    }
-
-    /** Anota a quien se le preparo credencial, en vez de llamar a Keycloak. */
-    public static class ProveedorDeIdentidadDePrueba implements ProveedorDeIdentidad {
-
-        private final List<String> preparados = new ArrayList<>();
-
-        @Override
-        public synchronized void prepararCredencial(String email) {
-            preparados.add(email);
-        }
-
-        public synchronized List<String> preparados() {
-            return List.copyOf(preparados);
-        }
-
-        public synchronized long vecesQueSePreparo(String email) {
-            return preparados.stream().filter(email::equals).count();
-        }
     }
 
     /**

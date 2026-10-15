@@ -9,6 +9,8 @@ import bo.coprop.condominium.CondominiumType;
 import bo.coprop.condominium.Condominiums;
 import bo.coprop.condominium.NewCondominium;
 import bo.coprop.condominium.NewUnit;
+import bo.coprop.condominium.OccupancyRole;
+import bo.coprop.condominium.UnitRelations;
 import bo.coprop.condominium.UnitType;
 import bo.coprop.condominium.Units;
 import bo.coprop.identity.AccountView;
@@ -79,6 +81,9 @@ class FugaEntreCondominiosTests {
     @Autowired
     private Invitations invitaciones;
 
+    @Autowired
+    private UnitRelations relaciones;
+
     /** El condominio de quien pide, donde si tiene membresia. */
     private UUID propio;
 
@@ -96,6 +101,20 @@ class FugaEntreCondominiosTests {
     private UUID personaSuelta;
     private UUID cuentaParaInvitar;
     private String autorizacion;
+
+    /**
+     * Las cuatro personas que el issue #19 necesita con una relacion ya puesta en la unidad propia.
+     *
+     * <p>Se registran aqui y no se reutiliza {@code personaSuelta} porque los endpoints que cierran
+     * una relacion <strong>exigen que exista</strong>: sin ella responderian 404 tambien en el
+     * condominio propio y el control de la suite --que es la mitad que de verdad comprueba algo--
+     * no distinguiria ese 404 del que se busca.
+     */
+    private UUID vendedor;
+
+    private UUID comprador;
+    private UUID ocupanteParaMudar;
+    private UUID responsableParaCerrar;
 
     @BeforeAll
     void prepararLosDosCondominios() {
@@ -142,6 +161,21 @@ class FugaEntreCondominiosTests {
                         Set.of(MembershipRole.OWNER),
                         cuenta.id().toString())
                 .id();
+
+        // Las relaciones que los cierres del issue #19 van a cerrar, puestas de antemano en la
+        // unidad propia. En la ajena no hace falta ninguna: ahi el filtro de condominio responde
+        // antes de que nadie mire si la relacion existe, que es justo lo que la suite comprueba.
+        vendedor = personas.register(new NewPerson("Vende", "Perez", null), "admin")
+                .id();
+        comprador = personas.register(new NewPerson("Compra", "Perez", null), "admin")
+                .id();
+        ocupanteParaMudar = personas.register(new NewPerson("Ocupa", "Perez", null), "admin")
+                .id();
+        responsableParaCerrar =
+                personas.register(new NewPerson("Paga", "Perez", null), "admin").id();
+        relaciones.grantOwnership(propio, unidadPropia, vendedor, new BigDecimal("100.000000"), "admin");
+        relaciones.grantOccupancy(propio, unidadPropia, ocupanteParaMudar, OccupancyRole.INQUILINO, "admin");
+        relaciones.assignBilling(propio, unidadPropia, responsableParaCerrar, null, "admin");
 
         String sujeto = ProveedorDeTokensDePrueba.sujetoNuevo();
         autorizacion = "Bearer " + ProveedorDeTokensDePrueba.valido(sujeto, cuenta.email());
@@ -194,12 +228,13 @@ class FugaEntreCondominiosTests {
     }
 
     /**
-     * Los veinte endpoints que cuelgan de un condominio.
+     * Los veintisiete endpoints que cuelgan de un condominio.
      *
      * <p>Son todos los que hay: los demas --personas, cuentas, el perfil propio y las dos llamadas
      * de quien llega con un token de invitacion-- son globales a proposito (Seguridad 2 y 6.1) y no
      * tienen condominio del que aislarse. Cuando entre uno nuevo bajo {@code /condominios/{id}}, su
-     * caso entra aqui; los cinco de invitaciones entraron asi con el issue #18, y la auditoria con el #21.
+     * caso entra aqui; los cinco de invitaciones entraron asi con el issue #18, la auditoria con el
+     * #21 y los siete de bajas, suspensiones y cierres de relacion con el #19.
      */
     private List<Endpoint> endpoints() {
         String persona = personaSuelta.toString();
@@ -276,7 +311,45 @@ class FugaEntreCondominiosTests {
                         HttpMethod.POST,
                         "/api/v1/condominios/%s/invitaciones/%5$s/revocacion",
                         null),
-                new Endpoint("consultar la auditoria", HttpMethod.GET, "/api/v1/condominios/%s/auditoria", null));
+                new Endpoint("consultar la auditoria", HttpMethod.GET, "/api/v1/condominios/%s/auditoria", null),
+                // Los siete del issue #19: la baja, la suspension y la reactivacion de una
+                // membresia, y en la unidad la venta, el historico de propietarios y los dos
+                // cierres de relacion.
+                new Endpoint(
+                        "dar de baja una membresia",
+                        HttpMethod.POST,
+                        "/api/v1/condominios/%s/membresias/%4$s/baja",
+                        "{\"motivo\":\"prueba de aislamiento\"}"),
+                new Endpoint(
+                        "suspender una membresia",
+                        HttpMethod.POST,
+                        "/api/v1/condominios/%s/membresias/%4$s/suspension",
+                        "{\"motivo\":\"prueba de aislamiento\"}"),
+                new Endpoint(
+                        "reactivar una membresia",
+                        HttpMethod.POST,
+                        "/api/v1/condominios/%s/membresias/%4$s/reactivacion",
+                        "{\"motivo\":\"prueba de aislamiento\"}"),
+                new Endpoint(
+                        "ver el historico de propietarios",
+                        HttpMethod.GET,
+                        "/api/v1/condominios/%s/unidades/%s/propietarios/historico",
+                        null),
+                new Endpoint(
+                        "transferir una unidad",
+                        HttpMethod.POST,
+                        "/api/v1/condominios/%s/unidades/%s/transferencia",
+                        "{\"fromPersonId\":\"" + vendedor + "\",\"toPersonId\":\"" + comprador + "\"}"),
+                new Endpoint(
+                        "terminar una ocupacion",
+                        HttpMethod.DELETE,
+                        "/api/v1/condominios/%s/unidades/%s/ocupantes/" + ocupanteParaMudar,
+                        null),
+                new Endpoint(
+                        "terminar una responsabilidad de pago",
+                        HttpMethod.DELETE,
+                        "/api/v1/condominios/%s/unidades/%s/responsables-de-pago/" + responsableParaCerrar,
+                        null));
     }
 
     @ParameterizedTest(name = "{0} en el condominio ajeno da 404")

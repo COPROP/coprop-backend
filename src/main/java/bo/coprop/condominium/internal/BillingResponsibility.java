@@ -58,7 +58,7 @@ class BillingResponsibility {
         this.validFrom = validFrom;
     }
 
-    /** Cierra la responsabilidad: ya no le toca pagar. Lo usara el issue #19. */
+    /** Cierra la responsabilidad: ya no le toca pagar. La usa la venta de la unidad y el fin de una responsabilidad (#19). */
     void close(Instant at) {
         this.validTo = at;
     }

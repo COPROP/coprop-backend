@@ -1,6 +1,7 @@
 package bo.coprop.condominium.internal;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -21,4 +22,19 @@ interface UnitOwnershipRepository extends JpaRepository<UnitOwnership, UUID> {
     List<UnitOwnership> findByCondominiumIdAndPersonIdAndValidToIsNull(UUID condominiumId, UUID personId);
 
     List<UnitOwnership> findByCondominiumIdAndUnitIdAndValidToIsNull(UUID condominiumId, UUID unitId);
+
+    /** La titularidad vigente de una persona sobre una unidad. La que cierra una venta (#19). */
+    Optional<UnitOwnership> findByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(
+            UUID condominiumId, UUID unitId, UUID personId);
+
+    /**
+     * Todas las que ha tenido la unidad, de la mas reciente a la mas antigua.
+     *
+     * <p>Por {@code validFrom} descendente y no por {@code validTo}: la vigente lo tiene nulo y en
+     * PostgreSQL los nulos ordenan al final por defecto, asi que la actual saldria la ultima, que
+     * es justo al contrario de como se lee un historico. El segundo criterio es el identificador,
+     * para que dos titularidades abiertas el mismo instante --las dos mitades de una copropiedad--
+     * no cambien de sitio entre dos consultas.
+     */
+    List<UnitOwnership> findByCondominiumIdAndUnitIdOrderByValidFromDescIdDesc(UUID condominiumId, UUID unitId);
 }

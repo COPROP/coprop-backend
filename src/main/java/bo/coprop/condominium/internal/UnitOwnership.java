@@ -59,7 +59,7 @@ class UnitOwnership {
         this.validFrom = validFrom;
     }
 
-    /** Cierra la titularidad: la unidad cambio de dueño. Lo usara el issue #19. */
+    /** Cierra la titularidad: la unidad cambio de dueño. La usa la venta de la unidad (#19). */
     void close(Instant at) {
         this.validTo = at;
     }
