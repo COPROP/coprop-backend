@@ -72,6 +72,71 @@ public interface UnitRelations {
             UUID condominiumId, UUID unitId, UUID personId, @Nullable UUID conceptId, String actor);
 
     /**
+     * La venta de una unidad: la titularidad pasa de una persona a otra. Issue <strong>#19</strong>.
+     *
+     * <p><strong>Es una sola operacion y no un cierre seguido de un alta</strong>, por dos motivos.
+     * El primero es que entre los dos pasos la unidad se quedaria sin dueño, y si el segundo falla
+     * se queda asi; aqui las dos cosas pasan en la misma transaccion o no pasa ninguna. El segundo
+     * es la bitacora: dos filas sueltas obligarian a quien la lee a emparejarlas por la fecha y a
+     * adivinar si fueron la misma venta.
+     *
+     * <p><strong>Cierra las TRES relaciones del vendedor con esa unidad</strong>, no solo su
+     * titularidad: si vendio y seguia ocupandola o respondiendo por sus cobros, esas filas le
+     * seguirian dando acceso --las tres cuentan por igual en {@link #isRelatedTo}-- y el criterio
+     * del issue, que el propietario anterior pierda el acceso, no se cumpliria. Si el vendedor se
+     * queda como inquilino, el administrador vuelve a registrar su ocupacion, que es una decision
+     * explicita y no un resto de la venta.
+     *
+     * <p>El comprador recibe <strong>el mismo porcentaje</strong> que tenia el vendedor. No se pasa
+     * como argumento a proposito: una venta parcial --vender la mitad de lo que uno tiene-- no es
+     * esto, se registra cerrando y abriendo las titularidades a mano, y aceptar aqui un porcentaje
+     * distinto dejaria que una venta cambiara en silencio el reparto de la unidad.
+     *
+     * <p>Lo historico no se toca, que es el segundo criterio del issue: las filas cerradas se
+     * quedan, y las obligaciones ya emitidas siguen apuntando a quien respondia cuando se
+     * emitieron.
+     *
+     * <p>Publica {@link OwnershipTransferred}.
+     *
+     * @return la titularidad nueva, la del comprador
+     * @throws bo.coprop.shared.RecursoNoEncontrado si la unidad no es de ese condominio, o si quien
+     *     vende no es propietario vigente de ella
+     * @throws bo.coprop.shared.ReglaDeNegocioViolada si comprador y vendedor son la misma persona,
+     *     o si el comprador ya es propietario vigente de esa unidad --ahi lo que hay es una venta
+     *     entre copropietarios, que cambia el reparto y se registra a mano--
+     */
+    OwnershipView transferOwnership(UUID condominiumId, UUID unitId, UUID fromPersonId, UUID toPersonId, String actor);
+
+    /**
+     * Alguien deja de ocupar una unidad: se mudo, o se le acabo el contrato. Issue
+     * <strong>#19</strong>.
+     *
+     * <p>Es la mitad manual de lo que Seguridad 6.2 describe como automatico --"el inquilino deja de
+     * ver esa unidad al dia siguiente"--. La fecha de fin del contrato como dato de la ocupacion no
+     * existe todavia, asi que hoy el cierre lo registra el administrador; el dia que exista, esta
+     * misma operacion es la que ejecutara la tarea.
+     *
+     * <p>Publica {@link OccupancyEnded}.
+     *
+     * @throws bo.coprop.shared.RecursoNoEncontrado si la unidad no es de ese condominio, o si esa
+     *     persona no la ocupa vigentemente
+     */
+    void endOccupancy(UUID condominiumId, UUID unitId, UUID personId, String actor);
+
+    /**
+     * Alguien deja de responder por los cobros de una unidad. Issue <strong>#19</strong>.
+     *
+     * <p>Publica {@link BillingResponsibilityEnded}.
+     *
+     * @param conceptId nulo = la responsabilidad general, la que cubre todo lo que se cobre a la
+     *     unidad. Hay que pasar el mismo con el que se asigno: cerrar la general no cierra las de
+     *     un concepto concreto, porque son filas distintas y responden por cosas distintas
+     * @throws bo.coprop.shared.RecursoNoEncontrado si la unidad no es de ese condominio, o si esa
+     *     persona no responde vigentemente por ese concepto de esa unidad
+     */
+    void endBilling(UUID condominiumId, UUID unitId, UUID personId, @Nullable UUID conceptId, String actor);
+
+    /**
      * Si una persona tiene <strong>alguna</strong> relacion vigente con esa unidad de ese
      * condominio: propietaria, ocupante o responsable de sus cobros.
      *
@@ -110,6 +175,22 @@ public interface UnitRelations {
 
     /** Las titularidades vigentes de una unidad, para saber a quien se le cobra. */
     List<OwnershipView> ownersOf(UUID condominiumId, UUID unitId);
+
+    /**
+     * Todas las titularidades que ha tenido una unidad, vigentes y cerradas, de la mas reciente a
+     * la mas antigua. Issue <strong>#19</strong>.
+     *
+     * <p>Es la mitad consultable del segundo criterio del issue: los datos de quien vendio se
+     * conservan y el administrador los puede ver. Seguridad 6.2 lo dice del lado del vendedor --"si
+     * necesita un comprobante de su epoca, lo solicita al administrador"--, y para dar ese
+     * comprobante hay que poder decir quien era el dueño en un mes dado, que es lo que esta lista
+     * contesta y {@link #ownersOf} no.
+     *
+     * <p>Separada y no un parametro de {@link #ownersOf} porque las dos preguntas no se responden a
+     * la misma gente: la de hoy es la cabecera de un estado de cuenta y la ve tambien el
+     * propietario de la unidad; el historico completo es del administrador.
+     */
+    List<OwnershipView> ownershipHistoryOf(UUID condominiumId, UUID unitId);
 
     /**
      * Las unidades de ese condominio con las que una persona tiene alguna relacion vigente, y cual.

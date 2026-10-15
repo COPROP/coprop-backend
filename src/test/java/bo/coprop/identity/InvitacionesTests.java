@@ -67,7 +67,7 @@ class InvitacionesTests {
     private DoblesDeInvitacion.CorreoDePrueba buzon;
 
     @Autowired
-    private DoblesDeInvitacion.ProveedorDeIdentidadDePrueba proveedor;
+    private DoblesDeAcceso.ProveedorDeIdentidadDePrueba proveedor;
 
     @Autowired
     private DoblesDeInvitacion.RelojDePrueba reloj;

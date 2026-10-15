@@ -7,6 +7,10 @@ import bo.coprop.TestcontainersConfiguration;
 import bo.coprop.condominium.CondominiumType;
 import bo.coprop.condominium.Condominiums;
 import bo.coprop.condominium.NewCondominium;
+import bo.coprop.condominium.NewUnit;
+import bo.coprop.condominium.UnitRelations;
+import bo.coprop.condominium.UnitType;
+import bo.coprop.condominium.Units;
 import bo.coprop.identity.AccountView;
 import bo.coprop.identity.DoblesDeInvitacion;
 import bo.coprop.identity.Invitations;
@@ -16,6 +20,7 @@ import bo.coprop.identity.NewPerson;
 import bo.coprop.identity.People;
 import bo.coprop.identity.PersonView;
 import bo.coprop.shared.Pagina;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -61,6 +66,12 @@ class AuditoriaTests {
 
     @Autowired
     private Invitations invitaciones;
+
+    @Autowired
+    private Units unidades;
+
+    @Autowired
+    private UnitRelations relaciones;
 
     @Autowired
     private DataSource fuenteDeDatos;
@@ -207,6 +218,73 @@ class AuditoriaTests {
     private String tokenDe(AccountView cuenta) {
         return buzon.ultimoTokenPara(cuenta.email())
                 .orElseThrow(() -> new AssertionError("No llego la invitacion a " + cuenta.email()));
+    }
+
+    @Test
+    @DisplayName("la baja, la suspension y la reactivacion de una membresia quedan, con su motivo")
+    void lasBajasYSuspensionesQuedan() {
+        // Seguridad 8 pide los cambios de rol en la bitacora, y una baja es el mayor de todos: le
+        // quita todos los que tenia. Es tambien la primera pregunta de quien mira la bitacora
+        // despues de una queja: por que esta persona dejo de ver el edificio.
+        UUID queSeVa = cuentaNueva().id();
+        UUID queSeSuspende = cuentaNueva().id();
+        UUID deLaQueSeVa = membresias
+                .grant(condominio, queSeVa, Set.of(MembershipRole.OWNER), null, administradora.toString())
+                .id();
+        UUID deLaQueSeSuspende = membresias
+                .grant(condominio, queSeSuspende, Set.of(MembershipRole.TENANT), null, administradora.toString())
+                .id();
+
+        membresias.revoke(condominio, deLaQueSeVa, "vendio su departamento", administradora.toString());
+        membresias.suspend(condominio, deLaQueSeSuspende, "cuota impaga", administradora.toString());
+        membresias.reinstate(condominio, deLaQueSeSuspende, "pago al dia", administradora.toString());
+
+        AuditEntryView baja = laFilaDe("MEMBRESIA_DADA_DE_BAJA");
+        assertThat(baja.entidad()).isEqualTo("membresia");
+        assertThat(baja.entidadId()).isEqualTo(deLaQueSeVa);
+        assertThat(baja.antes()).containsEntry("accountId", queSeVa.toString()).containsEntry("roles", "OWNER");
+        // El motivo vive AQUI y solo aqui: la fila cerrada dice cuando, y la bitacora por que.
+        assertThat(baja.despues()).containsEntry("motivo", "vendio su departamento");
+
+        assertThat(laFilaDe("MEMBRESIA_SUSPENDIDA").despues()).containsEntry("motivo", "cuota impaga");
+        // Reactivar es una accion distinta y no la misma con una bandera: quien lee busca "a quien
+        // se suspendio" o "a quien se le devolvio el acceso", y una bandera dentro del JSON no se
+        // filtra. Mismo criterio que el reenvio de una invitacion.
+        assertThat(laFilaDe("MEMBRESIA_REACTIVADA").despues()).containsEntry("motivo", "pago al dia");
+    }
+
+    @Test
+    @DisplayName("la venta de una unidad queda como un solo hecho, con sus dos lados")
+    void laVentaQuedaComoUnSoloHecho() {
+        UUID unidad = unidades.register(
+                        condominio,
+                        new NewUnit("AUD-101", UnitType.DEPARTAMENTO, new BigDecimal("1.000000"), null, null, null),
+                        administradora.toString())
+                .id();
+        UUID vendedor = personas.register(new NewPerson("Vende", "Perez", null), "admin")
+                .id();
+        UUID comprador = personas.register(new NewPerson("Compra", "Perez", null), "admin")
+                .id();
+        relaciones.grantOwnership(
+                condominio, unidad, vendedor, new BigDecimal("100.000000"), administradora.toString());
+
+        relaciones.transferOwnership(condominio, unidad, vendedor, comprador, administradora.toString());
+
+        // Un evento propio y no dos --una cerrada y otra abierta-- porque lo que hay que poder
+        // reconstruir dentro de un año es la venta, con sus dos lados.
+        AuditEntryView venta = laFilaDe("TITULARIDAD_TRANSFERIDA");
+        assertThat(venta.entidad()).isEqualTo("titularidad");
+        // La entidad es la UNIDAD: la titularidad lleva vigencia, asi que su identificador cambia en
+        // cada venta y no serviria para seguir la historia.
+        assertThat(venta.entidadId()).isEqualTo(unidad);
+        assertThat(venta.antes()).containsEntry("personId", vendedor.toString());
+        assertThat(venta.despues())
+                .containsEntry("personId", comprador.toString())
+                .containsEntry("relacionesCerradas", "1");
+
+        // Y el alta que la precedio tambien esta: una bitacora que registra el fin de una relacion
+        // y no su principio hace creer que la relacion nacio sola.
+        assertThat(laFilaDe("TITULARIDAD_CONCEDIDA").despues()).containsEntry("personId", vendedor.toString());
     }
 
     @Test

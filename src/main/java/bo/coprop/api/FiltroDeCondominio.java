@@ -33,8 +33,14 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * la plataforma, y con eso quien tenga una cuenta puede enumerarlos probando identificadores.
  *
  * <p>Una membresia <strong>suspendida tampoco entra</strong>, y responde lo mismo que si no
- * existiera. Suspender y dar de baja son operaciones del issue #19; lo que decide aqui es solo si
- * la que hay esta activa.
+ * existiera. Lo que decide aqui es solo si la que hay esta activa; suspenderla y darla de baja son
+ * operaciones del issue #19.
+ *
+ * <p><strong>Este filtro es lo que de verdad hace cumplir la baja</strong>, y conviene saberlo al
+ * leer el #19: como la membresia se relee en cada peticion, una baja surte efecto en la siguiente
+ * sin esperar a que caduque ningun token ni a que se cierre ninguna sesion. El cierre de sesiones
+ * que ese issue trae es una segunda puerta --la cookie y el refresh token-- no la que corta el
+ * acceso al condominio.
  *
  * <p>Los roles de la membresia quedan como autoridades de la peticion, que es donde Spring los
  * busca. Hoy no los mira nadie --la matriz de permisos es el issue <strong>#16</strong>-- pero es

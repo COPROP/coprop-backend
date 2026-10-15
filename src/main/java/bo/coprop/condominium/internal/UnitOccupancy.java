@@ -54,7 +54,7 @@ class UnitOccupancy {
         this.validFrom = validFrom;
     }
 
-    /** Cierra la ocupacion: se mudo. Lo usara el issue #19. */
+    /** Cierra la ocupacion: se mudo. La usa la mudanza y la venta de la unidad (#19). */
     void close(Instant at) {
         this.validTo = at;
     }

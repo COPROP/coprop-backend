@@ -117,6 +117,33 @@ class ProveedorDeIdentidadKeycloak implements ProveedorDeIdentidad {
         pedirAccionesPorCorreo(usuario, token);
     }
 
+    /**
+     * El cierre de sesiones del issue #19.
+     *
+     * <p>{@code POST /users/{id}/logout} termina todas las sesiones del usuario en el realm y con
+     * ellas invalida sus refresh tokens, que es lo que hace que la app movil deje de renovar. No
+     * hace falta recorrer sesion por sesion: Keycloak las cierra todas de una.
+     *
+     * <p>Si no hay usuario en Keycloak no hay nada que cerrar y se vuelve sin tocar nada. Es el caso
+     * de una cuenta invitada que nunca abrio su enlace, y tratarlo como un fallo haria que una baja
+     * perfectamente normal pareciera un error de integracion.
+     */
+    @Override
+    public void cerrarSesiones(String email) {
+        String token = tokenDeAdministracion();
+        String usuario = buscar(email, token);
+        if (usuario == null) {
+            log.info("No hay usuario en el proveedor de identidad para correo={}; no hay sesiones que cerrar.", email);
+            return;
+        }
+        pedir("cerrar las sesiones del usuario", () -> http.post()
+                .uri(admin + "/users/{id}/logout", usuario)
+                .header("Authorization", "Bearer " + token)
+                .retrieve()
+                .toBodilessEntity());
+        log.info("Sesiones cerradas en el proveedor de identidad para correo={}", email);
+    }
+
     private String tokenDeAdministracion() {
         var credenciales = new LinkedMultiValueMap<String, String>();
         credenciales.add("grant_type", "client_credentials");

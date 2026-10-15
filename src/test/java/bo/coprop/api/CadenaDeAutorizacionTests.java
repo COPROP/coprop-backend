@@ -63,7 +63,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
  * La cadena de autorizacion completa del issue #15: <strong>cada endpoint, contra cada rol</strong>.
  *
  * <p>Es el segundo criterio del issue --"existe un test que recorre la matriz de roles y
- * endpoints"-- y recorre las dos dimensiones de verdad: los veintiseis endpoints de la API por los
+ * endpoints"-- y recorre las dos dimensiones de verdad: los treinta y tres endpoints de la API por los
  * siete roles de Seguridad 3, con el resultado esperado declarado celda a celda. Los cinco de
  * invitaciones entraron con el issue #18, y asi entra cada endpoint nuevo.
  *
@@ -152,6 +152,36 @@ class CadenaDeAutorizacionTests {
     /** Una cuenta sin invitacion ni membresia, para que la emision de la rejilla pueda emitir. */
     private UUID cuentaParaInvitar;
 
+    /**
+     * Las tres membresias que los endpoints del issue #19 van a tocar, una por operacion.
+     *
+     * <p>Una por operacion y no una compartida porque la rejilla <strong>escribe</strong>: si la
+     * baja y la suspension cayeran sobre la misma fila, la segunda recibiria un 409 por el estado
+     * que dejo la primera y la celda pasaria sin haber comprobado la autorizacion. La de reactivar
+     * se deja suspendida de antemano por lo mismo, para no depender del orden de la lista.
+     *
+     * <p>Las tres llevan {@code OWNER}: asi la celda de {@code PLATFORM_ADMIN} mide lo que tiene que
+     * medir --solo puede tocar roles administrativos-- y sale {@code PROHIBIDO}.
+     */
+    private UUID membresiaParaDarDeBaja;
+
+    private UUID membresiaParaSuspender;
+    private UUID membresiaParaReactivar;
+
+    /**
+     * Las relaciones del issue #19 se cierran sobre la unidad <em>ajena</em>, no la propia.
+     *
+     * <p>Son escrituras, y la unidad propia es la que sostiene las celdas "Propias" de media
+     * rejilla: cerrarle una relacion desde aqui cambiaria el resultado de otra fila segun el orden
+     * en que JUnit corriera los casos. En la ajena nadie de los siete tiene relacion, y el permiso
+     * que gobierna estos endpoints es de condominio, asi que la celda mide lo mismo.
+     */
+    private UUID vendedorDeLaAjena;
+
+    private UUID compradorDeLaAjena;
+    private UUID ocupanteDeLaAjena;
+    private UUID responsableDeLaAjena;
+
     /** Un token por rol, y la persona y la cuenta detras de el, para preguntar por lo propio. */
     private final Map<MembershipRole, Quien> porRol = new EnumMap<>(MembershipRole.class);
 
@@ -201,6 +231,31 @@ class CadenaDeAutorizacionTests {
                         Set.of(OWNER),
                         quien(CONDO_ADMIN).cuenta().toString())
                 .id();
+
+        // Las tres del issue #19, una por operacion.
+        membresiaParaDarDeBaja = membresias
+                .grant(condominio, cuentaNueva().id(), Set.of(OWNER), null, "admin")
+                .id();
+        membresiaParaSuspender = membresias
+                .grant(condominio, cuentaNueva().id(), Set.of(OWNER), null, "admin")
+                .id();
+        membresiaParaReactivar = membresias
+                .grant(condominio, cuentaNueva().id(), Set.of(OWNER), null, "admin")
+                .id();
+        membresias.suspend(condominio, membresiaParaReactivar, "para que la rejilla la reactive", "admin");
+
+        // Y las relaciones de la unidad ajena que los cierres del #19 van a cerrar.
+        vendedorDeLaAjena = personas.register(new NewPerson("Vende", "Ajena", null), "admin")
+                .id();
+        compradorDeLaAjena = personas.register(new NewPerson("Compra", "Ajena", null), "admin")
+                .id();
+        ocupanteDeLaAjena = personas.register(new NewPerson("Ocupa", "Ajena", null), "admin")
+                .id();
+        responsableDeLaAjena =
+                personas.register(new NewPerson("Paga", "Ajena", null), "admin").id();
+        relaciones.grantOwnership(condominio, unidadAjena, vendedorDeLaAjena, new BigDecimal("100.000000"), "admin");
+        relaciones.grantOccupancy(condominio, unidadAjena, ocupanteDeLaAjena, OccupancyRole.INQUILINO, "admin");
+        relaciones.assignBilling(condominio, unidadAjena, responsableDeLaAjena, null, "admin");
     }
 
     private UUID altaDeCondominio() {
@@ -290,6 +345,7 @@ class CadenaDeAutorizacionTests {
     private List<Endpoint> endpoints() {
         String enElCondominio = "/api/v1/condominios/" + condominio;
         String laUnidad = enElCondominio + "/unidades/" + unidadPropia;
+        String laUnidadAjena = enElCondominio + "/unidades/" + unidadAjena;
         return List.of(
                 // Verlo solo pide pertenecer, y eso ya lo exigio el filtro del #17. Los siete.
                 new Endpoint("consultar el condominio", HttpMethod.GET, enElCondominio, null, todos()),
@@ -478,7 +534,65 @@ class CadenaDeAutorizacionTests {
                                 CONDO_ADMIN, PERMITIDO,
                                 FINANCE_ADMIN, PERMITIDO,
                                 OWNER, PERMITIDO,
-                                TENANT, PERMITIDO))));
+                                TENANT, PERMITIDO))),
+
+                // Bajas y suspensiones (issue #19). Piden poder conceder los roles que la membresia
+                // tiene, que es el alta leida al reves: el administrador del condominio puede con
+                // cualquiera y el superadministrador solo con roles administrativos, y estas tres
+                // llevan OWNER. De ahi que su celda sea PROHIBIDO y no PERMITIDO.
+                new Endpoint(
+                        "dar de baja una membresia",
+                        HttpMethod.POST,
+                        enElCondominio + "/membresias/" + membresiaParaDarDeBaja + "/baja",
+                        motivo(),
+                        soloPara(CONDO_ADMIN)),
+                new Endpoint(
+                        "suspender una membresia",
+                        HttpMethod.POST,
+                        enElCondominio + "/membresias/" + membresiaParaSuspender + "/suspension",
+                        motivo(),
+                        soloPara(CONDO_ADMIN)),
+                new Endpoint(
+                        "reactivar una membresia",
+                        HttpMethod.POST,
+                        enElCondominio + "/membresias/" + membresiaParaReactivar + "/reactivacion",
+                        motivo(),
+                        soloPara(CONDO_ADMIN)),
+
+                // Y los cierres de relacion del mismo issue, que son administracion de unidades como
+                // sus altas. El historico de propietarios va por ahi y no por VER_ESTADO_DE_CUENTA
+                // como el listado de hoy: Seguridad 6.2 deja el comprobante de la epoca del vendedor
+                // en manos del administrador.
+                new Endpoint(
+                        "ver el historico de propietarios",
+                        HttpMethod.GET,
+                        laUnidad + "/propietarios/historico",
+                        null,
+                        soloPara(CONDO_ADMIN)),
+                new Endpoint(
+                        "transferir una unidad",
+                        HttpMethod.POST,
+                        laUnidadAjena + "/transferencia",
+                        "{\"fromPersonId\":\"" + vendedorDeLaAjena + "\",\"toPersonId\":\"" + compradorDeLaAjena
+                                + "\"}",
+                        soloPara(CONDO_ADMIN)),
+                new Endpoint(
+                        "terminar una ocupacion",
+                        HttpMethod.DELETE,
+                        laUnidadAjena + "/ocupantes/" + ocupanteDeLaAjena,
+                        null,
+                        soloPara(CONDO_ADMIN)),
+                new Endpoint(
+                        "terminar una responsabilidad de pago",
+                        HttpMethod.DELETE,
+                        laUnidadAjena + "/responsables-de-pago/" + responsableDeLaAjena,
+                        null,
+                        soloPara(CONDO_ADMIN)));
+    }
+
+    /** El motivo que piden la baja, la suspension y la reactivacion. Con el minimo de caracteres. */
+    private static String motivo() {
+        return "{\"motivo\":\"lo decide la rejilla de autorizacion\"}";
     }
 
     /**
@@ -547,7 +661,7 @@ class CadenaDeAutorizacionTests {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("celdas")
-    @DisplayName("la rejilla entera: los veintiseis endpoints por los siete roles")
+    @DisplayName("la rejilla entera: los treinta y tres endpoints por los siete roles")
     void laRejillaEntera(Celda celda) throws Exception {
         var resultado =
                 mockMvc.perform(peticion(celda.endpoint(), quien(celda.rol()).autorizacion()));

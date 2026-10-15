@@ -87,6 +87,14 @@ no declaró, el build falla.
    falta mirar las dos a la vez. Los controladores de los dos dominios lo invocan por nombre de bean
    desde `@PreAuthorize`, así que ninguno lo importa.
 
+   Desde el **#19** hay un caso en la dirección contraria y **no es una excepción, es la inversión de
+   siempre**: `identity` declara el puerto `Sesiones` y `api` lo implementa con `SesionesDelBff`. La
+   baja de una membresía tiene que poder cerrar la sesión del BFF, que vive aquí —la gobierna la
+   cadena de seguridad y su tabla la crea la V6 para Spring Session—, y el dominio no puede mirar
+   hacia `api`. Declarar arriba y conectar abajo es lo que esta regla permite; la flecha sigue
+   apuntando de `api` a `identity`. El precio es que en un `@ApplicationModuleTest` de `identity` ese
+   bean no existe y hace falta un doble, que es precisamente la señal de que el límite está puesto.
+
 ## Cómo se verifica
 
 ```
@@ -876,6 +884,171 @@ año cuando la forma de la entidad ya no sea la de hoy— y nada la consulta por
 prometería una consultabilidad en la que no conviene apoyarse, y además obligaría a que Hibernate
 mapeara un `jsonb`: su mapeador de JSON busca el `ObjectMapper` de Jackson 2 y aquí manda Jackson 3,
 que vive en otro paquete.
+
+#### Cómo se sale: la baja, la suspensión y la venta
+
+El issue **#19**, que es el otro extremo de la invitación: cómo alguien deja de ver un edificio sin
+que su historia desaparezca con él.
+
+**Nada se borra. Todo cierra una vigencia.** La membresía, la titularidad, la ocupación y la
+responsabilidad de pago tenían `valid_to` desde el día que nacieron, y aquí se usa por primera vez.
+Es lo que hace cierto el segundo criterio del issue —lo histórico se conserva— y de paso lo que
+permite volver a entrar más adelante: el índice parcial de la V5 sólo prohíbe **dos filas abiertas**,
+no dos filas.
+
+##### Baja y suspensión no son lo mismo, y la diferencia está en la fila
+
+| Operación | Qué toca | Qué significa para quien lee la tabla |
+| --- | --- | --- |
+| Baja | cierra `valid_to` | ya no es del condominio; se deshace concediendo una membresía **nueva** |
+| Suspensión | cambia `status` a `SUSPENDIDA`, la fila sigue abierta | sigue siendo del condominio y no entra; se deshace reactivando |
+
+De ahí que `MembershipStatus` **no tenga un valor para "terminada"**: eso lo dice la vigencia, que
+además guarda cuándo pasó. Y cerrar la fila **no toca el estado**, así que queda diciendo cómo estaba
+cuando se la dio de baja.
+
+Rutas: `POST .../membresias/{id}/baja`, `/suspension` y `/reactivacion`. Son `POST` a un
+sub-recurso y no un `DELETE` sobre la membresía porque **las tres llevan motivo** —el alcance del
+issue lo exige— y un `DELETE` con cuerpo es algo que cada intermediario trata como quiere. En cambio
+los cierres de relación de la unidad (`DELETE .../ocupantes/{personId}`,
+`DELETE .../responsables-de-pago/{personId}`) sí son `DELETE` y responden 204: ahí no hay motivo que
+registrar, y que por debajo se cierre una vigencia en vez de borrarse es asunto del dominio.
+
+##### El motivo vive sólo en la bitácora
+
+La fila cerrada dice **cuándo** y la bitácora dice **por qué**. No se guarda además en `membership`
+para no tener el mismo dato en dos sitios, que es como acaban discrepando.
+
+**La consecuencia conocida es la retención**: la bitácora se purga al año (§10.1) y la fila cerrada se
+queda, así que pasado un año se sabrá que la baja existió y no por qué. Si alguna vez hace falta más,
+es una columna en `membership`, no un cambio de diseño.
+
+##### Lo que de verdad corta el acceso es el filtro, no el cierre de sesiones
+
+El primer criterio del issue —*"tras la baja, el usuario autentica pero no ve el condominio"*— lo
+cumple `FiltroDeCondominio`, que relee la membresía **en cada petición**: la baja surte efecto en la
+siguiente, sin esperar a que caduque ningún token. Los roles nunca estuvieron en el token (§4.2), y
+es aquí donde eso se paga.
+
+El cierre de sesiones es una **segunda puerta** —la cookie del navegador y el refresh token de la app
+móvil— y tiene su propia regla, que vive entera en `CierreDeAcceso`:
+
+> Se cierran las sesiones de una cuenta cuando pierde su última membresía que da acceso y no
+> administra la plataforma.
+
+La condición no es un adorno. Una sesión de COPROP **no es de un condominio**: vale para todos los
+edificios en los que alguien participe, y cerrarla en cada baja echaría de un edificio a quien sigue
+perteneciendo a otro, cuando §6.3 dice de la baja justo lo contrario —"afecta solo a ese
+condominio"—. Donde la cuenta ya no tiene ningún sitio al que entrar, cerrarla no le quita nada a
+nadie y hace cierto lo que §10.1 pide: que no queden sesiones activas de quien ya no pertenece.
+La suspensión usa la misma regla, por lo mismo.
+
+**Son dos cierres y hacen falta los dos.** `Sesiones` —puerto de `identity`, implementado en `api`
+por `SesionesDelBff`— borra la fila de Spring Session, que es lo que §5.1 llama "se puede revocar";
+`ProveedorDeIdentidad.cerrarSesiones` llama a `POST /users/{id}/logout` de Keycloak, que invalida sus
+refresh tokens. Cerrar sólo la de Keycloak dejaría entrando a quien ya tiene cookie —su sesión no
+vuelve a preguntarle a Keycloak— y cerrar sólo la local dejaría a la app móvil renovando su token.
+
+`Sesiones` recibe un **conjunto de nombres** y no un identificador. Una sesión queda indexada por el
+nombre de la autenticación que se guardó en ella, y aquí hay dos candidatos: el `sub` de Keycloak,
+que es el nombre de la autenticación que escribe el login, y el identificador de la cuenta, que es el
+de la identidad con la que el filtro del #13 la sustituye en cada petición. Hoy se guarda la primera
+—Spring Security 6 no persiste el contexto que cambia a mitad de petición— pero eso es un detalle de
+una librería, y una baja que dependa de él fallaría en silencio el día que cambie. Pasar los dos
+cuesta una consulta por índice, y `SesionesDelBffTests` prueba las dos mitades.
+
+**Un fallo del proveedor NO deshace la baja.** Es la decisión contraria a la del correo de la
+invitación (#18), y la diferencia importa: allí el correo *era* la operación —una invitación que no
+llega no está emitida— mientras que aquí el acceso ya está cortado por el filtro. Deshacer la baja
+porque Keycloak no contesta dejaría a la persona **dentro** del condominio, que es mucho peor que
+dejarle una sesión abierta de la que no verá nada. Queda un `log.error` con lo que hace falta para
+cerrarla a mano.
+
+##### Dos reglas que evitan un edificio inservible
+
+- **Nadie se da de baja ni se suspende a sí mismo.** No es seguridad —quien puede hacérselo a otro
+  podría pedirle a otro administrador que se lo haga— sino recuperación: el único administrador que
+  se diera de baja se dejaría fuera de la única pantalla desde la que podría volver.
+- **No se cierra ni se suspende la última membresía con `CONDO_ADMIN`.** El edificio quedaría sin
+  nadie que pueda invitar, repartir roles ni dar de alta unidades. Es más fácil impedirlo que
+  arreglarlo.
+
+Y una de autorización: las tres operaciones piden `@autorizacion.puedeCambiar`, que es `puedeConceder`
+leído al revés, con los roles que la membresía **tiene** en vez de los que se van a conceder: *quien
+no puede nombrar a un administrador tampoco puede quitarlo*. Sin eso, el superadministrador —que
+según la matriz sólo reparte roles administrativos— podría dar de baja a cualquier propietario de
+cualquier edificio, que es justo lo que esa celda acota. La excepción lanzada **dentro** de la
+expresión da el 404 de una membresía de otro condominio, igual que en el #15.
+
+##### La venta de una unidad es una sola operación
+
+`POST .../unidades/{id}/transferencia` **cierra las tres relaciones del vendedor y abre la
+titularidad del comprador en una transacción**. No es un cierre seguido de un alta por dos motivos:
+entre los dos pasos la unidad se quedaría sin dueño —y si el segundo falla, se queda así—, y en la
+bitácora dos filas sueltas obligarían a quien la lee a emparejarlas por la fecha y adivinar si fueron
+la misma venta.
+
+**Las tres y no sólo la titularidad.** Si el vendedor seguía ocupándola o respondiendo por sus cobros,
+esas filas le seguirían dando acceso —las tres cuentan por igual en `isRelatedTo`— y el criterio del
+issue no se cumpliría. Si se queda como inquilino, el administrador vuelve a registrar su ocupación,
+que es una decisión explícita y no un resto de la venta. El inquilino de otra persona no se toca.
+
+El comprador recibe **el mismo porcentaje** que tenía el vendedor, y no viaja en el cuerpo: una venta
+parcial cambia el reparto de la unidad y se registra titularidad por titularidad. Por lo mismo se
+rechaza vender a quien ya es copropietario.
+
+Hace falta un **`flush()` entre cerrar y abrir**, que es la misma trampa que enseñó la configuración
+con vigencia del #9: Hibernate ordena todos los `INSERT` antes que los `UPDATE` dentro de un flush.
+
+##### Lo histórico, y quién lo ve
+
+| Consulta | Permiso | Por qué |
+| --- | --- | --- |
+| `GET .../membresias` | `INVITAR_USUARIOS` | el padrón de hoy |
+| `GET .../membresias?cerradas=true` | el mismo | quién estuvo y ya no está, con sus fechas |
+| `GET .../unidades/{id}/propietarios` | `VER_ESTADO_DE_CUENTA` | es la cabecera de su estado de cuenta, y el propietario ve la suya |
+| `GET .../unidades/{id}/propietarios/historico` | `GESTIONAR_UNIDADES` | §6.2 deja el comprobante de la época del vendedor **en manos del administrador** |
+
+El histórico va por `GESTIONAR_UNIDADES` y no por el permiso del listado a propósito: dejar que un
+copropietario de hoy vea la cadena entera de dueños le daría el nombre de gente que ya no tiene nada
+que ver con el edificio.
+
+Las vistas de membresía y de titularidad **llevan la vigencia** desde este issue. Sin ella, una lista
+de membresías cerradas no podría distinguir una vigente de una terminada —la baja no es un estado,
+es una fecha— ni se podría decir quién era el dueño en un mes dado, que es lo que hace falta para dar
+ese comprobante.
+
+##### Lo que este issue NO trae, y dónde está
+
+- **La baja automática** que §6.2 describe —"el inquilino deja de ver esa unidad al día siguiente,
+  sin intervención manual"— necesita una fecha de fin en la ocupación, que el modelo del análisis no
+  tiene. Hoy el cierre lo registra el administrador; el día que esa fecha exista, la tarea llamará a
+  `endOccupancy`, que ya está.
+- **La desactivación de la cuenta** (§6.3): el estado `DESACTIVADO` existe en `AccountStatus` y nadie
+  lo pone. No se hizo aquí a propósito: desactivar la cuenta de quien pierde su única membresía haría
+  que recibiera `SIN_CUENTA` en vez de autenticar, y el primer criterio del issue pide justo lo
+  contrario —que autentique y no vea el condominio—. Es otro ticket.
+- **La revocación de sesiones al retirar un rol administrativo**, que §8 nombra junto a la
+  desactivación: es del **#20**, que es el que trae el cambio de roles, y usará `CierreDeAcceso`.
+- **Listar las sesiones activas** de alguien, también de §8: es del **#22**.
+
+##### Los tres eventos nuevos de `condominium` se auditan, y los tres viejos también
+
+`MEMBRESIA_DADA_DE_BAJA`, `MEMBRESIA_SUSPENDIDA`, `MEMBRESIA_REACTIVADA`,
+`TITULARIDAD_TRANSFERIDA`, `OCUPACION_TERMINADA` y `RESPONSABILIDAD_DE_PAGO_TERMINADA` implementan
+`EventoAuditable` —§8 pide los cambios de rol en la bitácora, y una baja es el mayor de todos—. Y de
+paso lo hacen `TITULARIDAD_CONCEDIDA`, `OCUPACION_REGISTRADA` y
+`RESPONSABILIDAD_DE_PAGO_ASIGNADA`, que el #21 había dejado fuera: **una bitácora que registra el fin
+de una relación y no su principio es peor que una que no registre ninguno**, porque quien la lea
+creerá que la relación nació sola.
+
+Reactivar es una acción distinta de suspender y no la misma con una bandera, por lo mismo que un
+reenvío de invitación es distinto de una emisión: quien lee la bitácora busca "a quién se suspendió"
+o "a quién se le devolvió el acceso", y una bandera dentro del JSON no se filtra.
+
+En todos ellos la entidad auditada es **la unidad o la membresía**, no la fila de la relación: las
+relaciones llevan vigencia, así que su identificador cambia en cada cierre y no serviría para seguir
+la historia de un recurso.
 
 #### Row-Level Security: evaluado, y por qué todavía no está
 

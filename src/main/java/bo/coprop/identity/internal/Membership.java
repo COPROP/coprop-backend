@@ -29,6 +29,10 @@ import org.jspecify.annotations.Nullable;
  * necesita el issue #19. Y por eso no hay un estado "terminada": lo dice la vigencia. Un estado y
  * una vigencia que signifiquen lo mismo acaban contradiciendose.
  *
+ * <p>De ahi que la baja y la suspension del issue #19 sean dos cosas distintas en esta fila: la
+ * baja cierra la vigencia y la suspension cambia el estado dejandola abierta. Para quien lee, una
+ * suspendida sigue siendo miembro del condominio y una cerrada ya no.
+ *
  * <p>Los roles van como {@link ElementCollection} sobre {@code membership_role} y no como entidad
  * aparte: la tabla no tiene mas columnas que la pareja, asi que una entidad con clave compuesta
  * solo añadiria ceremonia. Se cargan con la membresia --{@code EAGER}-- porque no hay membresia
@@ -87,9 +91,33 @@ class Membership {
         this.validFrom = validFrom;
     }
 
-    /** Cierra la membresia. A partir de aqui la fila es historia. Lo usara el issue #19. */
+    /**
+     * Cierra la membresia: la baja del issue #19. A partir de aqui la fila es historia.
+     *
+     * <p><strong>No toca el estado</strong>, y es deliberado: la fila se queda diciendo si estaba
+     * activa o suspendida cuando se la dio de baja, que es un dato de la historia. Poner un
+     * {@code DESACTIVADA} aqui seria el estado que {@link bo.coprop.identity.MembershipStatus}
+     * decidio no tener, porque significaria lo mismo que la fecha de cierre y acabaria
+     * contradiciendola.
+     */
     void close(Instant at) {
         this.validTo = at;
+    }
+
+    /**
+     * Suspende la membresia sin cerrarla: la persona sigue siendo miembro y no entra (issue #19).
+     *
+     * <p>Los roles no se tocan. Lo que decide si entra es el estado, que lee el filtro de
+     * aislamiento en cada peticion; vaciarle los roles obligaria a guardarlos en algun sitio para
+     * devolverlos al reactivar.
+     */
+    void suspender() {
+        this.status = MembershipStatus.SUSPENDIDA;
+    }
+
+    /** Levanta la suspension. Vuelve a dar acceso en la siguiente peticion. */
+    void reactivar() {
+        this.status = MembershipStatus.ACTIVA;
     }
 
     UUID getId() {

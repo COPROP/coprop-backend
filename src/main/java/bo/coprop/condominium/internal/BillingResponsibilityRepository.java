@@ -1,6 +1,7 @@
 package bo.coprop.condominium.internal;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -27,4 +28,27 @@ interface BillingResponsibilityRepository extends JpaRepository<BillingResponsib
     boolean existsByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(UUID condominiumId, UUID unitId, UUID personId);
 
     List<BillingResponsibility> findByCondominiumIdAndPersonIdAndValidToIsNull(UUID condominiumId, UUID personId);
+
+    /**
+     * La responsabilidad general vigente de una persona sobre una unidad, la de concepto nulo.
+     *
+     * <p>Consulta aparte de la de abajo por lo mismo que en el alta: {@code = NULL} no es cierto
+     * nunca, asi que el metodo derivado con un parametro nulo no encontraria la fila que si existe.
+     */
+    Optional<BillingResponsibility> findByCondominiumIdAndUnitIdAndPersonIdAndConceptIdIsNullAndValidToIsNull(
+            UUID condominiumId, UUID unitId, UUID personId);
+
+    /** La de un concepto concreto. */
+    Optional<BillingResponsibility> findByCondominiumIdAndUnitIdAndPersonIdAndConceptIdAndValidToIsNull(
+            UUID condominiumId, UUID unitId, UUID personId, UUID conceptId);
+
+    /**
+     * Todas las vigentes de una persona sobre una unidad, por cualquier concepto.
+     *
+     * <p>Las cierra la venta de la unidad (#19): si el vendedor respondia por algo de ella, esa
+     * fila le seguiria dando acceso. Son varias porque se puede responder por la unidad entera y
+     * ademas por conceptos sueltos.
+     */
+    List<BillingResponsibility> findByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(
+            UUID condominiumId, UUID unitId, UUID personId);
 }

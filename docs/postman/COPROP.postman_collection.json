@@ -87,6 +87,11 @@
       "type": "string"
     },
     {
+      "key": "otraPersonaId",
+      "value": "",
+      "type": "string"
+    },
+    {
       "key": "accountId",
       "value": "",
       "type": "string"
@@ -728,6 +733,116 @@
             }
           }
         }
+,
+        {
+          "name": "Transferir la unidad (venta)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/unidades/{{unitId}}/transferencia",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "unidades",
+                "{{unitId}}",
+                "transferencia"
+              ]
+            },
+            "description": "La venta de la unidad (#19). Cierra las TRES relaciones del vendedor con ella —titularidad, ocupación y responsabilidades de pago— y abre la titularidad del comprador con el mismo porcentaje, todo en una transacción. Después de esto, pedir el histórico de propietarios muestra las dos filas: la del vendedor con su valid_to puesto y la del comprador abierta.\n\nUna venta parcial no es esto: cambia el reparto de la unidad y se registra titularidad por titularidad. Por lo mismo, vender a quien ya es copropietario responde 422.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fromPersonId\": \"{{personId}}\",\n  \"toPersonId\": \"{{otraPersonaId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Histórico de propietarios",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/unidades/{{unitId}}/propietarios/historico",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "unidades",
+                "{{unitId}}",
+                "propietarios",
+                "historico"
+              ]
+            },
+            "description": "Quién ha sido dueño de esta unidad y cuándo, de lo más reciente a lo más antiguo, incluida la titularidad vigente (#19).\n\nPide GESTIONAR_UNIDADES y no VER_ESTADO_DE_CUENTA como el listado de arriba: Seguridad §6.2 deja el comprobante de la época del vendedor en manos del administrador, y dejar que un copropietario de hoy vea la cadena entera de dueños le daría el nombre de gente que ya no tiene nada que ver con el edificio."
+          }
+        },
+        {
+          "name": "Terminar una ocupación (mudanza)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/unidades/{{unitId}}/ocupantes/{{personId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "unidades",
+                "{{unitId}}",
+                "ocupantes",
+                "{{personId}}"
+              ]
+            },
+            "description": "Esa persona deja de ocupar la unidad (#19). Responde 204.\n\nDELETE aunque la fila no se borre: lo que el cliente pide es que la relación deje de existir, y que por debajo se cierre una vigencia es asunto del dominio. Se puede volver a registrar la ocupación después: el índice parcial sólo prohíbe dos filas abiertas."
+          }
+        },
+        {
+          "name": "Terminar una responsabilidad de pago",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/unidades/{{unitId}}/responsables-de-pago/{{personId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "unidades",
+                "{{unitId}}",
+                "responsables-de-pago",
+                "{{personId}}"
+              ]
+            },
+            "description": "Esa persona deja de responder por los cobros de la unidad (#19). Responde 204.\n\nSin ?conceptId se cierra la responsabilidad general, la que cubre todo lo que se cobre a la unidad. Hay que pasar el mismo concepto con el que se asignó: cerrar la general no cierra las de un concepto concreto, porque son filas distintas y responden por cosas distintas."
+          }
+        }
       ]
     },
     {
@@ -826,6 +941,146 @@
                 "membresias",
                 "{{membershipId}}"
               ]
+            }
+          }
+        }
+,
+        {
+          "name": "Listar las membresías, con las cerradas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/membresias?cerradas=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "membresias"
+              ],
+              "query": [
+                {
+                  "key": "cerradas",
+                  "value": "true",
+                  "description": "Incluye las membresías dadas de baja. Por defecto no."
+                }
+              ]
+            },
+            "description": "El padrón completo: quién está y quién estuvo, de lo más reciente a lo más antiguo, con las fechas entre las que perteneció (#19).\n\nPor defecto el listado trae sólo las vigentes, porque una lista que mezcle a los de antes sin pedirlo haría que el administrador invitara a gente que ya se fue creyendo que sigue dentro. La misma cuenta puede aparecer varias veces: volver a entrar después de una baja abre una fila nueva."
+          }
+        },
+        {
+          "name": "Dar de baja una membresía",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/membresias/{{membershipId}}/baja",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "membresias",
+                "{{membershipId}}",
+                "baja"
+              ]
+            },
+            "description": "Esa cuenta deja de pertenecer a este condominio (#19). No borra nada: cierra la vigencia de la fila y responde la membresía con su validTo puesto.\n\nSurte efecto en la SIGUIENTE petición, sin esperar a que caduque ningún token: el filtro de condominio relee la membresía en cada request. Para verlo, pedir GET /api/v1/condominios/{{condominiumId}} con el token de esa persona —responde 404— y GET /api/v1/me, que sigue respondiendo 200 con la lista de condominios vacía.\n\nEl motivo es obligatorio y acaba SÓLO en la bitácora: la fila cerrada dice cuándo y la bitácora por qué.\n\nDos rechazos que conviene conocer: nadie se da de baja a sí mismo (422) y no se cierra la última membresía con CONDO_ADMIN del condominio (422).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"vendio su departamento\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Suspender una membresía",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/membresias/{{membershipId}}/suspension",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "membresias",
+                "{{membershipId}}",
+                "suspension"
+              ]
+            },
+            "description": "Suspensión temporal (#19). La fila NO se cierra: cambia a SUSPENDIDA y sigue abierta, así que la persona sigue siendo del condominio y no entra. Eso es lo que la distingue de una baja, que no se deshace.\n\nSuspender dos veces responde 409.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"cuota impaga desde tres meses\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Reactivar una membresía",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/membresias/{{membershipId}}/reactivacion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominios",
+                "{{condominiumId}}",
+                "membresias",
+                "{{membershipId}}",
+                "reactivacion"
+              ]
+            },
+            "description": "Levanta la suspensión (#19). Vuelve a dar acceso en la siguiente petición y la persona no tiene que hacer nada: sus roles nunca estuvieron en su token. Lo que NO le devuelve es la sesión, si se le cerró.\n\nReactivar una que está activa responde 409; reactivar una dada de baja también, y el mensaje dice lo que hay que hacer en su lugar: conceder una membresía nueva.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"pago al dia\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           }
         }

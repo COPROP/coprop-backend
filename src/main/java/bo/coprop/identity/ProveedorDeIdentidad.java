@@ -38,6 +38,24 @@ public interface ProveedorDeIdentidad {
      */
     void prepararCredencial(String email);
 
+    /**
+     * Cierra en el proveedor todas las sesiones de esa cuenta y revoca sus refresh tokens. Issue
+     * <strong>#19</strong>.
+     *
+     * <p>Es la mitad de Seguridad 5.3 que COPROP no puede hacer por su cuenta: el refresh token de
+     * la app movil lo guarda y lo renueva Keycloak, asi que mientras el proveedor lo acepte la app
+     * sigue consiguiendo tokens nuevos aunque aqui no quede sesion ninguna. La otra mitad, la
+     * cookie del navegador, la cierra {@link Sesiones}.
+     *
+     * <p><strong>Es idempotente</strong>: si esa persona no tiene usuario en el proveedor --una
+     * cuenta invitada que nunca entro-- no hay nada que cerrar y no es un error.
+     *
+     * @throws FalloDelProveedorDeIdentidad si el proveedor no esta alcanzable o rechaza la
+     *     operacion. Quien llama decide que hacer: la baja de una membresia no se deshace por esto,
+     *     porque el acceso ya lo corto el filtro de condominio en la siguiente peticion
+     */
+    void cerrarSesiones(String email);
+
     /** El proveedor de identidad no pudo hacerlo. */
     class FalloDelProveedorDeIdentidad extends RuntimeException {
 

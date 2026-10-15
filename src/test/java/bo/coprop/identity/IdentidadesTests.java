@@ -29,7 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
  * cuando entra por primera vez. La cadena de seguridad que invoca esto se prueba en
  * {@code AutenticacionDeApiTests}.
  */
-@Import({TestcontainersConfiguration.class, IdentidadesTests.RelojFijo.class})
+@Import({TestcontainersConfiguration.class, DoblesDeAcceso.class, IdentidadesTests.RelojFijo.class})
 @ApplicationModuleTest(BootstrapMode.DIRECT_DEPENDENCIES)
 @Transactional
 class IdentidadesTests {

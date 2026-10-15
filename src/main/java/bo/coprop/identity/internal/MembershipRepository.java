@@ -36,4 +36,37 @@ interface MembershipRepository extends JpaRepository<Membership, UUID> {
               and r in :roles
             """)
     boolean existeVigenteConAlgunRol(@Param("cuenta") UUID cuenta, @Param("roles") Collection<MembershipRole> roles);
+
+    /**
+     * Todas las del condominio, vigentes y cerradas, de la mas reciente a la mas antigua.
+     *
+     * <p>Por {@code validFrom} descendente y no por {@code validTo}: la vigente lo tiene nulo y en
+     * PostgreSQL los nulos ordenan al final, asi que las actuales saldrian las ultimas, que es al
+     * contrario de como se lee un padron. El identificador desempata para que dos membresias
+     * concedidas el mismo instante --el alta de un condominio-- no cambien de sitio entre dos
+     * consultas.
+     */
+    List<Membership> findByCondominiumIdOrderByValidFromDescIdDesc(UUID condominiumId);
+
+    /**
+     * Si en ese condominio hay <strong>otra</strong> membresia que de acceso y tenga ese rol.
+     *
+     * <p>Lo pregunta la baja y la suspension del issue #19 antes de dejar un condominio sin
+     * administrador: una baja que se lleve al ultimo {@code CONDO_ADMIN} deja un edificio en el que
+     * nadie puede invitar a nadie, y recuperarlo exige al superadministrador. Es mas facil impedirlo
+     * que arreglarlo.
+     *
+     * <p>Exige {@code ACTIVA} ademas de vigente: una membresia suspendida no administra nada
+     * mientras lo este, asi que contarla dejaria pasar justo el caso que esto evita.
+     */
+    @Query(
+            """
+            select case when count(m) > 0 then true else false end
+            from Membership m join m.roles r
+            where m.condominiumId = :condominio and m.validTo is null
+              and m.status = bo.coprop.identity.MembershipStatus.ACTIVA
+              and r = :rol and m.id <> :salvo
+            """)
+    boolean existeOtraVigenteConRol(
+            @Param("condominio") UUID condominio, @Param("rol") MembershipRole rol, @Param("salvo") UUID salvo);
 }

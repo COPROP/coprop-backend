@@ -81,6 +81,28 @@ class AutorizacionService implements Autorizacion {
     }
 
     /**
+     * Los roles que la membresia tiene hoy, y la pregunta de siempre sobre ellos.
+     *
+     * <p>La membresia se busca por su identificador <strong>y el del condominio de la ruta</strong>:
+     * pedir la de otro condominio desde aqui responde lo mismo que pedir una que no existe
+     * (Seguridad 7.1). La excepcion sale de dentro de la expresion de {@code @PreAuthorize}, que es
+     * como el issue #15 consigue un 404 donde un {@code false} daria 403.
+     *
+     * <p>Funciona tambien con una membresia ya cerrada, y hace falta que sea asi: quien intente dar
+     * de baja dos veces tiene que recibir el conflicto de estado que explica lo que pasa, no un 403
+     * que le haga buscar un permiso que si tiene.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public boolean puedeCambiar(Authentication quien, UUID condominiumId, UUID membershipId) {
+        Membership membresia = membresias
+                .findById(membershipId)
+                .filter(encontrada -> encontrada.getCondominiumId().equals(condominiumId))
+                .orElseThrow(() -> bo.coprop.shared.RecursoNoEncontrado.de("la membresia", membershipId));
+        return puedeConceder(quien, membresia.getRoles());
+    }
+
+    /**
      * Los roles de la peticion, leidos de sus autoridades.
      *
      * <p>Las puso el filtro de condominio con la membresia vigente, y el de identidad añade la de
