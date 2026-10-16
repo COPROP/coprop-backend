@@ -22,10 +22,12 @@ import org.jspecify.annotations.Nullable;
  * (migracion V9), no la ausencia de un metodo aqui: una barrera que solo existe en Java se salta con
  * un {@code psql}.
  *
- * <p>La consulta esta <strong>siempre acotada a un condominio</strong>, como el resto del dominio:
- * la bitacora de un edificio no la ve el vecino. Las acciones de plataforma --conceder el
- * superadministrador, el primer login de una cuenta-- no cuelgan de ninguno y por eso no salen aqui;
- * su consulta llega con el issue #20, que es el que trae la operacion de concederlo.
+ * <p>Hay <strong>dos consultas y no una</strong>, y es deliberado: {@link #ofCondominium} esta
+ * acotada a un condominio, como el resto del dominio --la bitacora de un edificio no la ve el
+ * vecino--, y {@link #ofPlatform} devuelve las acciones que no cuelgan de ninguno. Una sola con el
+ * condominio opcional seria una donde olvidarse de pasarlo lo muestra todo, y los dos publicos no
+ * son el mismo: el administrador de un edificio no tiene por que ver acciones de la plataforma
+ * entera.
  */
 public interface AuditTrail {
 
@@ -50,6 +52,30 @@ public interface AuditTrail {
      */
     Pagina<AuditEntryView> ofCondominium(
             UUID condominiumId,
+            @Nullable String actor,
+            @Nullable String entidad,
+            @Nullable Instant desde,
+            @Nullable Instant hasta,
+            int pagina,
+            int tamano);
+
+    /**
+     * Las acciones de <strong>plataforma</strong>, las que no cuelgan de ningun condominio. Issue
+     * <strong>#20</strong>.
+     *
+     * <p>Son las que van con {@code condominium_id} nulo: conceder y revocar el rol de
+     * superadministrador, y el primer acceso de una cuenta. No salen en
+     * {@link #ofCondominium} a proposito --el administrador de un edificio no tiene por que ver
+     * acciones de la plataforma entera-- y por eso hacen falta las dos consultas y no una con el
+     * condominio opcional: <strong>son dos publicos distintos</strong>, y una sola con un filtro que
+     * se pueda omitir seria una donde olvidarse de pasarlo lo muestra todo.
+     *
+     * <p>Llega con este issue porque es el que trae la operacion de conceder el rol: hasta ahora la
+     * unica fila de plataforma la escribia el arranque, y no habia a quien ensenarsela.
+     *
+     * <p>Mismos filtros, misma paginacion y mismo orden que la del condominio.
+     */
+    Pagina<AuditEntryView> ofPlatform(
             @Nullable String actor,
             @Nullable String entidad,
             @Nullable Instant desde,

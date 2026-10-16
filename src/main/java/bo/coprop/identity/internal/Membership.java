@@ -120,6 +120,24 @@ class Membership {
         this.status = MembershipStatus.ACTIVA;
     }
 
+    /**
+     * Sustituye los roles por estos. El cambio del issue <strong>#20</strong>.
+     *
+     * <p><strong>Edita la fila en vez de cerrarla y abrir otra</strong>, que era la otra opcion
+     * sobre la mesa. La vigencia de esta fila significa el tiempo que la cuenta pertenecio al
+     * condominio, y de eso vive el padron del #19 --quien estuvo y ya no esta, con sus fechas--: un
+     * cambio de rol que la cerrara dejaria ahi una baja que nadie dio, y encima sin
+     * {@code MembershipRevoked} que la explicara. La historia de los roles es la bitacora, que es
+     * append-only y guarda actor, motivo y fecha; ponerla tambien aqui serian dos historias que
+     * pueden discrepar.
+     *
+     * <p>El conjunto llega completo y se copia a un {@link EnumSet} nuevo, como en el constructor:
+     * el llamante puede seguir tocando el suyo.
+     */
+    void cambiarRoles(Set<MembershipRole> nuevos) {
+        this.roles = EnumSet.copyOf(nuevos);
+    }
+
     UUID getId() {
         return id;
     }
@@ -136,7 +154,7 @@ class Membership {
         return status;
     }
 
-    /** Inmodificable: los roles se fijan al conceder, y cambiarlos es el issue #20. */
+    /** Una copia: se cambian con {@link #cambiarRoles}, que es la operacion del issue #20. */
     Set<MembershipRole> getRoles() {
         return Set.copyOf(roles);
     }

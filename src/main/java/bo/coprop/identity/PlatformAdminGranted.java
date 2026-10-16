@@ -30,8 +30,8 @@ public record PlatformAdminGranted(UUID accountId, @Nullable UUID grantedBy, Ins
      * Nulo: el alcance de este rol es la plataforma y no cuelga de ningun condominio.
      *
      * <p>Es la razon de que la consulta de auditoria de un condominio no lo liste. Quien audita la
-     * plataforma entera lo hace por la ruta global, que es del issue #20 cuando exista la operacion
-     * de concederlo a otra cuenta.
+     * plataforma entera lo hace por {@code GET /api/v1/auditoria}, que llego con el issue
+     * <strong>#20</strong> junto a la operacion de concederlo a otra cuenta.
      */
     @Override
     public @Nullable UUID condominiumId() {
@@ -39,8 +39,11 @@ public record PlatformAdminGranted(UUID accountId, @Nullable UUID grantedBy, Ins
     }
 
     /**
-     * Este evento no lleva actor como los demas, porque el rol se concede por SQL o en el arranque.
-     * Cuando exista la operacion del issue #20, {@code grantedBy} sera el actor de verdad.
+     * El actor es {@code grantedBy}, que desde el issue <strong>#20</strong> es una cuenta de
+     * verdad: la de quien concedio el rol.
+     *
+     * <p>Sigue siendo nulo en un caso, el primero de todos: ese no lo concede nadie, lo abre el
+     * arranque de la plataforma cuando no hay ninguno, y entonces el actor es un nombre.
      */
     @Override
     public String actor() {

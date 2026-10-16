@@ -1,5 +1,7 @@
 package bo.coprop.identity.internal;
 
+import bo.coprop.identity.MatrizDePermisos;
+import bo.coprop.identity.MembershipRole;
 import bo.coprop.identity.MembershipStatus;
 import bo.coprop.identity.ProveedorDeIdentidad;
 import bo.coprop.identity.Sesiones;
@@ -11,14 +13,24 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * Cuando una cuenta se queda sin puerta, se le cierran las sesiones. Issue <strong>#19</strong>.
+ * Cuando una cuenta pierde una puerta, se le cierran las sesiones. Issues <strong>#19</strong> y
+ * <strong>#20</strong>.
  *
- * <p>El alcance del issue pide "cierre de sesiones activas al dar de baja", y la regla de cuando
- * esta aqui porque es una sola y conviene que haya un solo sitio donde leerla: <strong>se cierran
- * las sesiones de una cuenta cuando pierde su ultima membresia que da acceso y no administra la
- * plataforma</strong>.
+ * <p>Las <strong>tres entradas</strong> estan aqui y no repartidas por los servicios porque las
+ * tres acaban en el mismo par de cierres, y conviene que haya un solo sitio donde leer cuando se
+ * cierra y por que:
  *
- * <p>Esa condicion no es un adorno. Una sesion de COPROP no es de un condominio: es la del
+ * <ul>
+ *   <li>{@link #siSeQuedaSinCondominios}: la baja y la suspension del #19, que cierran
+ *       <em>solo</em> si a la cuenta no le queda ningun condominio al que entrar.
+ *   <li>{@link #siPierdeAlgunRolAdministrativo}: el cambio de roles del #20, que cierra
+ *       <em>aunque</em> le queden, porque lo que caduca es el nivel de confianza de la sesion y no
+ *       el acceso (Seguridad 8).
+ *   <li>{@link #deTodasFormas}: la revocacion del rol de plataforma, donde no hay nada que
+ *       condicionar.
+ * </ul>
+ *
+ * <p>La condicion de la primera no es un adorno. Una sesion de COPROP no es de un condominio: es la del
  * navegador o la de la app, y vale para todos los edificios en los que alguien participe. Cerrarla
  * en cada baja echaria de un edificio a quien sigue perteneciendo a otro, y Seguridad 6.3 dice de
  * la baja justo lo contrario: "afecta solo a ese condominio". Donde la cuenta no tiene ya ningun
@@ -82,6 +94,53 @@ class CierreDeAcceso {
         if (leQuedaAlguna) {
             return false;
         }
+        return cerrar(accountId);
+    }
+
+    /**
+     * Cierra las sesiones de esa cuenta si el cambio le <strong>retira</strong> un rol
+     * administrativo. Issue <strong>#20</strong>.
+     *
+     * <p>Es la segunda entrada de esta clase, y la regla es distinta de la primera a proposito.
+     * {@link #siSeQuedaSinCondominios} cierra cuando a la cuenta no le queda ningun sitio al que
+     * entrar; esto cierra <strong>aunque le queden</strong>, porque lo que caduco no es el acceso
+     * sino el nivel de confianza con el que se abrio esa sesion. Lo pide Seguridad 8, que nombra la
+     * revocacion de sesiones "al retirar un rol administrativo" junto a la de la baja.
+     *
+     * <p>No hace falta para cortar lo que ese rol permitia --los roles se releen en cada peticion,
+     * asi que la siguiente ya va con los nuevos-- y por eso podria parecer de adorno. No lo es: una
+     * sesion administrativa es una sesion de mas valor, y la politica que el issue <strong>#22</strong>
+     * le pondra encima --una hora de inactividad para los roles administrativos y veinticuatro para
+     * el resto, Seguridad 5.3-- se decide por peticion justamente porque la sesion no sabe con que
+     * roles nacio. Mientras eso no exista, cerrarla es la unica forma de que un rol retirado no deje
+     * detras una sesion que se comporta como la de un administrador.
+     *
+     * <p>Solo cuando se <strong>quita</strong>: añadir {@code FINANCE_ADMIN} a quien ya administra
+     * no cierra nada, y cambiar entre roles que no son administrativos tampoco.
+     *
+     * @param retirados los roles que la membresia tenia y ya no tiene
+     * @return si se cerraron. Falso tanto cuando no hacia falta como cuando se intento y fallo, por
+     *     lo mismo que en la otra entrada
+     */
+    boolean siPierdeAlgunRolAdministrativo(UUID accountId, Set<MembershipRole> retirados) {
+        if (retirados.stream().noneMatch(MatrizDePermisos::esAdministrativo)) {
+            return false;
+        }
+        log.info(
+                "A la cuenta {} se le retiraron los roles administrativos {}; se le cierran las sesiones (Seguridad 8).",
+                accountId,
+                retirados);
+        return cerrar(accountId);
+    }
+
+    /**
+     * Cierra las sesiones de esa cuenta sin condicion ninguna. Issue <strong>#20</strong>.
+     *
+     * <p>La usa la revocacion del rol de plataforma, que es el mayor de los roles administrativos y
+     * no cuelga de ninguna membresia: no hay roles que comparar ni condominios que contar, solo un
+     * rol que se fue.
+     */
+    boolean deTodasFormas(UUID accountId) {
         return cerrar(accountId);
     }
 

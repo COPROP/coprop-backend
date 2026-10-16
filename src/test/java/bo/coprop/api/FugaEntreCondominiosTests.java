@@ -228,13 +228,14 @@ class FugaEntreCondominiosTests {
     }
 
     /**
-     * Los veintisiete endpoints que cuelgan de un condominio.
+     * Los veintiocho endpoints que cuelgan de un condominio.
      *
-     * <p>Son todos los que hay: los demas --personas, cuentas, el perfil propio y las dos llamadas
-     * de quien llega con un token de invitacion-- son globales a proposito (Seguridad 2 y 6.1) y no
-     * tienen condominio del que aislarse. Cuando entre uno nuevo bajo {@code /condominios/{id}}, su
-     * caso entra aqui; los cinco de invitaciones entraron asi con el issue #18, la auditoria con el
-     * #21 y los siete de bajas, suspensiones y cierres de relacion con el #19.
+     * <p>Son todos los que hay: los demas --personas, cuentas, el perfil propio, los
+     * superadministradores, la bitacora de plataforma y las dos llamadas de quien llega con un token
+     * de invitacion-- son globales a proposito (Seguridad 2 y 6.1) y no tienen condominio del que
+     * aislarse. Cuando entre uno nuevo bajo {@code /condominios/{id}}, su caso entra aqui; los cinco
+     * de invitaciones entraron asi con el issue #18, la auditoria con el #21, los siete de bajas,
+     * suspensiones y cierres de relacion con el #19 y el cambio de roles con el #20.
      */
     private List<Endpoint> endpoints() {
         String persona = personaSuelta.toString();
@@ -330,6 +331,15 @@ class FugaEntreCondominiosTests {
                         HttpMethod.POST,
                         "/api/v1/condominios/%s/membresias/%4$s/reactivacion",
                         "{\"motivo\":\"prueba de aislamiento\"}"),
+                // El cambio de roles del issue #20. Como los tres anteriores, en el condominio
+                // propio cae sobre la membresia de quien pide y se rechaza con un 422 --nadie se
+                // cambia los roles a si mismo--, que es lo que el control necesita: cualquier cosa
+                // menos 404.
+                new Endpoint(
+                        "cambiar los roles de una membresia",
+                        HttpMethod.PUT,
+                        "/api/v1/condominios/%s/membresias/%4$s/roles",
+                        "{\"roles\":[\"OWNER\"],\"motivo\":\"prueba de aislamiento\"}"),
                 new Endpoint(
                         "ver el historico de propietarios",
                         HttpMethod.GET,

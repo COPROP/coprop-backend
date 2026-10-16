@@ -42,4 +42,13 @@ class PlatformAdmin {
     UUID getAccountId() {
         return accountId;
     }
+
+    Instant getGrantedAt() {
+        return grantedAt;
+    }
+
+    @Nullable
+    UUID getGrantedBy() {
+        return grantedBy;
+    }
 }

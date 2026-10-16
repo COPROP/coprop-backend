@@ -19,6 +19,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -36,6 +37,11 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>La baja, la suspension y la reactivacion son el <strong>#19</strong>, y las tres piden
  * {@code puedeCambiar}, que es la misma regla del alta leida al reves: quien no puede nombrar a un
  * administrador tampoco puede quitarlo ni dejarlo fuera.
+ *
+ * <p>El cambio de roles es el <strong>#20</strong>, y es el unico que pide las <strong>dos</strong>
+ * mitades a la vez: {@code puedeCambiar} por los que se van y {@code puedeConceder} por los que
+ * llegan. El rol de plataforma no se reparte desde aqui --no cuelga de ningun condominio-- sino en
+ * {@link PlatformAdminController}.
  */
 @ControladorDeApi
 @RestController
@@ -130,6 +136,38 @@ class MembershipController {
         return membresias.suspend(condominiumId, membershipId, motivo.motivo(), quien.getName());
     }
 
+    /**
+     * Cambia los roles de una membresia. Issue #20.
+     *
+     * <p><strong>Pide las dos mitades de la regla y no una</strong>: poder quitar los roles que la
+     * membresia tiene hoy ({@code puedeCambiar}) <em>y</em> poder conceder los que llegan en el
+     * cuerpo ({@code puedeConceder}). Un cambio es las dos cosas a la vez, y con una sola mitad se
+     * escapa justo lo que la matriz acota: con solo {@code puedeConceder}, el superadministrador
+     * convertiria a un propietario en {@code CONDO_ADMIN} --y la celda "Solo administradores" le
+     * prohibe tocar propietarios--; con solo {@code puedeCambiar}, podria quitarle sus roles
+     * administrativos a alguien y dejarle {@code OWNER}, que es repartir un rol que no le toca.
+     *
+     * <p>El orden importa, y no es estetico: {@code puedeCambiar} <strong>lanza</strong> cuando la
+     * membresia es de otro condominio, y SpEL corta en el primer {@code and} que falla. Puesto
+     * primero, pedir la membresia de otro edificio responde 404 --el segundo criterio del issue-- y
+     * no un 403 que confirmaria que existe.
+     *
+     * <p>Es un {@code PUT} del conjunto completo, no un {@code PATCH} que añada o quite: los roles
+     * de una membresia son un solo valor. Asi la peticion es idempotente y la bitacora guarda las
+     * dos mitades, que es lo que se pregunta despues. El motivo es obligatorio, por lo mismo que en
+     * la baja.
+     */
+    @PreAuthorize("@autorizacion.puedeCambiar(authentication, #condominiumId, #membershipId)"
+            + " and @autorizacion.puedeConceder(authentication, #nuevos.roles())")
+    @PutMapping("/{membershipId}/roles")
+    MembershipView cambiarRoles(
+            @PathVariable UUID condominiumId,
+            @PathVariable UUID membershipId,
+            @Valid @RequestBody NuevosRoles nuevos,
+            Principal quien) {
+        return membresias.changeRoles(condominiumId, membershipId, nuevos.roles(), nuevos.motivo(), quien.getName());
+    }
+
     /** Levanta la suspension. Vuelve a dar acceso en la siguiente peticion. Issue #19. */
     @PreAuthorize("@autorizacion.puedeCambiar(authentication, #condominiumId, #membershipId)")
     @PostMapping("/{membershipId}/reactivacion")
@@ -163,4 +201,13 @@ class MembershipController {
             @jakarta.validation.constraints.NotNull UUID accountId,
             @NotEmpty Set<MembershipRole> roles,
             @Nullable UUID invitedBy) {}
+
+    /**
+     * Los roles que la membresia tendra, y por que. Issue #20.
+     *
+     * <p>El conjunto llega <strong>completo</strong>: lo que no venga aqui es lo que se quita. Un
+     * cuerpo con un rol que se añade dejaria al cliente adivinando el estado anterior, y al servidor
+     * sin poder guardar en la bitacora las dos mitades del cambio.
+     */
+    record NuevosRoles(@NotEmpty Set<MembershipRole> roles, @NotBlank @Size(min = 5, max = 500) String motivo) {}
 }

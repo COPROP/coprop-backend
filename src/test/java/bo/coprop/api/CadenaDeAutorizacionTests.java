@@ -63,7 +63,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
  * La cadena de autorizacion completa del issue #15: <strong>cada endpoint, contra cada rol</strong>.
  *
  * <p>Es el segundo criterio del issue --"existe un test que recorre la matriz de roles y
- * endpoints"-- y recorre las dos dimensiones de verdad: los treinta y tres endpoints de la API por los
+ * endpoints"-- y recorre las dos dimensiones de verdad: los treinta y ocho endpoints de la API por los
  * siete roles de Seguridad 3, con el resultado esperado declarado celda a celda. Los cinco de
  * invitaciones entraron con el issue #18, y asi entra cada endpoint nuevo.
  *
@@ -169,6 +169,20 @@ class CadenaDeAutorizacionTests {
     private UUID membresiaParaReactivar;
 
     /**
+     * Las tres piezas que el issue #20 necesita, una por operacion y por el mismo motivo que las
+     * del #19: la rejilla <strong>escribe</strong>.
+     *
+     * <p>La membresia lleva {@code OWNER} para que la celda de {@code PLATFORM_ADMIN} mida lo que
+     * tiene que medir --solo toca roles administrativos-- y la cuenta a la que se le concede el rol
+     * de plataforma no es ninguna de las siete: si lo fuera, la celda siguiente la encontraria con
+     * autoridades que no le corresponden.
+     */
+    private UUID membresiaParaCambiarRoles;
+
+    private UUID cuentaParaLaPlataforma;
+    private UUID cuentaConLaPlataformaPuesta;
+
+    /**
      * Las relaciones del issue #19 se cierran sobre la unidad <em>ajena</em>, no la propia.
      *
      * <p>Son escrituras, y la unidad propia es la que sostiene las celdas "Propias" de media
@@ -243,6 +257,19 @@ class CadenaDeAutorizacionTests {
                 .grant(condominio, cuentaNueva().id(), Set.of(OWNER), null, "admin")
                 .id();
         membresias.suspend(condominio, membresiaParaReactivar, "para que la rejilla la reactive", "admin");
+
+        // Las tres del issue #20.
+        membresiaParaCambiarRoles = membresias
+                .grant(condominio, cuentaNueva().id(), Set.of(OWNER), null, "admin")
+                .id();
+        cuentaParaLaPlataforma = cuentaNueva().id();
+        cuentaConLaPlataformaPuesta = cuentaNueva().id();
+        // Sembrada por SQL, como la del rol de la rejilla: la revocacion necesita a alguien que YA
+        // lo tenga, y si no, la celda del superadministrador daria 404 en vez de pasar.
+        new JdbcTemplate(dataSource)
+                .update(
+                        "insert into platform_admin (user_id, granted_at) values (?, now())",
+                        cuentaConLaPlataformaPuesta);
 
         // Y las relaciones de la unidad ajena que los cierres del #19 van a cerrar.
         vendedorDeLaAjena = personas.register(new NewPerson("Vende", "Ajena", null), "admin")
@@ -559,6 +586,46 @@ class CadenaDeAutorizacionTests {
                         motivo(),
                         soloPara(CONDO_ADMIN)),
 
+                // El cambio de roles (issue #20). Pide las DOS mitades: poder quitar los que tiene
+                // --OWNER, y de ahi que el superadministrador salga PROHIBIDO-- y poder poner los que
+                // llegan. El financiero no reparte roles, que es la otra mitad de la separacion de
+                // funciones.
+                new Endpoint(
+                        "cambiar los roles de una membresia",
+                        HttpMethod.PUT,
+                        enElCondominio + "/membresias/" + membresiaParaCambiarRoles + "/roles",
+                        "{\"roles\":[\"TENANT\"],\"motivo\":\"lo decide la rejilla de autorizacion\"}",
+                        soloPara(CONDO_ADMIN)),
+
+                // El rol de plataforma y la bitacora de plataforma (issue #20). Las tres rutas son
+                // GLOBALES, asi que el filtro del #17 no corre y las unicas autoridades de la
+                // peticion son las de plataforma: los seis roles de condominio llegan sin ninguna y
+                // reciben 403 por la forma de la ruta, no por una regla escrita aparte.
+                new Endpoint(
+                        "listar los superadministradores",
+                        HttpMethod.GET,
+                        "/api/v1/superadministradores",
+                        null,
+                        soloPara(PLATFORM_ADMIN)),
+                new Endpoint(
+                        "conceder el rol de plataforma",
+                        HttpMethod.POST,
+                        "/api/v1/superadministradores",
+                        "{\"accountId\":\"" + cuentaParaLaPlataforma + "\"}",
+                        soloPara(PLATFORM_ADMIN)),
+                new Endpoint(
+                        "revocar el rol de plataforma",
+                        HttpMethod.POST,
+                        "/api/v1/superadministradores/" + cuentaConLaPlataformaPuesta + "/revocacion",
+                        motivo(),
+                        soloPara(PLATFORM_ADMIN)),
+                new Endpoint(
+                        "consultar la auditoria de plataforma",
+                        HttpMethod.GET,
+                        "/api/v1/auditoria",
+                        null,
+                        soloPara(PLATFORM_ADMIN)),
+
                 // Y los cierres de relacion del mismo issue, que son administracion de unidades como
                 // sus altas. El historico de propietarios va por ahi y no por VER_ESTADO_DE_CUENTA
                 // como el listado de hoy: Seguridad 6.2 deja el comprobante de la epoca del vendedor
@@ -661,7 +728,7 @@ class CadenaDeAutorizacionTests {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("celdas")
-    @DisplayName("la rejilla entera: los treinta y tres endpoints por los siete roles")
+    @DisplayName("la rejilla entera: los treinta y ocho endpoints por los siete roles")
     void laRejillaEntera(Celda celda) throws Exception {
         var resultado =
                 mockMvc.perform(peticion(celda.endpoint(), quien(celda.rol()).autorizacion()));

@@ -65,6 +65,9 @@ class AuditoriaTests {
     private Memberships membresias;
 
     @Autowired
+    private bo.coprop.identity.Identities identidades;
+
+    @Autowired
     private Invitations invitaciones;
 
     @Autowired
@@ -116,6 +119,17 @@ class AuditoriaTests {
     private List<AuditEntryView> delCondominio() {
         return bitacora.ofCondominium(condominio, null, null, null, null, 0, 100)
                 .contenido();
+    }
+
+    /**
+     * La bitacora de plataforma, la del issue #20.
+     *
+     * <p>Se piden muchas filas y se busca dentro en vez de comparar la lista: estos tests comparten
+     * base, y la plataforma tiene una sola bitacora para todos --no hay condominio que los separe--
+     * asi que lo que hay ahi lo escribieron tambien los demas casos.
+     */
+    private List<AuditEntryView> deLaPlataforma() {
+        return bitacora.ofPlatform(null, null, null, null, 0, 200).contenido();
     }
 
     /**
@@ -288,19 +302,92 @@ class AuditoriaTests {
     }
 
     @Test
-    @DisplayName("las acciones de plataforma no salen en la bitacora de un condominio")
+    @DisplayName("el cambio de roles queda con las dos mitades, el motivo y la concentracion")
+    void elCambioDeRolesQueda() {
+        // Seguridad 8 pide los cambios de rol en la bitacora, y este es el caso de todos los dias:
+        // la baja del #19 era el extremo --quitarlos todos--. Importa mas que las demas filas porque
+        // la tabla solo guarda los roles de HOY: el cambio edita membership_role en el sitio, asi
+        // que la historia de quien tuvo cual esta aqui y en ningun otro sitio.
+        UUID aQuienSeLeCambian = cuentaNueva().id();
+        UUID suya = membresias
+                .grant(
+                        condominio,
+                        aQuienSeLeCambian,
+                        Set.of(MembershipRole.CONDO_ADMIN),
+                        null,
+                        administradora.toString())
+                .id();
+
+        membresias.changeRoles(
+                condominio,
+                suya,
+                Set.of(MembershipRole.CONDO_ADMIN, MembershipRole.FINANCE_ADMIN),
+                "en este edificio administra una sola persona",
+                administradora.toString());
+
+        AuditEntryView fila = laFilaDe("MEMBRESIA_ROLES_CAMBIADOS");
+        assertThat(fila.entidad()).isEqualTo("membresia");
+        assertThat(fila.entidadId()).isEqualTo(suya);
+        assertThat(fila.actor()).isEqualTo(administradora.toString());
+        assertThat(fila.antes())
+                .containsEntry("accountId", aQuienSeLeCambian.toString())
+                .containsEntry("roles", "CONDO_ADMIN");
+        assertThat(fila.despues())
+                .containsEntry("roles", "CONDO_ADMIN,FINANCE_ADMIN")
+                .containsEntry("motivo", "en este edificio administra una sola persona")
+                // El aviso del alcance del issue #20. Seguridad 10.1 permite la concentracion a
+                // condicion de que quede registrada, y esta es la forma de registrarla.
+                .containsEntry("concentraFunciones", "true");
+    }
+
+    @Test
+    @DisplayName("las acciones de plataforma no salen en la bitacora de un condominio, y si en la suya")
     void loDePlataformaNoEsDeNingunCondominio() {
         // El rol de superadministrador no cuelga de ningun condominio, asi que su fila va sin
         // condominio y la consulta de un condominio no la lista. Sin esto, el administrador de un
         // edificio veria acciones de la plataforma entera.
         AccountView nueva = cuentaNueva();
+        AccountView quienConcede = cuentaNueva();
         new JdbcTemplate(fuenteDeDatos)
-                .update("insert into platform_admin (user_id, granted_at) values (?, now())", nueva.id());
+                .update("insert into platform_admin (user_id, granted_at) values (?, now())", quienConcede.id());
+        identidades.grantPlatformAdmin(nueva.id(), quienConcede.id().toString());
 
         membresias.grant(condominio, nueva.id(), Set.of(MembershipRole.OWNER), null, administradora.toString());
         laFilaDe("MEMBRESIA_CONCEDIDA");
 
         assertThat(delCondominio().stream().map(AuditEntryView::accion)).doesNotContain("PLATAFORMA_CONCEDIDA");
+
+        // Y la otra mitad, que es lo que trae el issue #20: en su propia consulta si sale, con el
+        // actor de verdad --quien lo concedio-- y no el "arranque" de la unica fila que habia antes.
+        assertThat(deLaPlataforma()).anySatisfy(fila -> assertThat(fila)
+                .returns("PLATAFORMA_CONCEDIDA", AuditEntryView::accion)
+                .returns(nueva.id(), AuditEntryView::entidadId)
+                .returns(quienConcede.id().toString(), AuditEntryView::actor)
+                .returns(null, AuditEntryView::condominio));
+
+        // Y las del condominio no se cuelan en la de plataforma: el filtro es la columna, no el
+        // orden en que se escribieron.
+        assertThat(deLaPlataforma().stream().map(AuditEntryView::accion)).doesNotContain("MEMBRESIA_CONCEDIDA");
+    }
+
+    @Test
+    @DisplayName("la revocacion del rol de plataforma queda, con su motivo: la fila de platform_admin se borra")
+    void laRevocacionDePlataformaQueda() {
+        AccountView quienConcede = cuentaNueva();
+        AccountView quienLoPierde = cuentaNueva();
+        new JdbcTemplate(fuenteDeDatos)
+                .update("insert into platform_admin (user_id, granted_at) values (?, now())", quienConcede.id());
+        identidades.grantPlatformAdmin(quienLoPierde.id(), quienConcede.id().toString());
+
+        identidades.revokePlatformAdmin(
+                quienLoPierde.id(), "dejo la empresa", quienConcede.id().toString());
+
+        // Esta fila importa mas que la mayoria: revocar BORRA la fila de platform_admin, asi que si
+        // esto no quedara, haber tenido el rol seria indistinguible de no haberlo tenido nunca.
+        assertThat(deLaPlataforma()).anySatisfy(fila -> assertThat(fila)
+                .returns("PLATAFORMA_REVOCADA", AuditEntryView::accion)
+                .returns(quienLoPierde.id(), AuditEntryView::entidadId));
+        assertThat(identidades.esSuperadministrador(quienLoPierde.id())).isFalse();
     }
 
     // --- Que no se pueda tocar: el primer criterio -------------------------------------------

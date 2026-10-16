@@ -51,4 +51,57 @@ public interface Identities {
      * tiene que surtir efecto ya, no cuando expire su token.
      */
     boolean esSuperadministrador(java.util.UUID accountId);
+
+    /**
+     * Concede el rol de plataforma a otra cuenta. Issue <strong>#20</strong>.
+     *
+     * <p>Hasta este issue el rol solo lo abria el arranque, y solo cuando no habia ninguno: con eso
+     * la plataforma podia empezar pero no crecer, y el segundo superadministrador salia de un
+     * {@code INSERT} a mano. Esta es esa operacion.
+     *
+     * <p>No lleva motivo, igual que el alta de una membresia: lo que hace falta explicar es por que
+     * se le quita a alguien, no por que se le da. Y <strong>nadie se lo concede a si mismo</strong>,
+     * que es lo que ya impide el {@code CHECK} de la migracion V7; aqui se comprueba antes para
+     * poder explicarlo.
+     *
+     * <p>Publica {@link PlatformAdminGranted}, que es la fila de la bitacora de plataforma.
+     *
+     * @param actor la cuenta que lo concede, que viaja tambien como {@code grantedBy}
+     * @throws bo.coprop.shared.RecursoNoEncontrado si la cuenta no existe
+     * @throws bo.coprop.shared.ReglaDeNegocioViolada si se lo concede a si mismo
+     * @throws bo.coprop.shared.ConflictoDeEstado si esa cuenta ya lo tiene
+     */
+    PlatformAdminView grantPlatformAdmin(java.util.UUID accountId, String actor);
+
+    /**
+     * Le quita el rol de plataforma a una cuenta. Issue <strong>#20</strong>.
+     *
+     * <p><strong>Borra la fila y le cierra las sesiones</strong>, las del BFF y las del proveedor.
+     * Lo segundo es Seguridad 8 --revocar sesiones al retirar un rol administrativo-- y no hay rol
+     * mas administrativo que este; lo primero es la forma de la tabla, explicada en
+     * {@link PlatformAdminView}. Lo que queda de la historia es la bitacora.
+     *
+     * <p><strong>Nadie se lo revoca a si mismo.</strong> Es la misma regla de recuperacion que en la
+     * baja de una membresia: quien se lo quitara se quedaria sin la unica pantalla desde la que
+     * podria devolverselo, y con eso la plataforma podria quedarse sin nadie que cree condominios.
+     * Para dejar el puesto se lo pide a otro superadministrador.
+     *
+     * <p>Publica {@link PlatformAdminRevoked}.
+     *
+     * @param motivo por que se le quita. Obligatorio: la fila se borra, asi que esto es lo unico que
+     *     lo explica
+     * @throws bo.coprop.shared.RecursoNoEncontrado si esa cuenta no lo tiene --y responde lo mismo
+     *     que si no existiera, porque quien administra la plataforma no es dato publico--
+     * @throws bo.coprop.shared.ReglaDeNegocioViolada si se lo revoca a si mismo
+     */
+    void revokePlatformAdmin(java.util.UUID accountId, String motivo, String actor);
+
+    /**
+     * Quien administra la plataforma hoy, de la concesion mas reciente a la mas antigua.
+     *
+     * <p>Hace falta para poder revocar: sin listado, quitarle el rol a alguien exige conocer de
+     * antemano el identificador de su cuenta. Solo las vigentes, que en esta tabla son todas: una
+     * fila revocada no existe.
+     */
+    java.util.List<PlatformAdminView> platformAdmins();
 }
