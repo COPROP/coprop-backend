@@ -35,7 +35,10 @@ final class CatalogoDeProblemas {
             case CUERPO_ILEGIBLE -> HttpStatus.BAD_REQUEST;
             case NO_ENCONTRADO -> HttpStatus.NOT_FOUND;
             case CONFLICTO -> HttpStatus.CONFLICT;
-            case NO_AUTENTICADO -> HttpStatus.UNAUTHORIZED;
+            // El 401 de una operacion sensible lleva sesion valida, al contrario que el otro.
+            // Es el estado que pide el RFC 9470 y el que lleva el desafio: lo que se le dice al
+            // cliente es "autenticate mas fuerte y vuelve", no "no puedes".
+            case NO_AUTENTICADO, REAUTENTICACION_REQUERIDA -> HttpStatus.UNAUTHORIZED;
             case SIN_PERMISO, SIN_CUENTA -> HttpStatus.FORBIDDEN;
             case INTERNO -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
@@ -66,6 +69,7 @@ final class CatalogoDeProblemas {
             case CONFLICTO -> "La operacion choca con el estado actual";
             case REGLA_DE_NEGOCIO -> "Una regla del negocio rechaza la operacion";
             case NO_AUTENTICADO -> "Hace falta iniciar sesion";
+            case REAUTENTICACION_REQUERIDA -> "Hace falta confirmar tu identidad";
             case SIN_PERMISO -> "No tienes permiso para esta operacion";
             case SIN_CUENTA -> "Tu cuenta todavia no tiene acceso";
             case INTERNO -> "Error interno";

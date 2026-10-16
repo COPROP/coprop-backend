@@ -377,6 +377,11 @@ class CadenaDeAutorizacionTests {
                 // Verlo solo pide pertenecer, y eso ya lo exigio el filtro del #17. Los siete.
                 new Endpoint("consultar el condominio", HttpMethod.GET, enElCondominio, null, todos()),
                 new Endpoint("mi perfil", HttpMethod.GET, "/api/v1/me", null, todos()),
+                // Las propias sesiones y su cierre: lo que devuelven lo decide la autenticacion, no
+                // un rol, asi que los siete. Van en la rejilla igual que /me --y no porque haya una
+                // celda que discutir-- para que un @PreAuthorize puesto aqui por error salga aqui.
+                new Endpoint("mis sesiones", HttpMethod.GET, "/api/v1/me/sesiones", null, todos()),
+                new Endpoint("cerrar todas mis sesiones", HttpMethod.POST, "/api/v1/me/sesiones/cierre", null, todos()),
 
                 // Administracion de unidades y personas: solo el administrador del condominio.
                 new Endpoint(

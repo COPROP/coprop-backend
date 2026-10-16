@@ -11,6 +11,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.MDC;
 import org.springframework.security.core.Authentication;
@@ -87,8 +90,8 @@ class FiltroDeIdentidad extends OncePerRequestFilter {
         var autoridades = identidades.esSuperadministrador(cuenta.id())
                 ? List.<GrantedAuthority>of(new SimpleGrantedAuthority("ROLE_" + MembershipRole.PLATFORM_ADMIN.name()))
                 : List.<GrantedAuthority>of();
-        var identidad =
-                new IdentidadAutenticada(new IdentidadAutenticada.Actor(cuenta.id(), cuenta.personId()), autoridades);
+        var identidad = new IdentidadAutenticada(
+                new IdentidadAutenticada.Actor(cuenta.id(), cuenta.personId()), sujeto.autenticacion(), autoridades);
         SecurityContextHolder.getContext().setAuthentication(identidad);
         MDC.put(ClavesDeLog.ACTOR, identidad.getName());
         try {
@@ -99,11 +102,16 @@ class FiltroDeIdentidad extends OncePerRequestFilter {
     }
 
     /**
-     * Los tres datos que hacen falta del token, vengan por donde vengan.
+     * Lo que hace falta del token, venga por donde venga.
      *
      * <p>Son las dos formas de entrar de Seguridad 5: la app movil manda un JWT por la cabecera y
      * la web entra por el BFF, donde el token ya se cambio por una sesion y lo que queda es el
      * usuario OIDC. El resto de la aplicacion no distingue una de otra.
+     *
+     * <p>Desde el issue #22 salen tambien {@code amr} y {@code auth_time}, que es lo unico que
+     * puede contestar si una operacion sensible pasa (Seguridad 7.3). <strong>Se leen aqui y en
+     * ningun otro sitio</strong>: este filtro sustituye la autenticacion del proveedor por la de
+     * COPROP, asi que es el ultimo punto de la peticion donde el token todavia esta a la vista.
      */
     private static @Nullable SujetoDelToken sujetoDe(@Nullable Authentication autenticacion) {
         if (autenticacion == null || !autenticacion.isAuthenticated()) {
@@ -114,14 +122,38 @@ class FiltroDeIdentidad extends OncePerRequestFilter {
             return new SujetoDelToken(
                     token.getSubject(),
                     token.getClaimAsString("email"),
-                    Boolean.TRUE.equals(token.getClaimAsBoolean("email_verified")));
+                    Boolean.TRUE.equals(token.getClaimAsBoolean("email_verified")),
+                    new IdentidadAutenticada.Autenticacion(
+                            token.getClaimAsInstant("auth_time"), metodosDe(token.getClaimAsStringList("amr"))));
         }
         if (quien instanceof OidcUser usuario) {
             return new SujetoDelToken(
-                    usuario.getSubject(), usuario.getEmail(), Boolean.TRUE.equals(usuario.getEmailVerified()));
+                    usuario.getSubject(),
+                    usuario.getEmail(),
+                    Boolean.TRUE.equals(usuario.getEmailVerified()),
+                    new IdentidadAutenticada.Autenticacion(
+                            usuario.getAuthenticatedAt(), metodosDe(usuario.getClaimAsStringList("amr"))));
         }
         return null;
     }
 
-    private record SujetoDelToken(@Nullable String subject, @Nullable String email, boolean emailVerificado) {}
+    /**
+     * El {@code amr} como conjunto, en minusculas.
+     *
+     * <p>Es una lista en el token y aqui interesa la pertenencia, no el orden. En minusculas
+     * porque el RFC 8176 registra los valores asi y lo que se compara con ellos es literal: un
+     * proveedor que mandara {@code OTP} haria fallar el segundo factor en silencio.
+     */
+    private static Set<String> metodosDe(@Nullable List<String> amr) {
+        if (amr == null) {
+            return Set.of();
+        }
+        return amr.stream().map(metodo -> metodo.toLowerCase(Locale.ROOT)).collect(Collectors.toUnmodifiableSet());
+    }
+
+    private record SujetoDelToken(
+            @Nullable String subject,
+            @Nullable String email,
+            boolean emailVerificado,
+            IdentidadAutenticada.Autenticacion autenticacion) {}
 }

@@ -50,7 +50,11 @@ class InvitationController {
         this.invitaciones = invitaciones;
     }
 
-    @PreAuthorize("@autorizacion.puedeConceder(authentication, #nueva.roles())")
+    // Como el alta de una membresia (#22): una invitacion es una membresia diferida, asi que
+    // invitar a alguien como CONDO_ADMIN es asignar un rol administrativo y pide segundo factor.
+    // Invitar a un propietario no.
+    @PreAuthorize("@autorizacion.puedeConceder(authentication, #nueva.roles())"
+            + " and @reautenticacion.siHayRolAdministrativo(authentication, #nueva.roles())")
     @PostMapping
     ResponseEntity<InvitationView> emitir(
             @PathVariable UUID condominiumId, @Valid @RequestBody NuevaInvitacion nueva, Principal quien) {

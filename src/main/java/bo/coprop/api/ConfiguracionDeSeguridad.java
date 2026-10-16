@@ -4,6 +4,7 @@ import bo.coprop.identity.Identities;
 import bo.coprop.identity.Memberships;
 import bo.coprop.shared.CodigoDeError;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Clock;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.stream.Stream;
@@ -176,7 +177,8 @@ class ConfiguracionDeSeguridad {
             EscritorDeProblemas problemas,
             Identities identidades,
             Memberships membresias,
-            ClientRegistrationRepository registros)
+            ClientRegistrationRepository registros,
+            Clock reloj)
             throws Exception {
         return http.authorizeHttpRequests(rutas -> rutas.requestMatchers(sinIdentidad())
                         .permitAll()
@@ -199,6 +201,9 @@ class ConfiguracionDeSeguridad {
                 // la misma posicion dependen del orden en que se registraron, que es justo lo que
                 // no conviene dejar al azar.
                 .addFilterAfter(new FiltroDeCondominio(membresias, problemas), FiltroDeIdentidad.class)
+                // Solo en esta cadena: es la unica con sesion de servidor. Despues del de
+                // identidad, que es quien resuelve la cuenta cuyos roles deciden el tiempo.
+                .addFilterAfter(new FiltroDeVigenciaDeSesion(membresias, problemas, reloj), FiltroDeCondominio.class)
                 .exceptionHandling(errores -> errores
                         // Una llamada de la SPA que perdio la sesion tiene que recibir un 401 que
                         // pueda leer, no un 302 hacia Keycloak: la redireccion la haria el XHR y el

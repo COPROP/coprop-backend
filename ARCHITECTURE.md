@@ -145,6 +145,7 @@ El catálogo de códigos es `CodigoDeError`, en `shared`. El mapa a estados HTTP
 | Entrada inválida | 422 | `VALIDACION` |
 | El cuerpo no es JSON válido | 400 | `CUERPO_ILEGIBLE` |
 | Sin token o token inválido | 401 | `NO_AUTENTICADO` |
+| Operación sensible sin segundo factor reciente | 401 | `REAUTENTICACION_REQUERIDA` |
 | Es miembro, pero el rol no alcanza | 403 | `SIN_PERMISO` |
 | El token es válido pero no hay cuenta en COPROP | 403 | `SIN_CUENTA` |
 | El recurso no existe, o no hay membresía activa en ese condominio | 404 | `NO_ENCONTRADO` |
@@ -152,7 +153,7 @@ El catálogo de códigos es `CodigoDeError`, en `shared`. El mapa a estados HTTP
 | Petición bien formada que una regla rechaza | 422 | `REGLA_DE_NEGOCIO` |
 | Fallo no previsto | 500 | `INTERNO` |
 
-Tres filas merecen explicación:
+Cuatro filas merecen explicación:
 
 - **422 en validación, no el 400 que Spring devuelve por defecto.** El 400 es para una petición
   que el servidor no puede ni parsear; una entidad bien formada que no pasa las reglas es 422.
@@ -166,6 +167,11 @@ Tres filas merecen explicación:
 - **404 y no 403 cuando falta la membresía.** Lo exige Seguridad §7.2: distinguir "no existe" de
   "no puedes" le diría al que pregunta qué condominios hay. Eso deja al 403 con un único
   significado: eres miembro, pero tu rol no alcanza.
+- **401 y no 403 cuando falta el segundo factor**, que es el único 401 de la API que llega con
+  sesión válida. El 403 significa "no puedes" y aquí la verdad es "puedes, pero demuéstralo otra
+  vez": lo que falta no es el permiso sino la fuerza de la autenticación, y el 401 es el estado que
+  lleva un desafío. Lo pide Seguridad §7.3 y lo define el RFC 9470. El ticket #22 había escrito 403
+  con código distinguible; el código distinguible está, el estado es el del análisis.
 
 El 500 nunca lleva el mensaje de la excepción al cliente, porque puede contener nombres de tabla
 o fragmentos de consulta. Al log sí va entero, con su `traceId`.
@@ -234,7 +240,10 @@ que también la cierra en Keycloak: si solo se borrara la local, el siguiente lo
 
 **La sesión vive en la base** (`spring_session`, migración V6), no en memoria. Así sobrevive a un
 reinicio y se puede revocar, que es lo que necesita "cerrar sesión en todos los dispositivos" de
-§5.3: su columna `PRINCIPAL_NAME` guarda el identificador de la **cuenta de COPROP**.
+§5.3. Su columna `PRINCIPAL_NAME` guarda hoy el **`sub` de Keycloak** y no el identificador de la
+cuenta: Spring Security no persiste el contexto que `FiltroDeIdentidad` cambia a mitad de petición.
+Por eso el puerto `Sesiones` recibe un **conjunto de nombres** y no uno solo —el `sub` y el de la
+cuenta—, para que el día que eso cambie no se rompa en silencio.
 
 Una llamada de la SPA que perdió la sesión recibe un **401 en problem+json**, no un 302 hacia
 Keycloak: la redirección la seguiría el XHR y el navegador acabaría pintando el login dentro de una
@@ -259,14 +268,77 @@ revincula a otro sujeto. Lo primero es lo que hace que entrar con contraseña y 
 caigan en la misma cuenta; lo segundo es la red de seguridad por si alguna vez el realm admitiera
 dos identidades con el mismo correo.
 
-Lo que **no** está: la cadena de webhooks por firma, que llega con los pagos (issue #41), cuando
-exista `/webhooks/**` y haya una firma que comprobar. Y los roles: `IdentidadAutenticada` no lleva
-autoridades todavía porque los roles por condominio se resuelven por petición contra la base
-(§4.2), y de eso se encargan el filtro de condominio del #17 y la matriz del #16.
+**Las autoridades se ponen en dos sitios**, y por eso son dos filtros: la de plataforma la pone
+este, porque no depende de ningún condominio y vale también en las rutas globales; las del
+condominio las añade `FiltroDeCondominio` leyendo la membresía de la ruta (§4.2). Ninguna viaja en
+el token: se resuelven por petición, así que quitarle un rol a alguien surte efecto en la
+siguiente y no cuando expire su token.
 
-**Todavía no hay forma de crear la primera cuenta.** Toda la API exige identidad, y la identidad
-exige una cuenta que alguien tuvo que dar de alta. El arranque de la plataforma —el
-superadministrador— es del issue #16; hasta entonces, en local se siembra por SQL.
+Lo que **no** está: la cadena de webhooks por firma, que llega con los pagos (issue #41), cuando
+exista `/webhooks/**` y haya una firma que comprobar.
+
+#### Tiempos de sesión y reautenticación
+
+Issue #22, Seguridad §5.3, §7.3 y §8.
+
+**Los tiempos de sesión no son configuración, y no pueden serlo.** La política es una hora de
+inactividad para los roles administrativos y veinticuatro para el resto, con un tope de
+veinticuatro en todo caso (§10.1); Spring Session tiene un único tiempo para toda la aplicación y
+lo que distingue a un administrador de un propietario no está en la sesión, sino en una membresía
+por condominio de la base de COPROP (§4.2). La misma cuenta puede administrar un edificio y ser
+propietaria en otro. Lo resuelve `FiltroDeVigenciaDeSesion`, **por petición**:
+
+| Qué | Cómo |
+|---|---|
+| Inactividad | 1 h si la cuenta tiene algún rol administrativo en algún condominio, o administra la plataforma; 24 h si no |
+| Tope absoluto | 24 h desde la creación de la sesión, comprobado contra `getCreationTime()` |
+| Dónde corre | Solo en la cadena del BFF: la móvil es `STATELESS` y sus tiempos los gobierna el realm |
+
+Las dos mitades son distintas y hacen falta las dos: Spring Session solo conoce **inactividad**, y
+una sesión que se usa cada cincuenta minutos no caducaría nunca. Contra una sesión robada, lo que
+la cierra es el tope, porque el ladrón la mantiene viva usándola. Al pasarse, la sesión se invalida
+en el acto y la petición responde 401.
+
+Cuesta **una consulta por petición** y se paga a propósito: decidirlo al crear la sesión dejaría a
+quien acaba de recibir un rol administrativo con una sesión de 24 horas hasta su siguiente login.
+Al revés no hace falta, porque a quien *pierde* un rol administrativo se le cierran las sesiones en
+el acto desde el #20.
+
+**El step-up es el cuarto control de la cadena** (§7.2) y lo añaden solo las operaciones sensibles
+que §7.3 enumera. Lo comprueba `ControlDeReautenticacion` (bean `@reautenticacion`) sobre dos
+afirmaciones del token que `FiltroDeIdentidad` guarda en `IdentidadAutenticada`: `amr` —`otp` o
+`hwk`; `pwd` no es un segundo factor— y `auth_time`, que tiene que ser de hace menos de cinco
+minutos. No es lo mismo que la expiración del token: uno recién renovado trae `iat` de hace un
+segundo y `auth_time` de hace tres días.
+
+```java
+@PreAuthorize("@autorizacion.puedeCambiar(...) and @reautenticacion.reciente(authentication)")
+```
+
+**El orden de la expresión no es estético.** SpEL corta en el primer `false`, así que la
+autorización va primero y a quien no tiene permiso se le responde 403 sin pedirle nada: al revés le
+mandaríamos a buscar su teléfono para recibir el mismo 403, y de paso le confirmaríamos que la
+operación existe. Por lo mismo, el 404 de un condominio ajeno sigue ganando.
+
+Dónde se pide hoy, de las cinco operaciones sensibles de §7.3 —las otras cuatro son de M2 y M3:
+
+| Ruta | Cuándo |
+|---|---|
+| `PUT .../membresias/{id}/roles` | Siempre: el cuerpo trae los roles que quedan, no los que se van, y quitar `CONDO_ADMIN` se escribe mandando un cuerpo sin él |
+| `POST /superadministradores` y `.../revocacion` | Siempre |
+| `POST .../membresias` y `POST .../invitaciones` | Solo si el cuerpo trae un rol administrativo: lo sensible es nombrar a un administrador, no dar de alta a un propietario |
+
+`PLATFORM_ADMIN` **no** dispara la condición de las dos últimas: ese rol no cabe en una membresía
+ni en una invitación y las dos rutas lo rechazan con 422 venga de quien venga, así que pedir el
+factor solo retrasaría la misma negativa.
+
+**Las sesiones activas son dos mitades** (§8), y la lista las junta: `GET /api/v1/me/sesiones`
+devuelve las del BFF —con su caducidad, que esta aplicación gobierna— y las del proveedor de
+identidad —con su IP, que la tabla de la V6 no guarda—. Una lista que mirara solo una de las dos
+diría que no hay nadie dentro mientras la app móvil sigue renovando su token.
+`POST /api/v1/me/sesiones/cierre` las cierra todas, **incluida la que hace la petición**, y deja
+fila en la bitácora de plataforma. Un proveedor caído devuelve media lista y no un error: quien
+mira esa pantalla está averiguando si le robaron la cuenta.
 
 #### El registro del cliente se arma a mano
 
@@ -1087,10 +1159,13 @@ anterior para describir el que quiere.
 
 ```java
 @PreAuthorize("@autorizacion.puedeCambiar(authentication, #condominiumId, #membershipId)"
-        + " and @autorizacion.puedeConceder(authentication, #nuevos.roles())")
+        + " and @autorizacion.puedeConceder(authentication, #nuevos.roles())"
+        + " and @reautenticacion.reciente(authentication)")
 ```
 
-`puedeCambiar` por los roles que se van, `puedeConceder` por los que llegan. Con una sola mitad se
+La tercera cláusula la añadió el #22 y está explicada en
+[Tiempos de sesión y reautenticación](#tiempos-de-sesión-y-reautenticación). `puedeCambiar` por los
+roles que se van, `puedeConceder` por los que llegan. Con una sola mitad se
 escapa justo lo que la celda "Solo administradores" acota: con sólo `puedeConceder`, el
 superadministrador convertiría a un propietario en `CONDO_ADMIN`; con sólo `puedeCambiar`, podría
 quitarle a un administrador sus roles y dejarle `OWNER`, que es repartir un rol que no le toca. Las
