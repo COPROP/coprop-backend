@@ -1,6 +1,7 @@
 package bo.coprop.condominium.internal;
 
 import bo.coprop.condominium.CondominiumConfigChanged;
+import bo.coprop.condominium.CondominiumEdited;
 import bo.coprop.condominium.CondominiumRegistered;
 import bo.coprop.condominium.CondominiumView;
 import bo.coprop.condominium.Condominiums;
@@ -10,6 +11,7 @@ import bo.coprop.shared.ReglaDeNegocioViolada;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -86,6 +88,39 @@ class CondominiumsService implements Condominiums {
     }
 
     @Override
+    @Transactional
+    public CondominiumView edit(UUID condominiumId, String name, String nit, @Nullable String address, String actor) {
+        Condominium condominio = buscar(condominiumId);
+
+        // Con IdNot y no con existsByNit: guardar el NIT que ya tenia no es un choque, y sin esto
+        // corregir solo el nombre seria imposible.
+        if (condominios.existsByNitAndIdNot(nit, condominiumId)) {
+            throw new ReglaDeNegocioViolada("Ya existe un condominio con el NIT %s.".formatted(nit));
+        }
+
+        // Los valores de antes se leen ANTES de editar. Con la entidad gestionada, leerlos despues
+        // devolveria los nuevos y el evento diria que nada cambio.
+        String nombreAnterior = condominio.getName();
+        String nitAnterior = condominio.getNit();
+        String direccionAnterior = condominio.getAddress();
+
+        condominio.edit(name, nit, address);
+
+        eventos.publishEvent(new CondominiumEdited(
+                condominiumId,
+                nombreAnterior,
+                nitAnterior,
+                direccionAnterior,
+                name,
+                nit,
+                address,
+                actor,
+                reloj.instant()));
+
+        return vista(condominio, configuracionVigenteDe(condominiumId));
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public CondominiumView find(UUID condominiumId) {
         Condominium condominio = buscar(condominiumId);
@@ -111,6 +146,7 @@ class CondominiumsService implements Condominiums {
                 condominio.getId(),
                 condominio.getName(),
                 condominio.getNit(),
+                condominio.getAddress(),
                 condominio.getType(),
                 condominio.getTimeZone(),
                 condominio.getCurrency(),

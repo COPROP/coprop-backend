@@ -131,6 +131,82 @@ class CondominiumsTests {
     @Autowired
     private org.springframework.jdbc.core.JdbcTemplate jdbc;
 
+    @Test
+    @DisplayName("editar corrige nombre, NIT y direccion, y la direccion nace nula")
+    void editarCorrigeLosTresDatos() {
+        CondominiumView creado = condominios.register(lasPalmas(), "emma");
+        assertThat(creado.address()).isNull();
+
+        CondominiumView editado =
+                condominios.edit(creado.id(), "Las Palmas II", "9876543210", "Av. Ballivian 123", "emma");
+
+        assertThat(editado.name()).isEqualTo("Las Palmas II");
+        assertThat(editado.nit()).isEqualTo("9876543210");
+        assertThat(editado.address()).isEqualTo("Av. Ballivian 123");
+        // Lo que no se toca: el tipo, el estado, la zona horaria, la moneda y la configuracion
+        // siguen como estaban. Es la mitad del valor del caso.
+        assertThat(editado.type()).isEqualTo(creado.type());
+        assertThat(editado.status()).isEqualTo(creado.status());
+        assertThat(editado.timeZone()).isEqualTo(creado.timeZone());
+        assertThat(editado.issueDay()).isEqualTo(creado.issueDay());
+        assertThat(condominios.find(creado.id())).isEqualTo(editado);
+    }
+
+    @Test
+    @DisplayName("la edicion publica el evento con los tres campos de antes y los tres de despues")
+    void laEdicionQuedaAuditada(PublishedEvents eventos) {
+        CondominiumView creado = condominios.register(lasPalmas(), "emma");
+
+        condominios.edit(creado.id(), "Las Palmas II", "9876543210", "Av. Ballivian 123", "ana");
+
+        assertThat(eventos.ofType(CondominiumEdited.class)).singleElement().satisfies(evento -> {
+            assertThat(evento.condominiumId()).isEqualTo(creado.id());
+            assertThat(evento.actor()).isEqualTo("ana");
+            assertThat(evento.occurredAt()).isEqualTo(AHORA);
+            // Antes lleva los tres campos aunque solo interese el NIT: la pregunta que se hace un
+            // año despues no es que cambio, sino como estaba.
+            assertThat(evento.antes())
+                    .containsEntry("name", "Las Palmas")
+                    .containsEntry("nit", "1234567890")
+                    .containsEntry("address", "");
+            assertThat(evento.despues())
+                    .containsEntry("name", "Las Palmas II")
+                    .containsEntry("nit", "9876543210")
+                    .containsEntry("address", "Av. Ballivian 123");
+        });
+    }
+
+    @Test
+    @DisplayName("corregir solo el nombre, con su propio NIT, no choca consigo mismo")
+    void mandarElMismoNitNoEsUnChoque() {
+        CondominiumView creado = condominios.register(lasPalmas(), "emma");
+
+        CondominiumView editado = condominios.edit(creado.id(), "Las Palmas II", creado.nit(), null, "emma");
+
+        assertThat(editado.name()).isEqualTo("Las Palmas II");
+        assertThat(editado.nit()).isEqualTo(creado.nit());
+    }
+
+    @Test
+    @DisplayName("el NIT de otro condominio se rechaza: dos con el mismo NIT serian el mismo")
+    void elNitDeOtroSeRechaza() {
+        CondominiumView primero = condominios.register(lasPalmas(), "emma");
+        CondominiumView segundo = condominios.register(
+                new NewCondominium("Bolivar", "5555555555", CondominiumType.CASAS, "America/La_Paz", 3, 18), "emma");
+
+        assertThatThrownBy(() -> condominios.edit(segundo.id(), "Bolivar", primero.nit(), null, "emma"))
+                .isInstanceOf(ReglaDeNegocioViolada.class);
+
+        assertThat(condominios.find(segundo.id()).nit()).isEqualTo("5555555555");
+    }
+
+    @Test
+    @DisplayName("editar uno que no existe no crea nada: da RecursoNoEncontrado")
+    void editarUnoQueNoExisteFalla() {
+        assertThatThrownBy(() -> condominios.edit(UUID.randomUUID(), "Fantasma", "1111111111", null, "emma"))
+                .isInstanceOf(RecursoNoEncontrado.class);
+    }
+
     private long configuracionesDe(UUID condominiumId) {
         Long total = jdbc.queryForObject(
                 "SELECT count(*) FROM condominium_config WHERE condominium_id = ?", Long.class, condominiumId);

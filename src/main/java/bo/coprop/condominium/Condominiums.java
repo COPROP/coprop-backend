@@ -1,6 +1,7 @@
 package bo.coprop.condominium;
 
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Lo unico que otros modulos ven de este.
@@ -38,6 +39,30 @@ public interface Condominiums {
      * @throws bo.coprop.shared.RecursoNoEncontrado si el condominio no existe
      */
     CondominiumView changeConfig(UUID condominiumId, int issueDay, int dueDay, String actor);
+
+    /**
+     * Corrige el nombre, el NIT y la direccion.
+     *
+     * <p>Los tres datos descriptivos del condominio, y solo esos. El <strong>tipo</strong> queda
+     * fuera porque cambiarlo exige validarlo contra la estructura ya registrada --un
+     * {@code EDIFICIO} con bloques y pisos no cabe en {@code CASAS}-- y el <strong>estado</strong>
+     * tambien, porque suspender un condominio no es editar un campo: es una accion de negocio cuyo
+     * efecto sobre los QR vivos y sobre la mora en curso esta sin decidir.
+     *
+     * <p><strong>Actualiza en sitio, al contrario que {@link #changeConfig}</strong>, y no es una
+     * incoherencia. La configuracion se versiona porque una obligacion emitida tiene que poder
+     * decir con que dia de vencimiento nacio; el nombre y la direccion no entran en ningun calculo,
+     * y del NIT lo que hace falta saber es quien lo cambio y desde que valor, que es lo que cuenta
+     * {@link CondominiumEdited} en la bitacora.
+     *
+     * <p>Publica {@link CondominiumEdited} con los tres campos de antes y los tres de despues.
+     *
+     * @param address nula se admite: el alta no la pide y hay condominios sin ella
+     * @param actor quien lo corrige, para la bitacora
+     * @throws bo.coprop.shared.RecursoNoEncontrado si el condominio no existe
+     * @throws bo.coprop.shared.ReglaDeNegocioViolada si el NIT ya es de otro condominio
+     */
+    CondominiumView edit(UUID condominiumId, String name, String nit, @Nullable String address, String actor);
 
     /**
      * Devuelve un condominio con su configuracion vigente.
