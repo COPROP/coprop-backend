@@ -63,9 +63,10 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
  * La cadena de autorizacion completa del issue #15: <strong>cada endpoint, contra cada rol</strong>.
  *
  * <p>Es el segundo criterio del issue --"existe un test que recorre la matriz de roles y
- * endpoints"-- y recorre las dos dimensiones de verdad: los treinta y ocho endpoints de la API por los
+ * endpoints"-- y recorre las dos dimensiones de verdad: los cuarenta endpoints de la API por los
  * siete roles de Seguridad 3, con el resultado esperado declarado celda a celda. Los cinco de
- * invitaciones entraron con el issue #18, y asi entra cada endpoint nuevo.
+ * invitaciones entraron con el issue #18, los dos del catalogo de parametricas con el #89, y asi
+ * entra cada endpoint nuevo.
  *
  * <p><strong>Cada endpoint declara los siete roles, no solo los que pueden.</strong> Es la leccion
  * que dejo el issue #16, donde el test que declaraba las columnas completas encontro que a
@@ -382,6 +383,18 @@ class CadenaDeAutorizacionTests {
                 // celda que discutir-- para que un @PreAuthorize puesto aqui por error salga aqui.
                 new Endpoint("mis sesiones", HttpMethod.GET, "/api/v1/me/sesiones", null, todos()),
                 new Endpoint("cerrar todas mis sesiones", HttpMethod.POST, "/api/v1/me/sesiones/cierre", null, todos()),
+
+                // Las parametricas y la matriz expuesta: lo que devuelven es la forma de la API y no
+                // datos de nadie, asi que los siete. Entran en la rejilla igual que /me --y no
+                // porque haya una celda que discutir-- para que un @PreAuthorize puesto aqui por
+                // error salga en esta tabla y no en produccion.
+                new Endpoint("el catalogo de parametricas", HttpMethod.GET, "/api/v1/parametricas", null, todos()),
+                new Endpoint(
+                        "la matriz de permisos expuesta",
+                        HttpMethod.GET,
+                        "/api/v1/parametricas/matriz-de-permisos",
+                        null,
+                        todos()),
 
                 // Administracion de unidades y personas: solo el administrador del condominio.
                 new Endpoint(
@@ -733,7 +746,7 @@ class CadenaDeAutorizacionTests {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("celdas")
-    @DisplayName("la rejilla entera: los treinta y ocho endpoints por los siete roles")
+    @DisplayName("la rejilla entera: los cuarenta endpoints por los siete roles")
     void laRejillaEntera(Celda celda) throws Exception {
         var resultado =
                 mockMvc.perform(peticion(celda.endpoint(), quien(celda.rol()).autorizacion()));
