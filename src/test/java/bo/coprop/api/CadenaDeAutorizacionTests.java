@@ -63,10 +63,10 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
  * La cadena de autorizacion completa del issue #15: <strong>cada endpoint, contra cada rol</strong>.
  *
  * <p>Es el segundo criterio del issue --"existe un test que recorre la matriz de roles y
- * endpoints"-- y recorre las dos dimensiones de verdad: los cuarenta endpoints de la API por los
+ * endpoints"-- y recorre las dos dimensiones de verdad: los cuarenta y un endpoints de la API por los
  * siete roles de Seguridad 3, con el resultado esperado declarado celda a celda. Los cinco de
- * invitaciones entraron con el issue #18, los dos del catalogo de parametricas con el #89, y asi
- * entra cada endpoint nuevo.
+ * invitaciones entraron con el issue #18, los dos del catalogo de parametricas con el #89, la
+ * edicion del condominio con el #90, y asi entra cada endpoint nuevo.
  *
  * <p><strong>Cada endpoint declara los siete roles, no solo los que pueden.</strong> Es la leccion
  * que dejo el issue #16, donde el test que declaraba las columnas completas encontro que a
@@ -534,6 +534,15 @@ class CadenaDeAutorizacionTests {
                                 CONDO_ADMIN, PERMITIDO,
                                 FINANCE_ADMIN, PERMITIDO))),
 
+                // Corregir la ficha del condominio es del que lo dio de alta, y de nadie mas: el
+                // administrador del condominio administra lo que hay dentro, no la ficha.
+                new Endpoint(
+                        "editar el condominio",
+                        HttpMethod.PUT,
+                        enElCondominio,
+                        edicionDelCondominio(),
+                        soloPara(PLATFORM_ADMIN)),
+
                 // Lo que se cobra es del que maneja el dinero, y de nadie mas.
                 new Endpoint(
                         "cambiar la configuracion",
@@ -691,6 +700,22 @@ class CadenaDeAutorizacionTests {
      * 422 en vez de 403, y con eso la celda no probaba la autorizacion sino la longitud del codigo.
      * Pasó al escribir esta rejilla.
      */
+    /**
+     * El cuerpo de la edicion, con el NIT que el condominio YA tiene.
+     *
+     * <p>Por dos razones. El NIT es unico y estos tests comparten base con los demas, asi que
+     * inventarlo podria chocar; y mandando el mismo, la celda no depende de que el token de prueba
+     * traiga segundo factor --si algun dia deja de traerlo, esta fila seguira midiendo la
+     * autorizacion y no el control de reautenticacion--.
+     *
+     * <p>Va en un bloque de texto para no escapar las comillas.
+     */
+    private String edicionDelCondominio() {
+        return """
+                {"name": "Cadena editada", "nit": "%s", "address": "Av. Ballivian 123"}"""
+                .formatted(condominios.find(condominio).nit());
+    }
+
     private static String unidadConCodigo() {
         String sufijo = UUID.randomUUID().toString().substring(0, 8);
         return "{\"code\":\"R-" + sufijo + "\",\"type\":\"DEPARTAMENTO\",\"aliquot\":\"1.000000\"}";
@@ -746,7 +771,7 @@ class CadenaDeAutorizacionTests {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("celdas")
-    @DisplayName("la rejilla entera: los cuarenta endpoints por los siete roles")
+    @DisplayName("la rejilla entera: los cuarenta y un endpoints por los siete roles")
     void laRejillaEntera(Celda celda) throws Exception {
         var resultado =
                 mockMvc.perform(peticion(celda.endpoint(), quien(celda.rol()).autorizacion()));

@@ -1,5 +1,6 @@
 package bo.coprop.api;
 
+import bo.coprop.condominium.Condominiums;
 import bo.coprop.identity.MatrizDePermisos;
 import bo.coprop.identity.MembershipRole;
 import bo.coprop.shared.ReautenticacionRequerida;
@@ -8,6 +9,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.Set;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
@@ -75,8 +77,17 @@ class ControlDeReautenticacion {
 
     private final Clock reloj;
 
-    ControlDeReautenticacion(Clock reloj) {
+    /**
+     * El puerto del condominio, para saber si el NIT que llega en el cuerpo es un cambio de verdad.
+     *
+     * <p>Es la direccion que permite la regla 6: {@code api} declara {@code condominium}, y quien
+     * sabe de HTTP pregunta a quien sabe de condominios.
+     */
+    private final Condominiums condominios;
+
+    ControlDeReautenticacion(Clock reloj, Condominiums condominios) {
         this.reloj = reloj;
+        this.condominios = condominios;
     }
 
     /**
@@ -134,6 +145,34 @@ class ControlDeReautenticacion {
                 .filter(rol -> rol != MembershipRole.PLATFORM_ADMIN)
                 .anyMatch(MatrizDePermisos::esAdministrativo);
         if (!concedeAlguno) {
+            return true;
+        }
+        return reciente(quien);
+    }
+
+    /**
+     * Lo mismo, pero solo si ese NIT es distinto del que el condominio tiene hoy.
+     *
+     * <p>El NIT identifica legalmente al condominio: dos con el mismo serian el mismo, y a partir de
+     * ahi los pagos de uno podrian aplicarse al otro. Cambiarlo es de las cosas que Seguridad 7.3
+     * llama sensibles. Corregir una tilde del nombre o escribir la direccion no lo es, y pedir el
+     * factor para eso dejaria el control estorbando donde no protege nada --el mismo razonamiento
+     * que {@link #siHayRolAdministrativo}--.
+     *
+     * <p><strong>La condicion compara contra la base, no contra el cuerpo solo.</strong> Mandar el
+     * NIT que el condominio ya tiene no es un cambio, y exigir el factor por el mero hecho de que el
+     * campo venga en el cuerpo haria imposible corregir el nombre sin reautenticarse: en un
+     * {@code PUT} los tres campos viajan siempre.
+     *
+     * <p>Que la comprobacion lea el condominio tiene un efecto buscado: <strong>el 404 de un
+     * condominio que no existe sale de aqui</strong>, de la excepcion lanzada dentro de la
+     * expresion, igual que en el #15 y el #19. Y como esta anotacion va despues de la autorizacion,
+     * quien no puede editar recibe su 403 antes de que se mire la base.
+     *
+     * @param nit el NIT que trae el cuerpo
+     */
+    public boolean siCambiaElNit(Authentication quien, UUID condominiumId, String nit) {
+        if (nit.equals(condominios.find(condominiumId).nit())) {
             return true;
         }
         return reciente(quien);

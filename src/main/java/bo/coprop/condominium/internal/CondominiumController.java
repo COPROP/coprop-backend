@@ -7,9 +7,12 @@ import bo.coprop.shared.ControladorDeApi;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.net.URI;
 import java.security.Principal;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -70,6 +73,34 @@ class CondominiumController {
         return condominios.find(condominiumId);
     }
 
+    /**
+     * Corrige los datos descriptivos del condominio. Issue #90.
+     *
+     * <p>Existe porque el alta no se puede deshacer y hasta ahora un NIT con un digito cambiado se
+     * arreglaba en la base a mano.
+     *
+     * <p><strong>El permiso es {@code CREAR_CONDOMINIOS}</strong>, y la matriz no tiene una fila que
+     * diga "editar condominio". Se resuelve igual que lo hizo
+     * {@code PUT /{condominiumId}/configuracion} con la suya: el registro del condominio --su
+     * nombre, su NIT, donde esta-- es de quien lo dio de alta, que es el superadministrador y nadie
+     * mas. El administrador del condominio administra lo que hay dentro, no la ficha.
+     *
+     * <p><strong>El segundo factor se pide solo si el NIT cambia</strong>, y la condicion mira la
+     * base y no el cuerpo: en un {@code PUT} los tres campos viajan siempre, asi que exigirlo por
+     * que el campo venga haria imposible corregir el nombre sin reautenticarse. Va despues de la
+     * autorizacion en la expresion, como manda el #22: SpEL corta en el primer {@code false}, asi
+     * que el 403 y el 404 ganan y no se le pide el factor a quien va a recibir una negativa igual.
+     *
+     * <p>Lo que este endpoint <strong>no</strong> cambia es el tipo y el estado, cada uno por su
+     * motivo, y los dos estan escritos en {@link Condominiums#edit}.
+     */
+    @PreAuthorize("@autorizacion.puede(authentication, 'CREAR_CONDOMINIOS')"
+            + " and @reautenticacion.siCambiaElNit(authentication, #condominiumId, #cambio.nit())")
+    @PutMapping("/{condominiumId}")
+    CondominiumView editar(@PathVariable UUID condominiumId, @Valid @RequestBody Edicion cambio, Principal quien) {
+        return condominios.edit(condominiumId, cambio.name(), cambio.nit(), cambio.address(), quien.getName());
+    }
+
     // El dia de emision y el de vencimiento deciden CUANDO se cobra, asi que son del que maneja
     // el dinero. La matriz no tiene una fila con este nombre --lo mas cercano es "configurar
     // conceptos, tarifas de agua y politica de mora"-- y se resuelve del lado de la separacion de
@@ -80,6 +111,19 @@ class CondominiumController {
             @PathVariable UUID condominiumId, @Valid @RequestBody CambioDeConfiguracion cambio, Principal quien) {
         return condominios.changeConfig(condominiumId, cambio.issueDay(), cambio.dueDay(), quien.getName());
     }
+
+    /**
+     * El cuerpo de la edicion: los tres datos descriptivos, los tres obligatorios menos la
+     * direccion.
+     *
+     * <p>La direccion admite nula porque hay condominios que no la tienen --el alta nunca la pidio--
+     * y porque mandarla nula es la unica forma de decir que no se sabe. Las longitudes son las de la
+     * tabla.
+     */
+    record Edicion(
+            @NotBlank @Size(max = 160) String name,
+            @NotBlank @Size(max = 20) String nit,
+            @Nullable @Size(max = 200) String address) {}
 
     /** Lo unico que hoy se puede cambiar de la configuracion. La mora y el agua llegan en M2. */
     record CambioDeConfiguracion(@Min(1) @Max(28) int issueDay, @Min(1) @Max(28) int dueDay) {}

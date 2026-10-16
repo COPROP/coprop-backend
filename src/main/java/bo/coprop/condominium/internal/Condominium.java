@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Raiz del modelo multi-tenant (analisis 5.2).
@@ -34,6 +35,16 @@ class Condominium {
 
     @Column(nullable = false, length = 20)
     private String nit;
+
+    /**
+     * Donde esta. Nula mientras nadie la escriba: el alta no la pide (issue #90).
+     *
+     * <p>No forma parte de la identidad del condominio --eso es el NIT-- ni de ningun calculo. Es
+     * dato para quien lo busca en una lista, y por eso se puede corregir sin mas ceremonia que el
+     * nombre.
+     */
+    @Column(length = 200)
+    private @Nullable String address;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -67,6 +78,25 @@ class Condominium {
         this.createdAt = createdAt;
     }
 
+    /**
+     * Corrige los datos descriptivos: nombre, NIT y direccion.
+     *
+     * <p>Los tres juntos y en un solo metodo para que no haya un camino que cambie el NIT sin pasar
+     * por aqui. Lo que NO se toca desde el modelo es el tipo ni el estado: el tipo habria que
+     * validarlo contra la estructura ya registrada --un EDIFICIO con bloques no cabe en CASAS-- y
+     * suspender un condominio es una accion de negocio con efectos sobre los QR vivos y la mora que
+     * todavia no estan decididos. Mientras no lo esten, {@code CondominiumStatus.SUSPENDIDO} sigue
+     * siendo un valor que nadie pone.
+     *
+     * @param address nula se admite y significa que no se sabe, no que se borre un dato correcto;
+     *     para dejarla en blanco a proposito se manda nula igual, que es lo mismo que no tenerla
+     */
+    void edit(String name, String nit, @Nullable String address) {
+        this.name = name;
+        this.nit = nit;
+        this.address = address;
+    }
+
     UUID getId() {
         return id;
     }
@@ -77,6 +107,11 @@ class Condominium {
 
     String getNit() {
         return nit;
+    }
+
+    @Nullable
+    String getAddress() {
+        return address;
     }
 
     CondominiumType getType() {

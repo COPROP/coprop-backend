@@ -1,5 +1,6 @@
 package bo.coprop.api;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -313,6 +314,60 @@ class ReautenticacionTests {
     // --- Armado -----------------------------------------------------------------------------
 
     /** Con que se autentico la cuenta de cada caso. */
+    // --- La condicion: lo sensible es el NIT, no corregir una tilde del nombre ---------------
+
+    @Test
+    @DisplayName("corregir el nombre no pide segundo factor; cambiar el NIT si")
+    void soloElNitPideFactor() throws Exception {
+        Quien superadministrador = cuentaDeSuperadministrador(Autenticacion.SOLO_CONTRASENA);
+        UUID condominio = altaDeCondominio();
+        String nitActual = condominios.find(condominio).nit();
+
+        // Mandar el NIT que ya tiene no es un cambio. Sin esta condicion, en un PUT donde los tres
+        // campos viajan siempre, corregir una tilde del nombre pediria reautenticarse.
+        mockMvc.perform(peticion(
+                        HttpMethod.PUT,
+                        "/api/v1/condominios/" + condominio,
+                        superadministrador.token(),
+                        edicion("Las Palmas corregido", nitActual)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Las Palmas corregido"))
+                .andExpect(jsonPath("$.address").value("Av. Ballivian 123"));
+
+        mockMvc.perform(peticion(
+                        HttpMethod.PUT,
+                        "/api/v1/condominios/" + condominio,
+                        superadministrador.token(),
+                        edicion("Las Palmas corregido", "7777777001")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.codigo").value("REAUTENTICACION_REQUERIDA"));
+
+        // Y la negativa no dejo el NIT a medias.
+        assertThat(condominios.find(condominio).nit()).isEqualTo(nitActual);
+    }
+
+    @Test
+    @DisplayName("con segundo factor reciente, el NIT si se cambia")
+    void conFactorElNitSeCambia() throws Exception {
+        Quien superadministrador = cuentaDeSuperadministrador(Autenticacion.CON_SEGUNDO_FACTOR);
+        UUID condominio = altaDeCondominio();
+
+        mockMvc.perform(peticion(
+                        HttpMethod.PUT,
+                        "/api/v1/condominios/" + condominio,
+                        superadministrador.token(),
+                        edicion("Las Palmas", "7777777002")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nit").value("7777777002"));
+    }
+
+    /** El cuerpo de la edicion, en un bloque de texto para no escapar las comillas. */
+    private static String edicion(String nombre, String nit) {
+        return """
+                {"name": "%s", "nit": "%s", "address": "Av. Ballivian 123"}"""
+                .formatted(nombre, nit);
+    }
+
     private enum Autenticacion {
         CON_SEGUNDO_FACTOR,
         SOLO_CONTRASENA,

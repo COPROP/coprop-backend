@@ -228,19 +228,35 @@ class FugaEntreCondominiosTests {
     }
 
     /**
-     * Los veintiocho endpoints que cuelgan de un condominio.
+     * El cuerpo de la edicion de la ficha.
+     *
+     * <p>En un bloque de texto para no escapar las comillas, y con un NIT propio de esta suite: el
+     * NIT es unico por condominio y la rejilla de autorizacion usa el suyo contra la misma base.
+     */
+    private static String edicionDelCondominio() {
+        return """
+                {"name": "Fuga editada", "nit": "7777778001", "address": "Av. Ballivian 456"}""";
+    }
+
+    /**
+     * Los veintinueve endpoints que cuelgan de un condominio.
      *
      * <p>Son todos los que hay: los demas --personas, cuentas, el perfil propio, los
      * superadministradores, la bitacora de plataforma y las dos llamadas de quien llega con un token
      * de invitacion-- son globales a proposito (Seguridad 2 y 6.1) y no tienen condominio del que
      * aislarse. Cuando entre uno nuevo bajo {@code /condominios/{id}}, su caso entra aqui; los cinco
      * de invitaciones entraron asi con el issue #18, la auditoria con el #21, los siete de bajas,
-     * suspensiones y cierres de relacion con el #19 y el cambio de roles con el #20.
+     * suspensiones y cierres de relacion con el #19, el cambio de roles con el #20 y la edicion de la
+     * ficha con el #90.
      */
     private List<Endpoint> endpoints() {
         String persona = personaSuelta.toString();
         return List.of(
                 new Endpoint("consultar el condominio", HttpMethod.GET, "/api/v1/condominios/%s", null),
+                // La ficha del condominio. El NIT va inventado y distinto del que usa la rejilla de
+                // autorizacion, para no chocar con el suyo: el NIT es unico y las dos suites
+                // comparten base.
+                new Endpoint("editar el condominio", HttpMethod.PUT, "/api/v1/condominios/%s", edicionDelCondominio()),
                 new Endpoint(
                         "cambiar la configuracion",
                         HttpMethod.PUT,
