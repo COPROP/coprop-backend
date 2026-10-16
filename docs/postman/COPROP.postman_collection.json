@@ -1672,6 +1672,51 @@
           }
         }
       ]
+    },
+    {
+      "name": "10. Paramétricas",
+      "description": "El catálogo de lo que no cambia (#89). Es lo que un cliente lee justo después de `GET /api/v1/me`, para no copiar a mano unos valores que el backend ya conoce.\n\n**No piden ningún permiso, solo autenticar.** Lo que devuelven es la forma de la API, no datos de nadie: los siete roles reciben 200.",
+      "item": [
+        {
+          "name": "Las enumeraciones del dominio",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/parametricas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "parametricas"
+              ]
+            },
+            "description": "Las trece enumeraciones públicas del dominio, por nombre y con sus valores.\n\nLas claves son el nombre de la enumeración tal como la nombra el análisis §5.2, así que no hay traducción entre leer esa sección y leer la respuesta.\n\nLos valores van en el orden en que se declararon y no alfabético: `AccountStatus` empieza por `INVITADO` porque ese es el ciclo de vida de la cuenta, y ordenarlo de otro modo movería las opciones de sitio en un desplegable.\n\nSolo códigos, sin etiquetas: el texto que lee una persona es del cliente."
+          }
+        },
+        {
+          "name": "La matriz de roles y permisos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/parametricas/matriz-de-permisos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "parametricas",
+                "matriz-de-permisos"
+              ]
+            },
+            "description": "La matriz de Seguridad §3 tal como la aplica el backend: 23 permisos por 7 roles, 161 celdas.\n\nSale de `MatrizDePermisos`, la misma clase que decide cada `@PreAuthorize`, así que una pantalla que la pinte desde aquí no puede divergir de la autorización real.\n\n**Cada fila declara los siete roles, incluidos los que no pueden**, con `NINGUNO`. Omitirlos daría una respuesta más corta y obligaría al cliente a decidir qué significa una ausencia: no puede, o no se declaró."
+          }
+        }
+      ]
     }
   ]
 }
