@@ -145,6 +145,47 @@
             },
             "description": "Devuelve la persona, la cuenta, si administra la plataforma, y un elemento por condominio con los roles de esa membresía y las unidades con las que tiene relación vigente.\n\n**No recibe ningún identificador**: todo sale del token. La consulta de una cuenta por id es otra cosa, en `/api/v1/cuentas/{accountId}`.\n\n**200 con `condominios` vacío** si no hay ninguna membresía activa, y no 404: es una respuesta correcta a una pregunta sobre uno mismo. Con la semilla corrida sale un condominio, *Torre Sucre (desarrollo)*; el del vecino no sale, y eso es lo que hay que mirar."
           }
+        },
+        {
+          "name": "Mis sesiones activas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me/sesiones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "me",
+                "sesiones"
+              ]
+            },
+            "description": "Dónde está abierta tu cuenta ahora mismo (Seguridad §8).\n\n**Son dos mitades y salen juntas.** `origen: NAVEGADOR` son las sesiones de servidor del BFF, las que sostienen la cookie: de esas se sabe cuándo caducan, porque sus tiempos los pone esta aplicación. `origen: PROVEEDOR` son las de Keycloak, las que sostienen el refresh token de la app móvil: de esas se sabe la IP, que la tabla del BFF no guarda. Una lista que mirara solo una de las dos diría que no hay nadie dentro mientras el teléfono sigue renovando su token.\n\n`actual: true` marca la sesión desde la que estás preguntando. **Desde Postman siempre sale `false`**: se entra con `Bearer` y ahí no hay sesión de servidor con la que compararse.\n\nSi Keycloak no contesta, devuelve media lista y no un error."
+          }
+        },
+        {
+          "name": "Cerrar sesión en todos los dispositivos",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/me/sesiones/cierre",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "me",
+                "sesiones",
+                "cierre"
+              ]
+            },
+            "description": "El botón de Seguridad §5.3, cuyo motivo típico está escrito en la propia tabla del análisis: la pérdida o el robo del celular.\n\n**Cierra también la sesión desde la que lo pides**, y las dos puertas: las del BFF y las de Keycloak. Dejar la tuya obligaría a decidir cuál es la tuya, que es justo lo que no se puede emparejar entre las dos mitades.\n\nResponde **204**. Después de esto, el `Bearer` de Postman deja de servir en cuanto Keycloak invalide el refresh token: hay que volver a pedirlo.\n\nDeja fila en la bitácora **de plataforma** —`SESIONES_CERRADAS`, sin condominio— porque una sesión no es de ningún edificio."
+          }
         }
       ]
     },

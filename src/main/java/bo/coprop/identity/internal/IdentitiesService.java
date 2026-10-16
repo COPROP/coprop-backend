@@ -3,9 +3,14 @@ package bo.coprop.identity.internal;
 import bo.coprop.identity.AccountActivated;
 import bo.coprop.identity.AccountView;
 import bo.coprop.identity.Identities;
+import bo.coprop.identity.OrigenDeSesion;
 import bo.coprop.identity.PlatformAdminGranted;
 import bo.coprop.identity.PlatformAdminRevoked;
 import bo.coprop.identity.PlatformAdminView;
+import bo.coprop.identity.ProveedorDeIdentidad;
+import bo.coprop.identity.SesionActivaView;
+import bo.coprop.identity.Sesiones;
+import bo.coprop.identity.SessionsSignedOut;
 import bo.coprop.shared.ConflictoDeEstado;
 import bo.coprop.shared.RecursoNoEncontrado;
 import bo.coprop.shared.ReglaDeNegocioViolada;
@@ -29,6 +34,8 @@ class IdentitiesService implements Identities {
     private final UserAccountRepository cuentas;
     private final PlatformAdminRepository superadministradores;
     private final CierreDeAcceso cierre;
+    private final Sesiones sesionesDelBff;
+    private final ProveedorDeIdentidad proveedor;
     private final ApplicationEventPublisher eventos;
     private final Clock reloj;
 
@@ -36,11 +43,15 @@ class IdentitiesService implements Identities {
             UserAccountRepository cuentas,
             PlatformAdminRepository superadministradores,
             CierreDeAcceso cierre,
+            Sesiones sesionesDelBff,
+            ProveedorDeIdentidad proveedor,
             ApplicationEventPublisher eventos,
             Clock reloj) {
         this.cuentas = cuentas;
         this.superadministradores = superadministradores;
         this.cierre = cierre;
+        this.sesionesDelBff = sesionesDelBff;
+        this.proveedor = proveedor;
         this.eventos = eventos;
         this.reloj = reloj;
     }
@@ -171,6 +182,89 @@ class IdentitiesService implements Identities {
         eventos.publishEvent(new AccountActivated(cuenta.getId(), cuenta.getPersonId(), idpSubject, ahora));
 
         return cuenta.vista();
+    }
+
+    /**
+     * Las dos mitades, juntas y ordenadas de la mas reciente a la mas antigua.
+     *
+     * <p>Lo del BFF se busca por <strong>los dos nombres</strong> con que una sesion puede estar
+     * indexada, igual que en el cierre: el sujeto del proveedor --que es el que se guarda hoy-- y
+     * el identificador de la cuenta. Depender de cual es hoy haria que la lista saliera vacia en
+     * silencio el dia que Spring Security cambie.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<SesionActivaView> sessionsOf(UUID accountId) {
+        UserAccount cuenta =
+                cuentas.findById(accountId).orElseThrow(() -> RecursoNoEncontrado.de("la cuenta", accountId));
+
+        var todas = new java.util.ArrayList<SesionActivaView>();
+        for (var sesion : sesionesDelBff.listarLasDe(nombresDe(cuenta))) {
+            todas.add(new SesionActivaView(
+                    sesion.id(),
+                    OrigenDeSesion.NAVEGADOR,
+                    null,
+                    sesion.creada(),
+                    sesion.ultimoAcceso(),
+                    sesion.ultimoAcceso().plus(sesion.inactividad())));
+        }
+        try {
+            for (var sesion : proveedor.sesionesDe(cuenta.getEmail())) {
+                todas.add(new SesionActivaView(
+                        sesion.id(),
+                        OrigenDeSesion.PROVEEDOR,
+                        sesion.ip(),
+                        sesion.creada(),
+                        sesion.ultimoAcceso(),
+                        null));
+            }
+        } catch (ProveedorDeIdentidad.FalloDelProveedorDeIdentidad fallo) {
+            // Media lista es mejor que ninguna: quien mira esta pantalla esta intentando averiguar
+            // si le robaron la cuenta, y dejarle sin respuesta porque Keycloak no contesta no le
+            // ayuda a decidir nada. Lo que no se puede hacer es callarlo en el log.
+            log.error(
+                    "No se pudieron listar las sesiones de la cuenta {} en el proveedor de identidad; se devuelven solo las del navegador. La lista que ve el usuario esta INCOMPLETA.",
+                    accountId,
+                    fallo);
+        }
+        todas.sort(
+                java.util.Comparator.comparing(SesionActivaView::ultimoAcceso).reversed());
+        return List.copyOf(todas);
+    }
+
+    @Override
+    @Transactional
+    public int signOutEverywhere(UUID accountId, String actor) {
+        UserAccount cuenta =
+                cuentas.findById(accountId).orElseThrow(() -> RecursoNoEncontrado.de("la cuenta", accountId));
+
+        CierreDeAcceso.Cerradas cerradas = cierre.porPeticionPropia(cuenta.getId());
+        eventos.publishEvent(
+                new SessionsSignedOut(accountId, cerradas.delBff(), cerradas.enElProveedor(), actor, reloj.instant()));
+
+        log.warn(
+                "La cuenta {} cerro todas sus sesiones: {} del navegador, y en el proveedor {} (Seguridad 5.3).",
+                accountId,
+                cerradas.delBff(),
+                cerradas.enElProveedor() ? "tambien" : "NO");
+        return cerradas.delBff();
+    }
+
+    /**
+     * Los nombres con los que una sesion de esa cuenta puede estar indexada.
+     *
+     * <p>Es la misma pareja que arma {@link CierreDeAcceso}, y por el mismo motivo. Se repite aqui
+     * en vez de exponerla porque son tres lineas y compartirlas obligaria a sacar un metodo
+     * publico de una clase que es un detalle del modulo.
+     */
+    private static java.util.Set<String> nombresDe(UserAccount cuenta) {
+        var nombres = new java.util.HashSet<String>();
+        nombres.add(cuenta.getId().toString());
+        String sujeto = cuenta.getIdpSubject();
+        if (sujeto != null) {
+            nombres.add(sujeto);
+        }
+        return nombres;
     }
 
     private static PlatformAdminView vista(PlatformAdmin fila) {

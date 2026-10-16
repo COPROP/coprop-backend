@@ -3,8 +3,10 @@ package bo.coprop.identity.internal;
 import bo.coprop.identity.ProveedorDeIdentidad;
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -142,6 +144,69 @@ class ProveedorDeIdentidadKeycloak implements ProveedorDeIdentidad {
                 .retrieve()
                 .toBodilessEntity());
         log.info("Sesiones cerradas en el proveedor de identidad para correo={}", email);
+    }
+
+    /**
+     * Las sesiones del usuario en el realm. Issue <strong>#22</strong>.
+     *
+     * <p>{@code GET /users/{id}/sessions} las devuelve todas, con su IP y sus tiempos en
+     * milisegundos. Lo que no devuelve es el dispositivo: Keycloak guarda el agente de usuario por
+     * sesion solo si se habilitan sus propios eventos, que es otra decision.
+     *
+     * <p>Lista vacia cuando no hay usuario, que es lo que el puerto promete: una cuenta invitada
+     * que nunca entro no tiene sesiones, y eso no es un fallo de integracion.
+     */
+    @Override
+    public List<SesionDelProveedor> sesionesDe(String email) {
+        String token = tokenDeAdministracion();
+        String usuario = buscar(email, token);
+        if (usuario == null) {
+            return List.of();
+        }
+        List<Map<String, Object>> sesiones = pedir("listar las sesiones del usuario", () -> http.get()
+                .uri(admin + "/users/{id}/sessions", usuario)
+                .header("Authorization", "Bearer " + token)
+                .retrieve()
+                .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {}));
+        if (sesiones == null) {
+            return List.of();
+        }
+        return sesiones.stream()
+                .map(ProveedorDeIdentidadKeycloak::aSesion)
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    /**
+     * Una fila de Keycloak a una sesion del puerto.
+     *
+     * <p>Devuelve nulo --y la descarta quien llama-- si le falta el identificador o los tiempos. No
+     * revienta: una sesion que no se puede describir no es motivo para dejar al usuario sin ver las
+     * demas, que es justo la pantalla desde la que cerraria una que no reconoce.
+     */
+    private static @org.jspecify.annotations.Nullable SesionDelProveedor aSesion(Map<String, Object> fila) {
+        if (!(fila.get("id") instanceof String id)) {
+            return null;
+        }
+        Instant creada = instanteDe(fila.get("start"));
+        Instant ultimoAcceso = instanteDe(fila.get("lastAccess"));
+        if (creada == null || ultimoAcceso == null) {
+            return null;
+        }
+        String ip = fila.get("ipAddress") instanceof String valor && !valor.isBlank() ? valor : null;
+        return new SesionDelProveedor(id, ip, creada, ultimoAcceso);
+    }
+
+    /**
+     * Los tiempos de Keycloak son milisegundos desde la epoca, y llegan como numero de JSON.
+     *
+     * <p>Se acepta cualquier {@link Number} y no solo {@code Long}: el mapeador elige el tipo segun
+     * el tamaño del numero, asi que el mismo campo puede llegar como {@code Integer} en una sesion
+     * y como {@code Long} en otra.
+     */
+    private static @org.jspecify.annotations.Nullable Instant instanteDe(
+            @org.jspecify.annotations.Nullable Object valor) {
+        return valor instanceof Number numero ? Instant.ofEpochMilli(numero.longValue()) : null;
     }
 
     private String tokenDeAdministracion() {

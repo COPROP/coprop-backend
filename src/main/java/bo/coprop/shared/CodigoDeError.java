@@ -37,6 +37,23 @@ public enum CodigoDeError {
     /** No hay identidad: falta el token o no es valido. */
     NO_AUTENTICADO,
 
+    /**
+     * Hay identidad y el rol alcanza, pero la operacion es sensible y la autenticacion no es lo
+     * bastante fuerte ni lo bastante reciente (Seguridad 7.3).
+     *
+     * <p>Es distinto de {@link #NO_AUTENTICADO} --ahi no hay sesion y aqui si-- y distinto de
+     * {@link #SIN_PERMISO} --ahi el rol no alcanza y aqui alcanza--. Lo que falta no es quien es ni
+     * que puede, sino <strong>cuando y como</strong> lo demostro: el cliente no tiene que mandar al
+     * usuario al login ni decirle que pida permiso, sino pedirle su segundo factor y repetir la
+     * misma operacion.
+     *
+     * <p>Sale como <strong>401</strong> y no como 403, con la cabecera de desafio del RFC 9470. Es
+     * la unica negativa de la API que se responde con 401 teniendo sesion valida, y es a proposito:
+     * el 401 es el estado que lleva un desafio de autenticacion, y aqui lo que se desafia es el
+     * nivel de la autenticacion, no su existencia.
+     */
+    REAUTENTICACION_REQUERIDA,
+
     /** Hay identidad y membresia activa, pero el rol no alcanza. */
     SIN_PERMISO,
 

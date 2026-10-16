@@ -1,7 +1,11 @@
 package bo.coprop.api;
 
 import bo.coprop.identity.Sesiones;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,5 +63,36 @@ class SesionesDelBff implements Sesiones {
             log.info("Cerradas {} sesiones del BFF.", encontradas.size());
         }
         return encontradas.size();
+    }
+
+    /**
+     * Lo mismo que el cierre, pero devolviendo lo que hay. Issue <strong>#22</strong>.
+     *
+     * <p>Se juntan en un mapa por identificador antes de ordenar, por el mismo motivo que alli: dos
+     * nombres que apunten a la misma sesion la listarian dos veces y el usuario creeria tener dos
+     * sesiones abiertas donde hay una.
+     *
+     * <p>El {@code maxInactiveInterval} que sale de aqui es el que el filtro de vigencia dejo
+     * puesto en la ultima peticion de esa sesion, asi que una sesion administrativa dice una hora
+     * y una ordinaria veinticuatro. Es un dato de la sesion y no una constante.
+     */
+    @Override
+    public List<SesionDelBff> listarLasDe(Set<String> nombres) {
+        Map<String, Session> encontradas = new HashMap<>();
+        for (String nombre : nombres) {
+            encontradas.putAll(sesiones.findByPrincipalName(nombre));
+        }
+        return encontradas.values().stream()
+                .map(SesionesDelBff::aVista)
+                .sorted(Comparator.comparing(SesionDelBff::ultimoAcceso).reversed())
+                .toList();
+    }
+
+    private static SesionDelBff aVista(Session sesion) {
+        return new SesionDelBff(
+                sesion.getId(),
+                sesion.getCreationTime(),
+                sesion.getLastAccessedTime(),
+                sesion.getMaxInactiveInterval());
     }
 }

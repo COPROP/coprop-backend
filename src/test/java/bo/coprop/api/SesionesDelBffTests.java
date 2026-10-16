@@ -101,6 +101,46 @@ class SesionesDelBffTests {
         assertThat(sesiones.cerrarLasDe(Set.of(UUID.randomUUID().toString()))).isZero();
     }
 
+    @Test
+    @DisplayName("el listado devuelve la sesion con sus tiempos, y no la repite por los dos nombres")
+    void elListadoDevuelveLaSesionSinRepetirla() {
+        String sujeto = UUID.randomUUID().toString();
+        String id = sesionDeAlguien(sujeto);
+
+        // Con los dos nombres, igual que el cierre: hoy solo uno de los dos encuentra algo, y el
+        // dia que los dos encuentren la misma sesion no se puede listar dos veces o el usuario
+        // creeria tener dos navegadores abiertos donde hay uno.
+        var encontradas = sesiones.listarLasDe(Set.of(sujeto, UUID.randomUUID().toString()));
+
+        assertThat(encontradas).singleElement().satisfies(sesion -> {
+            assertThat(sesion.id()).isEqualTo(id);
+            assertThat(sesion.creada()).isNotNull();
+            assertThat(sesion.ultimoAcceso()).isNotNull();
+            // El tiempo sale de la sesion y no de una constante: es el que el filtro de vigencia
+            // le dejo puesto, y en una sesion recien creada es el de la configuracion.
+            assertThat(sesion.inactividad()).isPositive();
+        });
+    }
+
+    @Test
+    @DisplayName("quien no tiene ninguna recibe una lista vacia, no un error")
+    void sinSesionesLaListaEstaVacia() {
+        assertThat(sesiones.listarLasDe(Set.of(UUID.randomUUID().toString()))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("una sesion cerrada deja de aparecer en el listado")
+    void laCerradaYaNoSeLista() {
+        String sujeto = UUID.randomUUID().toString();
+        sesionDeAlguien(sujeto);
+
+        sesiones.cerrarLasDe(Set.of(sujeto));
+
+        // Es el control de las dos mitades juntas: sin esto, un listado que leyera de otro sitio
+        // --o un cierre que no borrara-- pasaria igual.
+        assertThat(sesiones.listarLasDe(Set.of(sujeto))).isEmpty();
+    }
+
     /** Una sesion como la que deja un login por el BFF, y devuelve su identificador. */
     private String sesionDeAlguien(String sujeto) {
         var idToken = new OidcIdToken(

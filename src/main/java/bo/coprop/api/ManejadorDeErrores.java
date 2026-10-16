@@ -4,6 +4,7 @@ import static java.util.Objects.requireNonNullElse;
 
 import bo.coprop.shared.CodigoDeError;
 import bo.coprop.shared.ErrorDeDominio;
+import bo.coprop.shared.ReautenticacionRequerida;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.List;
@@ -49,6 +50,37 @@ class ManejadorDeErrores extends ResponseEntityExceptionHandler {
                 requireNonNullElse(error.getMessage(), "La operacion fue rechazada."),
                 peticion.getRequestURI());
         return ResponseEntity.status(CatalogoDeProblemas.estadoDe(error.codigo()))
+                .body(problema);
+    }
+
+    /**
+     * Operacion sensible sin segundo factor reciente. Issue <strong>#22</strong>, Seguridad 7.3.
+     *
+     * <p>Tiene manejador propio --y no le basta el de {@link ErrorDeDominio}, del que hereda-- por
+     * la <strong>cabecera</strong>. El RFC 9470 define el desafio {@code insufficient_user_authentication}
+     * con su {@code max_age}, y es lo que convierte un 401 en una instruccion: sin ella el cliente
+     * solo sabe que algo fallo, y con ella sabe que tiene que mandar al usuario al proveedor con
+     * {@code max_age=0} y repetir la misma peticion. El {@code codigo} del cuerpo dice lo mismo
+     * para quien ramifique por el, que es como ramifica el resto de la API.
+     *
+     * <p>Spring ordena los manejadores por cercania en la jerarquia, asi que este gana sobre el de
+     * {@link ErrorDeDominio} sin que haya que declarar nada.
+     *
+     * <p>El desafio sale con el esquema {@code Bearer} tambien en la cadena del BFF, donde no hay
+     * token: es el esquema que el RFC define para esto, y un segundo nombre para el mismo desafio
+     * obligaria a la SPA y a la app movil a leer cosas distintas ante la misma negativa.
+     */
+    @ExceptionHandler(ReautenticacionRequerida.class)
+    ResponseEntity<ProblemDetail> manejarReautenticacion(ReautenticacionRequerida error, HttpServletRequest peticion) {
+        ProblemDetail problema = CatalogoDeProblemas.problema(
+                error.codigo(),
+                requireNonNullElse(error.getMessage(), "Hace falta confirmar tu identidad."),
+                peticion.getRequestURI());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .header(
+                        HttpHeaders.WWW_AUTHENTICATE,
+                        "Bearer error=\"insufficient_user_authentication\", error_description=\"se requiere un segundo factor reciente\", max_age="
+                                + error.vigencia().toSeconds())
                 .body(problema);
     }
 

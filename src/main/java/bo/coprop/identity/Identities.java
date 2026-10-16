@@ -104,4 +104,38 @@ public interface Identities {
      * fila revocada no existe.
      */
     java.util.List<PlatformAdminView> platformAdmins();
+
+    /**
+     * Las sesiones abiertas de una cuenta, las dos mitades juntas. Issue <strong>#22</strong>.
+     *
+     * <p>Es la "lista de sesiones activas por usuario" de Seguridad 8. Se compone aqui y no en la
+     * capa web porque hacen falta los dos nombres con los que una sesion puede estar indexada --el
+     * sujeto del proveedor y el identificador de la cuenta-- y el correo con el que el proveedor
+     * conoce a esa persona, y los tres son datos de este modulo.
+     *
+     * <p><strong>Un proveedor caido no vacia la lista</strong>: se devuelven las del BFF y se
+     * registra el fallo. Es la decision contraria a la del correo de la invitacion (#18) y la misma
+     * que la del cierre de sesiones (#19): enseñar media lista es mejor que no enseñar ninguna a
+     * quien esta intentando averiguar si le robaron la cuenta.
+     *
+     * @throws bo.coprop.shared.RecursoNoEncontrado si la cuenta no existe
+     */
+    java.util.List<SesionActivaView> sessionsOf(java.util.UUID accountId);
+
+    /**
+     * Cierra todas las sesiones de una cuenta: el "cerrar sesion en todos los dispositivos" de
+     * Seguridad 5.3. Issue <strong>#22</strong>.
+     *
+     * <p><strong>Incluye la que hace la peticion.</strong> Quien pulsa esto acaba de perder el
+     * telefono y lo que quiere es que no quede ninguna abierta; dejar la suya obligaria a decidir
+     * cual es la suya --que es justo lo que no se puede emparejar entre las dos mitades-- y a
+     * explicarle por que sigue dentro.
+     *
+     * <p>Publica {@link SessionsSignedOut}, que va a la bitacora de plataforma.
+     *
+     * @param actor quien lo pide, que hoy es siempre la propia cuenta
+     * @return cuantas sesiones del BFF se cerraron
+     * @throws bo.coprop.shared.RecursoNoEncontrado si la cuenta no existe
+     */
+    int signOutEverywhere(java.util.UUID accountId, String actor);
 }

@@ -261,7 +261,7 @@ es tuyo tiene que responder exactamente igual que uno inventado.
 
 Hay una colección lista para importar en
 [`docs/postman/COPROP.postman_collection.json`](docs/postman/COPROP.postman_collection.json): trae
-las 45 peticiones con cuerpos de ejemplo, la autenticación ya configurada y dos que **tienen que
+las 47 peticiones con cuerpos de ejemplo, la autenticación ya configurada y dos que **tienen que
 fallar**, para ver el aislamiento funcionando. Las altas guardan solas los identificadores que
 devuelven, así que se pueden encadenar de arriba abajo sin copiar nada.
 

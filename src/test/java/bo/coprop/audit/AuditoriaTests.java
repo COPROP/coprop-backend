@@ -390,6 +390,26 @@ class AuditoriaTests {
         assertThat(identidades.esSuperadministrador(quienLoPierde.id())).isFalse();
     }
 
+    @Test
+    @DisplayName("cerrar todas las sesiones queda en la bitacora de plataforma, con cuantas se cerraron")
+    void elCierreDeTodasLasSesionesQueda() {
+        AccountView quien = cuentaNueva();
+
+        identidades.signOutEverywhere(quien.id(), quien.id().toString());
+
+        // Va sin condominio, como el rol de plataforma y por lo mismo: una sesion no es de un
+        // edificio. Y se audita, al contrario que un cierre de sesion normal, porque su motivo
+        // tipico es el que Seguridad 5.3 pone en la tabla --perdida o robo del telefono-- y quien
+        // investigue despues necesita la hora a la que la persona se dio cuenta.
+        assertThat(deLaPlataforma()).anySatisfy(fila -> assertThat(fila)
+                .returns("SESIONES_CERRADAS", AuditEntryView::accion)
+                .returns(quien.id(), AuditEntryView::entidadId)
+                .returns(quien.id().toString(), AuditEntryView::actor)
+                .returns(null, AuditEntryView::condominio));
+
+        assertThat(delCondominio().stream().map(AuditEntryView::accion)).doesNotContain("SESIONES_CERRADAS");
+    }
+
     // --- Que no se pueda tocar: el primer criterio -------------------------------------------
 
     @Test

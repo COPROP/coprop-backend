@@ -16,8 +16,8 @@ import org.springframework.stereotype.Component;
  * Cuando una cuenta pierde una puerta, se le cierran las sesiones. Issues <strong>#19</strong> y
  * <strong>#20</strong>.
  *
- * <p>Las <strong>tres entradas</strong> estan aqui y no repartidas por los servicios porque las
- * tres acaban en el mismo par de cierres, y conviene que haya un solo sitio donde leer cuando se
+ * <p>Las <strong>cuatro entradas</strong> estan aqui y no repartidas por los servicios porque las
+ * cuatro acaban en el mismo par de cierres, y conviene que haya un solo sitio donde leer cuando se
  * cierra y por que:
  *
  * <ul>
@@ -28,6 +28,8 @@ import org.springframework.stereotype.Component;
  *       el acceso (Seguridad 8).
  *   <li>{@link #deTodasFormas}: la revocacion del rol de plataforma, donde no hay nada que
  *       condicionar.
+ *   <li>{@link #porPeticionPropia}: el "cerrar sesion en todos los dispositivos" del #22, la unica
+ *       que no la provoca una perdida sino la propia persona.
  * </ul>
  *
  * <p>La condicion de la primera no es un adorno. Una sesion de COPROP no es de un condominio: es la del
@@ -94,7 +96,7 @@ class CierreDeAcceso {
         if (leQuedaAlguna) {
             return false;
         }
-        return cerrar(accountId);
+        return cerrar(accountId).enElProveedor();
     }
 
     /**
@@ -130,7 +132,7 @@ class CierreDeAcceso {
                 "A la cuenta {} se le retiraron los roles administrativos {}; se le cierran las sesiones (Seguridad 8).",
                 accountId,
                 retirados);
-        return cerrar(accountId);
+        return cerrar(accountId).enElProveedor();
     }
 
     /**
@@ -141,8 +143,29 @@ class CierreDeAcceso {
      * rol que se fue.
      */
     boolean deTodasFormas(UUID accountId) {
+        return cerrar(accountId).enElProveedor();
+    }
+
+    /**
+     * Cierra las sesiones porque lo pide su propio dueño. Issue <strong>#22</strong>.
+     *
+     * <p>Es la cuarta entrada, y la unica que no la provoca una perdida: aqui no se retiro nada, es
+     * la persona la que decide cerrarlas --tipicamente porque perdio el telefono, que es el motivo
+     * que Seguridad 5.3 pone en la tabla--. Por eso no hay nada que condicionar, como en
+     * {@link #deTodasFormas}, y por eso devuelve el detalle: lo que se audita es cuantas habia.
+     */
+    Cerradas porPeticionPropia(UUID accountId) {
         return cerrar(accountId);
     }
+
+    /**
+     * Que quedo cerrado.
+     *
+     * @param delBff cuantas sesiones de servidor se borraron
+     * @param enElProveedor si el proveedor tambien cerro las suyas. Falso cuando no contesto, y
+     *     entonces la app movil sigue renovando su refresh token
+     */
+    record Cerradas(int delBff, boolean enElProveedor) {}
 
     /**
      * Los dos cierres, y ninguno impide al otro.
@@ -150,13 +173,13 @@ class CierreDeAcceso {
      * <p>El del BFF primero porque no sale a la red: si el de Keycloak falla, al menos la cookie ya
      * no vale. Al reves, un Keycloak caido dejaria las dos puertas abiertas.
      */
-    private boolean cerrar(UUID accountId) {
+    private Cerradas cerrar(UUID accountId) {
         UserAccount cuenta = cuentas.findById(accountId).orElse(null);
         if (cuenta == null) {
             // No puede pasar: la membresia tiene clave foranea a la cuenta. Si pasara, no hay nada
             // que cerrar y tampoco hay nada que reparar aqui.
             log.warn("Se pidio cerrar las sesiones de la cuenta {}, que no existe.", accountId);
-            return false;
+            return new Cerradas(0, false);
         }
 
         Set<String> nombres = new HashSet<>();
@@ -175,9 +198,9 @@ class CierreDeAcceso {
                     accountId,
                     delBff,
                     fallo);
-            return false;
+            return new Cerradas(delBff, false);
         }
         log.info("Cerrado el acceso de la cuenta {}: {} sesiones del BFF y las del proveedor.", accountId, delBff);
-        return true;
+        return new Cerradas(delBff, true);
     }
 }

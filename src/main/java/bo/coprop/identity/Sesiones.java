@@ -1,5 +1,8 @@
 package bo.coprop.identity;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -17,8 +20,8 @@ import java.util.Set;
  * dejaria entrando a quien ya tiene cookie --su sesion no vuelve a preguntarle a Keycloak-- y
  * cerrar solo esta dejaria a la app movil renovando su token.
  *
- * <p>No hay una operacion para <em>listar</em> sesiones, que Seguridad 8 tambien nombra. Esa es del
- * issue <strong>#22</strong>, el de politicas de sesion; aqui solo hace falta cerrarlas.
+ * <p>Desde el issue <strong>#22</strong> tambien se pueden <em>listar</em>, que es la otra mitad de
+ * lo que pide Seguridad 8 --"lista de sesiones activas por usuario; cierre remoto"--.
  */
 public interface Sesiones {
 
@@ -41,4 +44,33 @@ public interface Sesiones {
      * @return cuantas cerro
      */
     int cerrarLasDe(Set<String> nombres);
+
+    /**
+     * Las sesiones del BFF abiertas a nombre de alguno de esos nombres. Issue <strong>#22</strong>.
+     *
+     * <p>Recibe un conjunto por lo mismo que {@link #cerrarLasDe}, y con la misma consecuencia: una
+     * sesion que apareciera por dos nombres se contaria dos veces, asi que se devuelven sin
+     * repetir.
+     *
+     * <p>De la mas usada a la menos: lo que se busca en esta lista es una sesion que no se
+     * reconoce, y la que acaba de usarse es la que mas se parece a un intruso activo.
+     *
+     * @return las que hay, de cero a varias; nunca {@code null}
+     */
+    List<SesionDelBff> listarLasDe(Set<String> nombres);
+
+    /**
+     * Una sesion de servidor del BFF, con lo poco que Spring Session guarda de ella.
+     *
+     * <p><strong>No hay IP ni dispositivo</strong>, que es lo que de verdad ayudaria a reconocer
+     * una sesion ajena: la tabla de la V6 guarda la sesion, no de donde vino. Lo que si se sabe lo
+     * sabe el proveedor de identidad de sus propias sesiones, y por eso la lista que ve el usuario
+     * junta las dos mitades.
+     *
+     * @param id el identificador de la sesion, que es lo que hay que mandar para cerrarla
+     * @param creada cuando se abrio, que es lo que mide el tope de 24 horas
+     * @param ultimoAcceso la ultima peticion que la uso
+     * @param inactividad cuanto aguanta sin usarse, ya resuelta por rol (Seguridad 5.3)
+     */
+    record SesionDelBff(String id, Instant creada, Instant ultimoAcceso, Duration inactividad) {}
 }

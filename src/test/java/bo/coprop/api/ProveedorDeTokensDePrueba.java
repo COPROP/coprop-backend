@@ -13,6 +13,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
@@ -59,23 +60,92 @@ class ProveedorDeTokensDePrueba {
         return "emma-" + UUID.randomUUID() + "@coprop.bo";
     }
 
-    /** Un token valido, con el correo verificado y cinco minutos por delante. */
+    /**
+     * Un token valido, con el correo verificado y cinco minutos por delante.
+     *
+     * <p><strong>Lleva segundo factor recien puesto</strong> desde el issue #22. Es lo que hace que
+     * las suites que prueban <em>autorizacion</em> --la rejilla de endpoints por rol, la de fuga
+     * entre condominios-- sigan probando eso y no la reautenticacion: sin {@code amr} y
+     * {@code auth_time}, los endpoints sensibles responderian 401 a todo el mundo y las celdas
+     * pasarian sin comprobar nada. Lo que no trae segundo factor se pide a mano, con
+     * {@link #sinSegundoFactor} y {@link #conSegundoFactorEn}.
+     */
     static String valido(String sujeto, String correo) {
         return token(sujeto, correo, true, Instant.now().plus(5, ChronoUnit.MINUTES), AUDIENCIA, CLAVE);
     }
 
+    /** Como {@link #valido}, pero autenticado solo con contraseña: no hay segundo factor. */
+    static String sinSegundoFactor(String sujeto, String correo) {
+        return token(
+                sujeto,
+                correo,
+                true,
+                Instant.now().plus(5, ChronoUnit.MINUTES),
+                AUDIENCIA,
+                CLAVE,
+                List.of("pwd"),
+                Instant.now());
+    }
+
+    /**
+     * Con segundo factor, pero puesto en el momento que se le diga.
+     *
+     * <p><strong>El instante lo pasa quien llama, y tiene que salir del reloj de la aplicacion</strong>,
+     * no de {@code Instant.now()}. La comprobacion de la ventana de cinco minutos usa el
+     * {@code Clock} inyectado, y en los tests ese reloj esta parado en una fecha fija: un
+     * {@code auth_time} sacado de la hora real cae en el futuro para ese reloj, la resta da
+     * negativo y el token "viejo" pasa como recien hecho. Costo un test en verde que no probaba
+     * nada.
+     */
+    static String conSegundoFactorEn(String sujeto, String correo, Instant autenticadoEn) {
+        return token(
+                sujeto,
+                correo,
+                true,
+                Instant.now().plus(5, ChronoUnit.MINUTES),
+                AUDIENCIA,
+                CLAVE,
+                List.of("pwd", "otp"),
+                autenticadoEn);
+    }
+
+    /** Sin {@code amr} ni {@code auth_time}: un proveedor que no los manda. */
+    static String sinAfirmacionesDeAutenticacion(String sujeto, String correo) {
+        return token(sujeto, correo, true, Instant.now().plus(5, ChronoUnit.MINUTES), AUDIENCIA, CLAVE, null, null);
+    }
+
     static String token(
             String sujeto, String correo, boolean correoVerificado, Instant expira, String audiencia, RSAKey clave) {
+        return token(sujeto, correo, correoVerificado, expira, audiencia, clave, List.of("pwd", "otp"), Instant.now());
+    }
+
+    static String token(
+            String sujeto,
+            String correo,
+            boolean correoVerificado,
+            Instant expira,
+            String audiencia,
+            RSAKey clave,
+            @Nullable List<String> amr,
+            @Nullable Instant autenticadoEn) {
         try {
-            var afirmaciones = new JWTClaimsSet.Builder()
+            var constructor = new JWTClaimsSet.Builder()
                     .subject(sujeto)
                     .issuer(EMISOR)
                     .audience(audiencia)
                     .issueTime(Date.from(expira.minus(5, ChronoUnit.MINUTES)))
                     .expirationTime(Date.from(expira))
                     .claim("email", correo)
-                    .claim("email_verified", correoVerificado)
-                    .build();
+                    .claim("email_verified", correoVerificado);
+            if (amr != null) {
+                constructor.claim("amr", amr);
+            }
+            if (autenticadoEn != null) {
+                // En segundos desde la epoca, que es como el OIDC define auth_time. Un Instant
+                // serializado como texto no lo lee el decodificador y la afirmacion se pierde.
+                constructor.claim("auth_time", autenticadoEn.getEpochSecond());
+            }
+            var afirmaciones = constructor.build();
             var firmado = new SignedJWT(
                     new JWSHeader.Builder(JWSAlgorithm.RS256)
                             .type(JOSEObjectType.JWT)

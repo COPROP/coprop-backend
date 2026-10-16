@@ -63,8 +63,15 @@ class PlatformAdminController {
         return identidades.platformAdmins();
     }
 
-    /** Concede el rol a otra cuenta. Nadie se lo concede a si mismo. */
-    @PreAuthorize("@autorizacion.puede(authentication, 'INVITAR_SOLO_ADMINISTRADORES')")
+    /**
+     * Concede el rol a otra cuenta. Nadie se lo concede a si mismo.
+     *
+     * <p>Pide segundo factor reciente (#22): es el mayor de los roles administrativos y Seguridad
+     * 7.3 nombra asignarlos entre las operaciones sensibles. Aqui no hay condicion que poner, al
+     * contrario que en el alta de una membresia: el unico rol que esta ruta reparte es este.
+     */
+    @PreAuthorize("@autorizacion.puede(authentication, 'INVITAR_SOLO_ADMINISTRADORES')"
+            + " and @reautenticacion.reciente(authentication)")
     @PostMapping
     ResponseEntity<PlatformAdminView> conceder(@Valid @RequestBody NuevoSuperadministrador nuevo, Principal quien) {
         PlatformAdminView concedido = identidades.grantPlatformAdmin(nuevo.accountId(), quien.getName());
@@ -82,7 +89,8 @@ class PlatformAdminController {
      *
      * <p>Responde <strong>204</strong>: no hay recurso que devolver, porque el rol ya no esta.
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'INVITAR_SOLO_ADMINISTRADORES')")
+    @PreAuthorize("@autorizacion.puede(authentication, 'INVITAR_SOLO_ADMINISTRADORES')"
+            + " and @reautenticacion.reciente(authentication)")
     @PostMapping("/{accountId}/revocacion")
     ResponseEntity<Void> revocar(@PathVariable UUID accountId, @Valid @RequestBody Motivo motivo, Principal quien) {
         identidades.revokePlatformAdmin(accountId, motivo.motivo(), quien.getName());

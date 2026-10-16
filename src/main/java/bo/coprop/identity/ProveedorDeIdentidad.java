@@ -1,5 +1,8 @@
 package bo.coprop.identity;
 
+import java.time.Instant;
+import java.util.List;
+
 /**
  * Lo que COPROP le pide al proveedor de identidad, que es muy poco.
  *
@@ -55,6 +58,40 @@ public interface ProveedorDeIdentidad {
      *     porque el acceso ya lo corto el filtro de condominio en la siguiente peticion
      */
     void cerrarSesiones(String email);
+
+    /**
+     * Las sesiones que esa cuenta tiene abiertas en el proveedor. Issue <strong>#22</strong>.
+     *
+     * <p>Es la otra mitad de la lista que pide Seguridad 8, y hace falta porque
+     * <strong>la sesion del BFF no es la unica</strong>: la app movil no tiene ninguna aqui y aun
+     * asi esta dentro, con su refresh token, y la sesion de Keycloak es la que hace que volver a
+     * entrar por la web no vuelva a pedir contraseña. Una pantalla de "mis sesiones activas" que
+     * mirara solo una de las dos mentiria.
+     *
+     * <p>Es la unica consulta que este puerto hace al proveedor; las otras dos escriben.
+     *
+     * <p><strong>Es idempotente y tolerante</strong>: una cuenta sin usuario en el proveedor
+     * --invitada y que nunca entro-- no tiene sesiones y eso no es un error.
+     *
+     * @throws FalloDelProveedorDeIdentidad si el proveedor no esta alcanzable o rechaza la
+     *     operacion. Quien llama decide: la lista de sesiones del usuario prefiere enseñar lo que
+     *     sabe a no enseñar nada
+     */
+    List<SesionDelProveedor> sesionesDe(String email);
+
+    /**
+     * Una sesion abierta en el proveedor de identidad.
+     *
+     * <p>Lleva la <strong>IP</strong>, que la sesion del BFF no tiene: es lo unico de esta lista
+     * que ayuda de verdad a reconocer una sesion ajena.
+     *
+     * @param id el identificador de la sesion en el proveedor
+     * @param ip desde donde se abrio; nula si el proveedor no la da
+     * @param creada cuando empezo
+     * @param ultimoAcceso la ultima vez que se uso
+     */
+    record SesionDelProveedor(
+            String id, @org.jspecify.annotations.Nullable String ip, Instant creada, Instant ultimoAcceso) {}
 
     /** El proveedor de identidad no pudo hacerlo. */
     class FalloDelProveedorDeIdentidad extends RuntimeException {

@@ -121,7 +121,11 @@ class FiltroDeCondominio extends OncePerRequestFilter {
         if (membresia.activa()) {
             autoridades.addAll(autoridadesDe(membresia.vista()));
         }
-        SecurityContextHolder.getContext().setAuthentication(new IdentidadAutenticada(actor, autoridades));
+        // La autenticacion viaja tal cual: como y cuando se autentico esta persona no cambia por
+        // entrar a un condominio, y perderla aqui dejaria sin segundo factor a toda operacion
+        // sensible que cuelgue de uno --que son todas las del #22 menos el rol de plataforma--.
+        SecurityContextHolder.getContext()
+                .setAuthentication(new IdentidadAutenticada(actor, identidad.autenticacion(), autoridades));
         conElCondominioEnElLog(condominio, peticion, respuesta, cadena);
     }
 

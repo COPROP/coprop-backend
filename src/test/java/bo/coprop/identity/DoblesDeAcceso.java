@@ -1,7 +1,11 @@
 package bo.coprop.identity;
 
+import bo.coprop.identity.ProveedorDeIdentidad.SesionDelProveedor;
+import bo.coprop.identity.Sesiones.SesionDelBff;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -45,6 +49,7 @@ public class DoblesDeAcceso {
 
         private final List<String> preparados = new ArrayList<>();
         private final List<String> cerrados = new ArrayList<>();
+        private final Map<String, List<SesionDelProveedor>> abiertas = new HashMap<>();
         private volatile boolean falla;
 
         @Override
@@ -58,6 +63,19 @@ public class DoblesDeAcceso {
                 throw new FalloDelProveedorDeIdentidad("Keycloak no contesta (simulado).");
             }
             cerrados.add(email);
+        }
+
+        @Override
+        public synchronized List<SesionDelProveedor> sesionesDe(String email) {
+            if (falla) {
+                throw new FalloDelProveedorDeIdentidad("Keycloak no contesta (simulado).");
+            }
+            return List.copyOf(abiertas.getOrDefault(email, List.of()));
+        }
+
+        /** Deja a ese correo con una sesion abierta en el proveedor. */
+        public synchronized void conSesionAbierta(String email, SesionDelProveedor sesion) {
+            abiertas.computeIfAbsent(email, cualquiera -> new ArrayList<>()).add(sesion);
         }
 
         public synchronized List<String> preparados() {
@@ -92,6 +110,7 @@ public class DoblesDeAcceso {
         public synchronized void reiniciar() {
             preparados.clear();
             cerrados.clear();
+            abiertas.clear();
             falla = false;
         }
     }
@@ -100,11 +119,34 @@ public class DoblesDeAcceso {
     public static class SesionesDePrueba implements Sesiones {
 
         private final List<Set<String>> cerradas = new ArrayList<>();
+        private final Map<String, List<SesionDelBff>> abiertas = new HashMap<>();
 
         @Override
         public synchronized int cerrarLasDe(Set<String> nombres) {
             cerradas.add(Set.copyOf(nombres));
-            return nombres.size();
+            int habia = (int) nombres.stream()
+                    .flatMap(nombre -> abiertas.getOrDefault(nombre, List.of()).stream())
+                    .map(SesionDelBff::id)
+                    .distinct()
+                    .count();
+            nombres.forEach(abiertas::remove);
+            // Sin ninguna abierta se devuelve el tamaño del conjunto, que es lo que este doble
+            // hacia antes del #22 y de lo que dependen los tests de la baja: alli no interesa el
+            // numero sino que se pidiera el cierre.
+            return habia > 0 ? habia : nombres.size();
+        }
+
+        @Override
+        public synchronized List<SesionDelBff> listarLasDe(Set<String> nombres) {
+            return nombres.stream()
+                    .flatMap(nombre -> abiertas.getOrDefault(nombre, List.of()).stream())
+                    .distinct()
+                    .toList();
+        }
+
+        /** Deja una sesion abierta a nombre de ese principal. */
+        public synchronized void conSesionAbierta(String nombre, SesionDelBff sesion) {
+            abiertas.computeIfAbsent(nombre, cualquiera -> new ArrayList<>()).add(sesion);
         }
 
         /** Los conjuntos de nombres con los que se pidio cerrar, en orden. */
@@ -115,6 +157,7 @@ public class DoblesDeAcceso {
         /** Por lo mismo que en el otro doble: el bean es del contexto y el contexto se comparte. */
         public synchronized void reiniciar() {
             cerradas.clear();
+            abiertas.clear();
         }
     }
 }

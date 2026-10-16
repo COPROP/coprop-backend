@@ -58,7 +58,10 @@ class MembershipController {
     // condominio puede conceder cualquiera --incluidos los administrativos, decision explicita de
     // Seguridad 10.1-- y el superadministrador solo los administrativos, que es como pone al primer
     // administrador de un condominio recien creado.
-    @PreAuthorize("@autorizacion.puedeConceder(authentication, #nueva.roles())")
+    // El segundo factor solo si entre los roles hay alguno administrativo (#22): lo sensible de
+    // Seguridad 7.3 es nombrar a un administrador, no dar de alta a un propietario.
+    @PreAuthorize("@autorizacion.puedeConceder(authentication, #nueva.roles())"
+            + " and @reautenticacion.siHayRolAdministrativo(authentication, #nueva.roles())")
     @PostMapping
     ResponseEntity<MembershipView> alta(
             @PathVariable UUID condominiumId, @Valid @RequestBody NuevaMembresia nueva, Principal quien) {
@@ -156,9 +159,17 @@ class MembershipController {
      * de una membresia son un solo valor. Asi la peticion es idempotente y la bitacora guarda las
      * dos mitades, que es lo que se pregunta despues. El motivo es obligatorio, por lo mismo que en
      * la baja.
+     *
+     * <p><strong>Pide segundo factor reciente</strong> desde el issue #22: Seguridad 7.3 nombra
+     * "asignar roles administrativos" entre las operaciones sensibles, y esta es la operacion que
+     * los mueve. Lo pide <strong>siempre</strong>, no solo cuando hay un rol administrativo en el
+     * cuerpo, porque el cuerpo trae los roles que quedan y no los que se van: quitarle
+     * {@code CONDO_ADMIN} a alguien se escribe mandando un cuerpo sin el, y es tan sensible como
+     * ponerselo.
      */
     @PreAuthorize("@autorizacion.puedeCambiar(authentication, #condominiumId, #membershipId)"
-            + " and @autorizacion.puedeConceder(authentication, #nuevos.roles())")
+            + " and @autorizacion.puedeConceder(authentication, #nuevos.roles())"
+            + " and @reautenticacion.reciente(authentication)")
     @PutMapping("/{membershipId}/roles")
     MembershipView cambiarRoles(
             @PathVariable UUID condominiumId,
