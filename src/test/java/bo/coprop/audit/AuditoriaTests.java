@@ -152,6 +152,27 @@ class AuditoriaTests {
     // --- Que las acciones lleguen -----------------------------------------------------------
 
     @Test
+    @DisplayName("el alta de un condominio queda en la bitacora, con su nombre")
+    void elAltaDelCondominioQueda() {
+        // Es el primer criterio del issue #9 --"un condominio se puede crear con su configuracion
+        // minima y queda auditado"-- y estuvo sin cumplirse hasta el 16-oct-2026. El evento se
+        // publicaba desde el principio, pero no implementaba EventoAuditable: nadie lo escuchaba,
+        // asi que el alta no se registraba. No fallaba nada, simplemente no estaba, que es la
+        // forma del riesgo que tiene esa interfaz de nacimiento. De ahi este caso.
+        AuditEntryView fila = laFilaDe("CONDOMINIO_REGISTRADO");
+
+        assertThat(fila.actor()).isEqualTo("admin");
+        assertThat(fila.entidad()).isEqualTo("condominio");
+        // La unica accion cuyo condominio y cuya entidad son la misma cosa.
+        assertThat(fila.condominio()).isEqualTo(condominio);
+        assertThat(fila.entidadId()).isEqualTo(condominio);
+        // Nulo y no vacio: no habia nada antes del alta.
+        assertThat(fila.antes()).isNull();
+        assertThat(fila.despues())
+                .hasEntrySatisfying("name", nombre -> assertThat(nombre).startsWith("Auditoria "));
+    }
+
+    @Test
     @DisplayName("conceder una membresia queda en la bitacora, con sus roles")
     void laMembresiaQueda() {
         UUID invitada = cuentaNueva().id();
@@ -466,11 +487,16 @@ class AuditoriaTests {
                 .extracting(AuditEntryView::accion)
                 .containsExactly("CONFIGURACION_CAMBIADA");
 
-        // Y hasta el corte solo la primera. Hasta es exclusivo, asi que dos rangos contiguos no
-        // devuelven la misma fila dos veces.
+        // Y hasta el corte, la primera y el alta del condominio, que paso antes que todo. Hasta es
+        // exclusivo, asi que dos rangos contiguos no devuelven la misma fila dos veces.
+        //
+        // Sin orden a proposito: el reloj de prueba esta parado, asi que el alta del @BeforeEach y
+        // esta membresia comparten el mismo instante y cual sale primero no lo decide nada que
+        // este test quiera afirmar. Donde el orden SI importa --la paginacion-- el reloj se
+        // adelanta entre accion y accion para que haya un orden de verdad que comprobar.
         assertThat(filtrando(null, null, null, corte))
                 .extracting(AuditEntryView::accion)
-                .containsExactly("MEMBRESIA_CONCEDIDA");
+                .containsExactlyInAnyOrder("MEMBRESIA_CONCEDIDA", "CONDOMINIO_REGISTRADO");
 
         // Los filtros se combinan: este actor no toco ninguna membresia.
         assertThat(filtrando(otraActora.toString(), "membresia", null, null)).isEmpty();
@@ -492,11 +518,12 @@ class AuditoriaTests {
             reloj.adelantar(Duration.ofMinutes(1));
             condominios.changeConfig(condominio, 5 + i, 15 + i, administradora.toString());
         }
-        assertThat(delCondominio()).hasSize(3);
+        // Cuatro y no tres: el alta del condominio tambien esta, escrita por el @BeforeEach.
+        assertThat(delCondominio()).hasSize(4);
 
         Pagina<AuditEntryView> primera = bitacora.ofCondominium(condominio, null, null, null, null, 0, 2);
         assertThat(primera.contenido()).hasSize(2);
-        assertThat(primera.total()).isEqualTo(3);
+        assertThat(primera.total()).isEqualTo(4);
         assertThat(primera.totalPaginas()).isEqualTo(2);
         assertThat(primera.pagina()).isZero();
 
@@ -505,8 +532,10 @@ class AuditoriaTests {
         assertThat(primera.contenido().get(1).despues()).containsEntry("issueDay", "6");
 
         Pagina<AuditEntryView> segunda = bitacora.ofCondominium(condominio, null, null, null, null, 1, 2);
-        assertThat(segunda.contenido()).hasSize(1);
+        assertThat(segunda.contenido()).hasSize(2);
         assertThat(segunda.contenido().get(0).despues()).containsEntry("issueDay", "5");
+        // Y al final de todo, el alta: es lo primero que le paso a este condominio.
+        assertThat(segunda.contenido().get(1).accion()).isEqualTo("CONDOMINIO_REGISTRADO");
     }
 
     // --- La retencion del año ----------------------------------------------------------------
