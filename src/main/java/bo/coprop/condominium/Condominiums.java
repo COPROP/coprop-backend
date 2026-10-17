@@ -15,8 +15,9 @@ public interface Condominiums {
     /**
      * Da de alta un condominio con su configuracion minima.
      *
-     * <p>Publica {@link CondominiumRegistered}, que es lo que hara que el alta quede en la
-     * bitacora cuando llegue el issue #21.
+     * <p>Publica {@link CondominiumRegistered}, que implementa {@code EventoAuditable} y por eso
+     * deja el alta en la bitacora. Lo hace desde el 16-oct-2026: el evento existia desde el primer
+     * dia pero no implementaba la interfaz, asi que nadie lo escuchaba y el alta no se registraba.
      *
      * @param nuevo los datos del alta, ya validados
      * @param actor quien lo da de alta, para la bitacora
