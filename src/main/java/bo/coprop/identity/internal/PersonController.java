@@ -55,7 +55,7 @@ class PersonController {
     // La persona es global, asi que la ruta no cuelga de un condominio y no hay autoridades de
     // condominio que mirar. Basta con administrar alguno: quien da de alta a una persona lo hace
     // para su edificio.
-    @PreAuthorize("@autorizacion.puedeEnAlgunCondominio(authentication, 'GESTIONAR_UNIDADES')")
+    @PreAuthorize("@autorizacion.puedeEnAlgunCondominio(authentication, 'MANAGE_UNITS')")
     @PostMapping
     ResponseEntity<PersonView> alta(@Valid @RequestBody NewPerson nueva, Principal quien) {
         PersonView persona = personas.register(nueva, quien.getName());
@@ -76,7 +76,7 @@ class PersonController {
     }
 
     /** Abre la cuenta con la que la persona entrara. El envio de la invitacion es el issue #18. */
-    @PreAuthorize("@autorizacion.puedeEnAlgunCondominio(authentication, 'GESTIONAR_UNIDADES')")
+    @PreAuthorize("@autorizacion.puedeEnAlgunCondominio(authentication, 'MANAGE_UNITS')")
     @PostMapping("/{personId}/cuenta")
     ResponseEntity<AccountView> abrirCuenta(
             @PathVariable UUID personId, @Valid @RequestBody AperturaDeCuenta apertura, Principal quien) {

@@ -45,14 +45,14 @@ class UnitControllerTests {
         lasPalmas = condominios
                 .register(
                         new NewCondominium(
-                                "Las Palmas", "1234567890", CondominiumType.EDIFICIO, "America/La_Paz", 1, 15),
+                                "Las Palmas", "1234567890", CondominiumType.BUILDING, "America/La_Paz", 1, 15),
                         "emma")
                 .id();
     }
 
     private String unidad(String code) {
         return """
-                {"code":"%s","type":"DEPARTAMENTO","aliquot":"1.25","areaM2":"82.50"}
+                {"code":"%s","type":"APARTMENT","aliquot":"1.25","areaM2":"82.50"}
                 """
                 .formatted(code);
     }
@@ -66,7 +66,7 @@ class UnitControllerTests {
                         .content(unidad("302")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.code").value("302"))
-                .andExpect(jsonPath("$.status").value("ACTIVA"));
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
     }
 
     @Test
@@ -75,9 +75,9 @@ class UnitControllerTests {
         String lote =
                 """
                 {"unidades":[
-                  {"code":"301","type":"DEPARTAMENTO","aliquot":"1.25"},
-                  {"code":"302","type":"DEPARTAMENTO","aliquot":"1.25"},
-                  {"code":"P-01","type":"PARQUEO","aliquot":"0.1"}
+                  {"code":"301","type":"APARTMENT","aliquot":"1.25"},
+                  {"code":"302","type":"APARTMENT","aliquot":"1.25"},
+                  {"code":"P-01","type":"PARKING","aliquot":"0.1"}
                 ]}
                 """;
 
@@ -87,7 +87,7 @@ class UnitControllerTests {
                         .content(lote))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.length()").value(3))
-                .andExpect(jsonPath("$[2].type").value("PARQUEO"));
+                .andExpect(jsonPath("$[2].type").value("PARKING"));
     }
 
     @Test
@@ -109,9 +109,8 @@ class UnitControllerTests {
     @Test
     @DisplayName("una alicuota por encima de 100 la para la validacion, no la base")
     void laAlicuotaFueraDeRangoDa422() throws Exception {
-        String imposible =
-                """
-                {"code":"302","type":"DEPARTAMENTO","aliquot":"150.0"}
+        String imposible = """
+                {"code":"302","type":"APARTMENT","aliquot":"150.0"}
                 """;
 
         mockMvc.perform(post("/api/v1/condominios/{id}/unidades", lasPalmas)
@@ -149,7 +148,7 @@ class UnitControllerTests {
     void laUnidadAjenaDa404() throws Exception {
         UUID villaSol = condominios
                 .register(
-                        new NewCondominium("Villa Sol", "9999999999", CondominiumType.CASAS, "America/La_Paz", 1, 15),
+                        new NewCondominium("Villa Sol", "9999999999", CondominiumType.HOUSES, "America/La_Paz", 1, 15),
                         "emma")
                 .id();
         UnitView ajena = unidades.register(villaSol, nueva("302"), "emma");
@@ -161,6 +160,6 @@ class UnitControllerTests {
     }
 
     private static NewUnit nueva(String code) {
-        return new NewUnit(code, UnitType.DEPARTAMENTO, new BigDecimal("1.25"), null, null, null);
+        return new NewUnit(code, UnitType.APARTMENT, new BigDecimal("1.25"), null, null, null);
     }
 }

@@ -38,12 +38,12 @@ public record OwnershipTransferred(
         implements EventoAuditable {
 
     @Override
-    public String accion() {
-        return "TITULARIDAD_TRANSFERIDA";
+    public String action() {
+        return "OWNERSHIP_TRANSFERRED";
     }
 
     @Override
-    public String entidad() {
+    public String entity() {
         return "titularidad";
     }
 
@@ -55,17 +55,17 @@ public record OwnershipTransferred(
      * sigue en la bitacora es la historia de <em>esta unidad</em>.
      */
     @Override
-    public UUID entidadId() {
+    public UUID entityId() {
         return unitId;
     }
 
     @Override
-    public Map<String, String> antes() {
+    public Map<String, String> oldValues() {
         return Map.of("personId", fromPersonId.toString(), "share", share.toPlainString());
     }
 
     @Override
-    public Map<String, String> despues() {
+    public Map<String, String> newValues() {
         return Map.of(
                 "personId",
                 toPersonId.toString(),

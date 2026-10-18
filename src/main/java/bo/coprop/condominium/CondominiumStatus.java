@@ -8,7 +8,7 @@ package bo.coprop.condominium;
  */
 public enum CondominiumStatus {
     /** Operativo: se emiten obligaciones y se aceptan pagos. */
-    ACTIVO,
+    ACTIVE,
     /** Sigue consultable, pero no se emite ni se cobra. */
-    SUSPENDIDO
+    SUSPENDED
 }

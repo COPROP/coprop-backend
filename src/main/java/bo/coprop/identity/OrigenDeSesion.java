@@ -14,7 +14,7 @@ public enum OrigenDeSesion {
      * <p>Vive en la tabla de la V6 y la gobierna esta aplicacion, asi que es la unica de la que se
      * sabe cuando caduca.
      */
-    NAVEGADOR,
+    BROWSER,
 
     /**
      * La sesion en el proveedor de identidad.
@@ -22,5 +22,5 @@ public enum OrigenDeSesion {
      * <p>Es la que hace que volver a entrar por la web no vuelva a pedir contraseña, y la que
      * sostiene el refresh token de la app movil. Sus tiempos los fija el realm.
      */
-    PROVEEDOR
+    PROVIDER
 }

@@ -68,7 +68,7 @@ class PermisosDeApiTests {
                         new NewCondominium(
                                 "Torre " + UUID.randomUUID(),
                                 nitNuevo(),
-                                CondominiumType.EDIFICIO,
+                                CondominiumType.BUILDING,
                                 "America/La_Paz",
                                 5,
                                 10),
@@ -107,7 +107,7 @@ class PermisosDeApiTests {
         return "Bearer " + ProveedorDeTokensDePrueba.valido(ProveedorDeTokensDePrueba.sujetoNuevo(), cuenta.email());
     }
 
-    private static final String UNIDAD = "{\"code\":\"A-1\",\"type\":\"DEPARTAMENTO\",\"aliquot\":\"1.000000\"}";
+    private static final String UNIDAD = "{\"code\":\"A-1\",\"type\":\"APARTMENT\",\"aliquot\":\"1.000000\"}";
 
     private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder peticion(
             HttpMethod metodo, String ruta, String autorizacion, String cuerpo) {
@@ -188,7 +188,7 @@ class PermisosDeApiTests {
     void crearCondominiosEsDelSuperadministrador() throws Exception {
         UUID condominio = condominioNuevo();
         String alta = "{\"name\":\"Torre nueva\",\"nit\":\"" + nitNuevo()
-                + "\",\"type\":\"EDIFICIO\",\"timeZone\":\"America/La_Paz\",\"issueDay\":5,\"dueDay\":10}";
+                + "\",\"type\":\"BUILDING\",\"timeZone\":\"America/La_Paz\",\"issueDay\":5,\"dueDay\":10}";
 
         mockMvc.perform(peticion(
                         HttpMethod.POST, "/api/v1/condominios", tokenDe(condominio, MembershipRole.CONDO_ADMIN), alta))
@@ -292,7 +292,7 @@ class PermisosDeApiTests {
                                 "/api/v1/condominios",
                                 token,
                                 "{\"name\":\"Otra torre\",\"nit\":\"" + nitNuevo()
-                                        + "\",\"type\":\"EDIFICIO\",\"timeZone\":\"America/La_Paz\",\"issueDay\":5,\"dueDay\":10}"))
+                                        + "\",\"type\":\"BUILDING\",\"timeZone\":\"America/La_Paz\",\"issueDay\":5,\"dueDay\":10}"))
                 .andExpect(status().isCreated());
     }
 

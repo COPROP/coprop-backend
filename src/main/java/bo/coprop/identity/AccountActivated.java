@@ -7,7 +7,7 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Alguien entro por primera vez con una cuenta: queda vinculada al proveedor de identidad y pasa
- * de {@link AccountStatus#INVITADO} a {@link AccountStatus#ACTIVO}.
+ * de {@link AccountStatus#INVITED} a {@link AccountStatus#ACTIVE}.
  *
  * <p>Ocurre una sola vez por cuenta. Los accesos siguientes no publican nada: lo que interesa de
  * ellos es la fecha del ultimo, que se guarda en la propia cuenta, no un evento por request.
@@ -18,8 +18,8 @@ public record AccountActivated(UUID accountId, UUID personId, String idpSubject,
         implements EventoAuditable {
 
     @Override
-    public String accion() {
-        return "CUENTA_ACTIVADA";
+    public String action() {
+        return "ACCOUNT_ACTIVATED";
     }
 
     /** Nulo: la cuenta es global (Seguridad 2) y activarla no pasa en ningun condominio. */
@@ -35,12 +35,12 @@ public record AccountActivated(UUID accountId, UUID personId, String idpSubject,
     }
 
     @Override
-    public String entidad() {
+    public String entity() {
         return "cuenta";
     }
 
     @Override
-    public UUID entidadId() {
+    public UUID entityId() {
         return accountId;
     }
 
@@ -52,7 +52,7 @@ public record AccountActivated(UUID accountId, UUID personId, String idpSubject,
      * quedo activa, que es el hecho.
      */
     @Override
-    public java.util.Map<String, String> despues() {
-        return java.util.Map.of("status", AccountStatus.ACTIVO.name());
+    public java.util.Map<String, String> newValues() {
+        return java.util.Map.of("status", AccountStatus.ACTIVE.name());
     }
 }

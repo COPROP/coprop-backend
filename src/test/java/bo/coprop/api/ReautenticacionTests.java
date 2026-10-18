@@ -394,7 +394,7 @@ class ReautenticacionTests {
                         new NewCondominium(
                                 "Sesiones " + UUID.randomUUID(),
                                 nitNuevo(),
-                                CondominiumType.EDIFICIO,
+                                CondominiumType.BUILDING,
                                 "America/La_Paz",
                                 5,
                                 10),

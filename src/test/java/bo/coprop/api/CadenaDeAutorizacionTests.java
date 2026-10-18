@@ -214,10 +214,10 @@ class CadenaDeAutorizacionTests {
         }
 
         // El propietario y el inquilino de la rejilla tienen relacion vigente con la unidad propia:
-        // sin eso, las celdas "Propias" darian 404 y la rejilla no distinguiria un PROPIO
-        // resuelto de un NINGUNO. Son dos de las tres relaciones; la tercera tiene su propio caso.
+        // sin eso, las celdas "Propias" darian 404 y la rejilla no distinguiria un OWN
+        // resuelto de un NONE. Son dos de las tres relaciones; la tercera tiene su propio caso.
         relaciones.grantOwnership(condominio, unidadPropia, persona(OWNER), new BigDecimal("50.000000"), "admin");
-        relaciones.grantOccupancy(condominio, unidadPropia, persona(TENANT), OccupancyRole.INQUILINO, "admin");
+        relaciones.grantOccupancy(condominio, unidadPropia, persona(TENANT), OccupancyRole.TENANT, "admin");
 
         // La membresia que se pide por identificador en la rejilla, de alguien que no es ninguno de
         // los siete: pedir la propia es otra pregunta y la contesta GET /me.
@@ -282,7 +282,7 @@ class CadenaDeAutorizacionTests {
         responsableDeLaAjena =
                 personas.register(new NewPerson("Paga", "Ajena", null), "admin").id();
         relaciones.grantOwnership(condominio, unidadAjena, vendedorDeLaAjena, new BigDecimal("100.000000"), "admin");
-        relaciones.grantOccupancy(condominio, unidadAjena, ocupanteDeLaAjena, OccupancyRole.INQUILINO, "admin");
+        relaciones.grantOccupancy(condominio, unidadAjena, ocupanteDeLaAjena, OccupancyRole.TENANT, "admin");
         relaciones.assignBilling(condominio, unidadAjena, responsableDeLaAjena, null, "admin");
     }
 
@@ -292,7 +292,7 @@ class CadenaDeAutorizacionTests {
                         new NewCondominium(
                                 "Cadena " + UUID.randomUUID(),
                                 nitNuevo(),
-                                CondominiumType.EDIFICIO,
+                                CondominiumType.BUILDING,
                                 "America/La_Paz",
                                 5,
                                 10),
@@ -308,7 +308,7 @@ class CadenaDeAutorizacionTests {
     private UUID altaDeUnidad(String codigo) {
         return unidades.register(
                         condominio,
-                        new NewUnit(codigo, UnitType.DEPARTAMENTO, new BigDecimal("1.000000"), null, null, null),
+                        new NewUnit(codigo, UnitType.APARTMENT, new BigDecimal("1.000000"), null, null, null),
                         "admin")
                 .id();
     }
@@ -431,7 +431,7 @@ class CadenaDeAutorizacionTests {
                         "registrar un ocupante",
                         HttpMethod.POST,
                         laUnidad + "/ocupantes",
-                        "{\"personId\":\"" + personaSuelta + "\",\"role\":\"INQUILINO\"}",
+                        "{\"personId\":\"" + personaSuelta + "\",\"role\":\"TENANT\"}",
                         soloPara(CONDO_ADMIN)),
                 new Endpoint(
                         "registrar un responsable de pago",
@@ -521,7 +521,7 @@ class CadenaDeAutorizacionTests {
                         "{\"accountId\":\"" + cuentaSuelta + "\",\"roles\":[\"OWNER\"]}",
                         soloPara(CONDO_ADMIN)),
 
-                // La bitacora (issue #21). La matriz da CONSULTAR_AUDITORIA a los dos
+                // La bitacora (issue #21). La matriz da VIEW_AUDIT_LOG a los dos
                 // administradores del condominio y al superadministrador --que no opera, pero audita
                 // (Seguridad 10.1)--, y a nadie mas: dice que hizo cada vecino.
                 new Endpoint(
@@ -576,7 +576,7 @@ class CadenaDeAutorizacionTests {
                                 MAINTENANCE, NO_ENCONTRADO,
                                 BOARD, NO_ENCONTRADO))),
 
-                // Los propietarios de una unidad van por VER_ESTADO_DE_CUENTA, que la matriz da
+                // Los propietarios de una unidad van por VIEW_ACCOUNT_STATEMENT, que la matriz da
                 // entera a los dos administradores y "Propias" al propietario y al inquilino. Aqui
                 // se ven las tres salidas de la cadena en una sola fila.
                 new Endpoint(
@@ -654,7 +654,7 @@ class CadenaDeAutorizacionTests {
                         soloPara(PLATFORM_ADMIN)),
 
                 // Y los cierres de relacion del mismo issue, que son administracion de unidades como
-                // sus altas. El historico de propietarios va por ahi y no por VER_ESTADO_DE_CUENTA
+                // sus altas. El historico de propietarios va por ahi y no por VIEW_ACCOUNT_STATEMENT
                 // como el listado de hoy: Seguridad 6.2 deja el comprobante de la epoca del vendedor
                 // en manos del administrador.
                 new Endpoint(
@@ -718,12 +718,12 @@ class CadenaDeAutorizacionTests {
 
     private static String unidadConCodigo() {
         String sufijo = UUID.randomUUID().toString().substring(0, 8);
-        return "{\"code\":\"R-" + sufijo + "\",\"type\":\"DEPARTAMENTO\",\"aliquot\":\"1.000000\"}";
+        return "{\"code\":\"R-" + sufijo + "\",\"type\":\"APARTMENT\",\"aliquot\":\"1.000000\"}";
     }
 
     private static String altaDeCondominioJson() {
         return "{\"name\":\"Torre " + UUID.randomUUID() + "\",\"nit\":\"" + nitNuevo()
-                + "\",\"type\":\"EDIFICIO\",\"timeZone\":\"America/La_Paz\",\"issueDay\":5,\"dueDay\":10}";
+                + "\",\"type\":\"BUILDING\",\"timeZone\":\"America/La_Paz\",\"issueDay\":5,\"dueDay\":10}";
     }
 
     private static Map<MembershipRole, Resultado> todos() {
@@ -920,7 +920,7 @@ class CadenaDeAutorizacionTests {
 
         UUID unidadDelOtro = unidades.register(
                         otro,
-                        new NewUnit("OTRO-1", UnitType.DEPARTAMENTO, new BigDecimal("1.000000"), null, null, null),
+                        new NewUnit("OTRO-1", UnitType.APARTMENT, new BigDecimal("1.000000"), null, null, null),
                         "admin")
                 .id();
         String token =

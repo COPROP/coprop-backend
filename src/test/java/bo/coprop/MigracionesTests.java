@@ -45,10 +45,10 @@ class MigracionesTests {
 
     @Test
     void volverACorrerLasMigracionesNoCambiaNada() {
-        var antes = flyway.info().applied().length;
+        var oldValues = flyway.info().applied().length;
 
         flyway.migrate();
 
-        assertThat(flyway.info().applied()).hasSize(antes);
+        assertThat(flyway.info().applied()).hasSize(oldValues);
     }
 }

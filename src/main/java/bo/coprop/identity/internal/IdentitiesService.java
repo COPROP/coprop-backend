@@ -202,7 +202,7 @@ class IdentitiesService implements Identities {
         for (var sesion : sesionesDelBff.listarLasDe(nombresDe(cuenta))) {
             todas.add(new SesionActivaView(
                     sesion.id(),
-                    OrigenDeSesion.NAVEGADOR,
+                    OrigenDeSesion.BROWSER,
                     null,
                     sesion.creada(),
                     sesion.ultimoAcceso(),
@@ -212,7 +212,7 @@ class IdentitiesService implements Identities {
             for (var sesion : proveedor.sesionesDe(cuenta.getEmail())) {
                 todas.add(new SesionActivaView(
                         sesion.id(),
-                        OrigenDeSesion.PROVEEDOR,
+                        OrigenDeSesion.PROVIDER,
                         sesion.ip(),
                         sesion.creada(),
                         sesion.ultimoAcceso(),

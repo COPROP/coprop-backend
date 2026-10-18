@@ -69,7 +69,7 @@ class CondominiumsService implements Condominiums {
         //
         // Se exige que exista: todo condominio nace con una y nunca se cierra sin abrir la
         // siguiente, asi que no haberla es un estado roto, no un caso que tolerar. Ademas es de
-        // donde salen los valores de "antes" del evento.
+        // donde salen los valores de antes del evento.
         CondominiumConfig vigente = configuracionVigenteDe(condominiumId);
         vigente.close(ahora);
 

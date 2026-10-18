@@ -1,30 +1,30 @@
 package bo.coprop.identity;
 
-import static bo.coprop.identity.Alcance.PROPIO;
-import static bo.coprop.identity.Alcance.TODO;
-import static bo.coprop.identity.Permiso.ACCEDER_PARA_SOPORTE;
-import static bo.coprop.identity.Permiso.ANULAR_OBLIGACION;
-import static bo.coprop.identity.Permiso.CONCILIAR;
-import static bo.coprop.identity.Permiso.CONFIGURAR_COBROS;
-import static bo.coprop.identity.Permiso.CONFIGURAR_PROVEEDOR_DE_PAGOS;
-import static bo.coprop.identity.Permiso.CONSULTAR_AUDITORIA;
-import static bo.coprop.identity.Permiso.CREAR_CONDOMINIOS;
-import static bo.coprop.identity.Permiso.DEVOLVER_SALDO_A_FAVOR;
-import static bo.coprop.identity.Permiso.EMITIR_EXPENSAS;
-import static bo.coprop.identity.Permiso.GENERAR_QR;
-import static bo.coprop.identity.Permiso.GESTIONAR_AREAS_COMUNES;
-import static bo.coprop.identity.Permiso.GESTIONAR_UNIDADES;
-import static bo.coprop.identity.Permiso.INVITAR_SOLO_ADMINISTRADORES;
-import static bo.coprop.identity.Permiso.INVITAR_USUARIOS;
-import static bo.coprop.identity.Permiso.OPERAR_AREAS_COMUNES;
-import static bo.coprop.identity.Permiso.REGISTRAR_LECTURAS;
-import static bo.coprop.identity.Permiso.RESERVAR;
-import static bo.coprop.identity.Permiso.SUBIR_COMPROBANTE;
-import static bo.coprop.identity.Permiso.VALIDAR_PAGO_MANUAL;
-import static bo.coprop.identity.Permiso.VER_ESTADO_DE_CUENTA;
-import static bo.coprop.identity.Permiso.VER_MOROSIDAD_POR_UNIDAD;
-import static bo.coprop.identity.Permiso.VER_REPORTES;
-import static bo.coprop.identity.Permiso.VER_SALDOS_A_FAVOR;
+import static bo.coprop.identity.Alcance.ALL;
+import static bo.coprop.identity.Alcance.OWN;
+import static bo.coprop.identity.Permiso.ACCESS_FOR_SUPPORT;
+import static bo.coprop.identity.Permiso.CANCEL_OBLIGATION;
+import static bo.coprop.identity.Permiso.CONFIGURE_CHARGES;
+import static bo.coprop.identity.Permiso.CONFIGURE_PAYMENT_PROVIDER;
+import static bo.coprop.identity.Permiso.CREATE_CONDOMINIUMS;
+import static bo.coprop.identity.Permiso.GENERATE_QR;
+import static bo.coprop.identity.Permiso.INVITE_ADMINS_ONLY;
+import static bo.coprop.identity.Permiso.INVITE_USERS;
+import static bo.coprop.identity.Permiso.ISSUE_DUES;
+import static bo.coprop.identity.Permiso.MANAGE_AMENITIES;
+import static bo.coprop.identity.Permiso.MANAGE_UNITS;
+import static bo.coprop.identity.Permiso.OPERATE_AMENITIES;
+import static bo.coprop.identity.Permiso.RECONCILE;
+import static bo.coprop.identity.Permiso.RECORD_METER_READINGS;
+import static bo.coprop.identity.Permiso.REFUND_CREDIT_BALANCE;
+import static bo.coprop.identity.Permiso.RESERVE;
+import static bo.coprop.identity.Permiso.UPLOAD_RECEIPT;
+import static bo.coprop.identity.Permiso.VALIDATE_MANUAL_PAYMENT;
+import static bo.coprop.identity.Permiso.VIEW_ACCOUNT_STATEMENT;
+import static bo.coprop.identity.Permiso.VIEW_AUDIT_LOG;
+import static bo.coprop.identity.Permiso.VIEW_CREDIT_BALANCES;
+import static bo.coprop.identity.Permiso.VIEW_DELINQUENCY_BY_UNIT;
+import static bo.coprop.identity.Permiso.VIEW_REPORTS;
 
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -49,7 +49,7 @@ import java.util.Set;
  * por fila hoy. Lo que llega con cada funcionalidad es la anotacion que exige el permiso.
  *
  * <p><strong>Lo que esta matriz no decide</strong>: si <em>este</em> recurso es tuyo. Eso es
- * {@link Alcance#PROPIO}, y lo resuelve {@code ControlDeAcceso} en el modulo {@code api} (issue
+ * {@link Alcance#OWN}, y lo resuelve {@code ControlDeAcceso} en el modulo {@code api} (issue
  * #15), que es el unico sitio donde se ven a la vez la matriz y las relaciones de la unidad. Y si
  * hizo falta segundo factor hace poco, que es {@link #pideSegundoFactor} y lo hara cumplir el #22.
  */
@@ -65,18 +65,18 @@ public final class MatrizDePermisos {
      * Quien las haga con una sesion abierta y ajena hace dano de verdad.
      */
     private static final Set<Permiso> CON_SEGUNDO_FACTOR =
-            EnumSet.of(CONFIGURAR_PROVEEDOR_DE_PAGOS, ANULAR_OBLIGACION, DEVOLVER_SALDO_A_FAVOR);
+            EnumSet.of(CONFIGURE_PAYMENT_PROVIDER, CANCEL_OBLIGATION, REFUND_CREDIT_BALANCE);
 
     private MatrizDePermisos() {}
 
-    /** Hasta donde llega ese rol para ese permiso. Nunca nulo: lo que no se declara es NINGUNO. */
+    /** Hasta donde llega ese rol para ese permiso. Nunca nulo: lo que no se declara es NONE. */
     public static Alcance alcanceDe(MembershipRole rol, Permiso permiso) {
-        return MATRIZ.getOrDefault(rol, Map.of()).getOrDefault(permiso, Alcance.NINGUNO);
+        return MATRIZ.getOrDefault(rol, Map.of()).getOrDefault(permiso, Alcance.NONE);
     }
 
     /** El alcance mayor que dan los roles de una membresia, que puede tener varios. */
     public static Alcance alcanceDe(Set<MembershipRole> roles, Permiso permiso) {
-        Alcance mayor = Alcance.NINGUNO;
+        Alcance mayor = Alcance.NONE;
         for (MembershipRole rol : roles) {
             Alcance suyo = alcanceDe(rol, permiso);
             if (suyo.compareTo(mayor) > 0) {
@@ -109,43 +109,43 @@ public final class MatrizDePermisos {
         matriz.put(
                 MembershipRole.PLATFORM_ADMIN,
                 Map.of(
-                        CREAR_CONDOMINIOS, TODO,
-                        INVITAR_SOLO_ADMINISTRADORES, TODO,
-                        CONFIGURAR_PROVEEDOR_DE_PAGOS, TODO,
-                        CONSULTAR_AUDITORIA, TODO,
-                        ACCEDER_PARA_SOPORTE, TODO));
+                        CREATE_CONDOMINIUMS, ALL,
+                        INVITE_ADMINS_ONLY, ALL,
+                        CONFIGURE_PAYMENT_PROVIDER, ALL,
+                        VIEW_AUDIT_LOG, ALL,
+                        ACCESS_FOR_SUPPORT, ALL));
 
         // Administra personas, unidades y areas comunes. NO maneja dinero: es la separacion de
         // funciones de Seguridad 3. Si ve reportes y saldos, que es mirar, no mover.
         var administracion = new EnumMap<Permiso, Alcance>(Permiso.class);
-        administracion.put(GESTIONAR_UNIDADES, TODO);
-        administracion.put(INVITAR_USUARIOS, TODO);
-        administracion.put(REGISTRAR_LECTURAS, TODO);
-        administracion.put(GESTIONAR_AREAS_COMUNES, TODO);
-        administracion.put(OPERAR_AREAS_COMUNES, TODO);
-        administracion.put(RESERVAR, TODO);
-        administracion.put(VER_ESTADO_DE_CUENTA, TODO);
-        administracion.put(VER_SALDOS_A_FAVOR, TODO);
-        administracion.put(VER_REPORTES, TODO);
-        administracion.put(VER_MOROSIDAD_POR_UNIDAD, TODO);
-        administracion.put(CONSULTAR_AUDITORIA, TODO);
+        administracion.put(MANAGE_UNITS, ALL);
+        administracion.put(INVITE_USERS, ALL);
+        administracion.put(RECORD_METER_READINGS, ALL);
+        administracion.put(MANAGE_AMENITIES, ALL);
+        administracion.put(OPERATE_AMENITIES, ALL);
+        administracion.put(RESERVE, ALL);
+        administracion.put(VIEW_ACCOUNT_STATEMENT, ALL);
+        administracion.put(VIEW_CREDIT_BALANCES, ALL);
+        administracion.put(VIEW_REPORTS, ALL);
+        administracion.put(VIEW_DELINQUENCY_BY_UNIT, ALL);
+        administracion.put(VIEW_AUDIT_LOG, ALL);
         matriz.put(MembershipRole.CONDO_ADMIN, administracion);
 
         // Maneja el dinero y NO puede asignarse roles, que es la otra mitad de la separacion de
         // funciones: si pudiera, se daria CONDO_ADMIN y la separacion no existiria.
         var finanzas = new EnumMap<Permiso, Alcance>(Permiso.class);
-        finanzas.put(CONFIGURAR_PROVEEDOR_DE_PAGOS, TODO);
-        finanzas.put(CONFIGURAR_COBROS, TODO);
-        finanzas.put(EMITIR_EXPENSAS, TODO);
-        finanzas.put(ANULAR_OBLIGACION, TODO);
-        finanzas.put(VALIDAR_PAGO_MANUAL, TODO);
-        finanzas.put(CONCILIAR, TODO);
-        finanzas.put(DEVOLVER_SALDO_A_FAVOR, TODO);
-        finanzas.put(VER_ESTADO_DE_CUENTA, TODO);
-        finanzas.put(VER_SALDOS_A_FAVOR, TODO);
-        finanzas.put(VER_REPORTES, TODO);
-        finanzas.put(VER_MOROSIDAD_POR_UNIDAD, TODO);
-        finanzas.put(CONSULTAR_AUDITORIA, TODO);
+        finanzas.put(CONFIGURE_PAYMENT_PROVIDER, ALL);
+        finanzas.put(CONFIGURE_CHARGES, ALL);
+        finanzas.put(ISSUE_DUES, ALL);
+        finanzas.put(CANCEL_OBLIGATION, ALL);
+        finanzas.put(VALIDATE_MANUAL_PAYMENT, ALL);
+        finanzas.put(RECONCILE, ALL);
+        finanzas.put(REFUND_CREDIT_BALANCE, ALL);
+        finanzas.put(VIEW_ACCOUNT_STATEMENT, ALL);
+        finanzas.put(VIEW_CREDIT_BALANCES, ALL);
+        finanzas.put(VIEW_REPORTS, ALL);
+        finanzas.put(VIEW_DELINQUENCY_BY_UNIT, ALL);
+        finanzas.put(VIEW_AUDIT_LOG, ALL);
         matriz.put(MembershipRole.FINANCE_ADMIN, finanzas);
 
         // El propietario y el inquilino ven y hacen lo SUYO. La diferencia entre ellos no esta en
@@ -153,21 +153,21 @@ public final class MatrizDePermisos {
         // identicas. Quien las separa es ControlDeAcceso, que pregunta por las tres relaciones
         // --titularidad, ocupacion y responsabilidad de pago-- y no solo por la titularidad.
         var propietario = Map.of(
-                VER_ESTADO_DE_CUENTA, PROPIO,
-                VER_SALDOS_A_FAVOR, PROPIO,
-                GENERAR_QR, PROPIO,
-                SUBIR_COMPROBANTE, PROPIO,
-                RESERVAR, PROPIO);
+                VIEW_ACCOUNT_STATEMENT, OWN,
+                VIEW_CREDIT_BALANCES, OWN,
+                GENERATE_QR, OWN,
+                UPLOAD_RECEIPT, OWN,
+                RESERVE, OWN);
         matriz.put(MembershipRole.OWNER, propietario);
         matriz.put(MembershipRole.TENANT, propietario);
 
         // Porteria: lecturas y el dia a dia de las areas comunes. No ve dinero.
-        matriz.put(MembershipRole.MAINTENANCE, Map.of(REGISTRAR_LECTURAS, TODO, OPERAR_AREAS_COMUNES, TODO));
+        matriz.put(MembershipRole.MAINTENANCE, Map.of(RECORD_METER_READINGS, ALL, OPERATE_AMENITIES, ALL));
 
         // La directiva mira y no toca, y lo que mira son MONTOS AGREGADOS. Que no tenga
-        // VER_MOROSIDAD_POR_UNIDAD es el criterio de aceptacion del issue #16, no un olvido: el
+        // VIEW_DELINQUENCY_BY_UNIT es el criterio de aceptacion del issue #16, no un olvido: el
         // detalle por unidad expone lo que debe un vecino a otro vecino.
-        matriz.put(MembershipRole.BOARD, Map.of(VER_REPORTES, TODO));
+        matriz.put(MembershipRole.BOARD, Map.of(VIEW_REPORTS, ALL));
 
         return matriz;
     }

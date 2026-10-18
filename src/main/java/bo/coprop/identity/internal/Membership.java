@@ -84,7 +84,7 @@ class Membership {
         this.id = UUID.randomUUID();
         this.condominiumId = condominiumId;
         this.accountId = accountId;
-        this.status = MembershipStatus.ACTIVA;
+        this.status = MembershipStatus.ACTIVE;
         // Copia defensiva y en EnumSet: el llamante puede seguir tocando su conjunto.
         this.roles = EnumSet.copyOf(roles);
         this.invitedBy = invitedBy;
@@ -112,12 +112,12 @@ class Membership {
      * devolverlos al reactivar.
      */
     void suspender() {
-        this.status = MembershipStatus.SUSPENDIDA;
+        this.status = MembershipStatus.SUSPENDED;
     }
 
     /** Levanta la suspension. Vuelve a dar acceso en la siguiente peticion. */
     void reactivar() {
-        this.status = MembershipStatus.ACTIVA;
+        this.status = MembershipStatus.ACTIVE;
     }
 
     /**

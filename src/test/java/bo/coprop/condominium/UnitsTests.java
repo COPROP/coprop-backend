@@ -38,7 +38,7 @@ class UnitsTests {
         lasPalmas = condominios
                 .register(
                         new NewCondominium(
-                                "Las Palmas", "1234567890", CondominiumType.EDIFICIO, "America/La_Paz", 1, 15),
+                                "Las Palmas", "1234567890", CondominiumType.BUILDING, "America/La_Paz", 1, 15),
                         "emma")
                 .id();
     }
@@ -46,14 +46,13 @@ class UnitsTests {
     private UUID villaSol() {
         return condominios
                 .register(
-                        new NewCondominium("Villa Sol", "9999999999", CondominiumType.CASAS, "America/La_Paz", 1, 15),
+                        new NewCondominium("Villa Sol", "9999999999", CondominiumType.HOUSES, "America/La_Paz", 1, 15),
                         "emma")
                 .id();
     }
 
     private static NewUnit unidad(String code) {
-        return new NewUnit(
-                code, UnitType.DEPARTAMENTO, new BigDecimal("1.250000"), new BigDecimal("82.50"), null, null);
+        return new NewUnit(code, UnitType.APARTMENT, new BigDecimal("1.250000"), new BigDecimal("82.50"), null, null);
     }
 
     @Test
@@ -64,7 +63,7 @@ class UnitsTests {
         assertThat(creada.id()).isNotNull();
         assertThat(creada.condominiumId()).isEqualTo(lasPalmas);
         assertThat(creada.code()).isEqualTo("302");
-        assertThat(creada.status()).isEqualTo(UnitStatus.ACTIVA);
+        assertThat(creada.status()).isEqualTo(UnitStatus.ACTIVE);
         assertThat(creada.aliquot()).isEqualByComparingTo("1.250000");
         assertThat(unidades.find(lasPalmas, creada.id())).isEqualTo(creada);
     }
@@ -178,7 +177,7 @@ class UnitsTests {
 
         UnitView creada = unidades.register(
                 lasPalmas,
-                new NewUnit("A-302", UnitType.DEPARTAMENTO, new BigDecimal("1.250000"), null, torre.id(), tercero.id()),
+                new NewUnit("A-302", UnitType.APARTMENT, new BigDecimal("1.250000"), null, torre.id(), tercero.id()),
                 "emma");
 
         assertThat(creada.blockId()).isEqualTo(torre.id());
@@ -192,7 +191,7 @@ class UnitsTests {
 
         assertThatThrownBy(() -> unidades.register(
                         lasPalmas,
-                        new NewUnit("302", UnitType.DEPARTAMENTO, new BigDecimal("1.0"), null, torreAjena.id(), null),
+                        new NewUnit("302", UnitType.APARTMENT, new BigDecimal("1.0"), null, torreAjena.id(), null),
                         "emma"))
                 .isInstanceOf(ReglaDeNegocioViolada.class)
                 .hasMessageContaining("no es de este condominio");
@@ -206,7 +205,7 @@ class UnitsTests {
 
         assertThatThrownBy(() -> unidades.register(
                         lasPalmas,
-                        new NewUnit("302", UnitType.DEPARTAMENTO, new BigDecimal("1.0"), null, null, tercero.id()),
+                        new NewUnit("302", UnitType.APARTMENT, new BigDecimal("1.0"), null, null, tercero.id()),
                         "emma"))
                 .isInstanceOf(ReglaDeNegocioViolada.class)
                 .hasMessageContaining("bloque");

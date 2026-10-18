@@ -65,7 +65,7 @@ CREATE TABLE user_account (
     -- El correo identifica la cuenta de cara al login y a las invitaciones del #18.
     CONSTRAINT user_account_email_uq UNIQUE (email),
     CONSTRAINT user_account_status_ck
-        CHECK (status IN ('INVITADO', 'ACTIVO', 'BLOQUEADO', 'DESACTIVADO')),
+        CHECK (status IN ('INVITED', 'ACTIVE', 'BLOCKED', 'DEACTIVATED')),
     CONSTRAINT user_account_email_ck CHECK (position('@' IN email) > 1)
 );
 
@@ -100,7 +100,7 @@ CREATE TABLE membership (
     CONSTRAINT membership_user_fk FOREIGN KEY (user_id) REFERENCES user_account (id),
     CONSTRAINT membership_condominium_fk FOREIGN KEY (condominium_id) REFERENCES condominium (id),
     CONSTRAINT membership_invited_by_fk FOREIGN KEY (invited_by) REFERENCES user_account (id),
-    CONSTRAINT membership_status_ck CHECK (status IN ('ACTIVA', 'SUSPENDIDA')),
+    CONSTRAINT membership_status_ck CHECK (status IN ('ACTIVE', 'SUSPENDED')),
     CONSTRAINT membership_vigencia_ck CHECK (valid_to IS NULL OR valid_to >= valid_from),
     -- Nadie se invita a si mismo.
     CONSTRAINT membership_invited_by_ck CHECK (invited_by IS NULL OR invited_by <> user_id)
@@ -115,7 +115,7 @@ COMMENT ON TABLE membership IS 'Vinculo entre una cuenta y un condominio, con vi
 --
 -- Deja pasar a proposito la misma cuenta en condominios distintos, que es RF-03, y volver a entrar
 -- al mismo condominio despues de una baja, que es el #19.
-CREATE UNIQUE INDEX membership_vigente_uq
+CREATE UNIQUE INDEX membership_current_uq
     ON membership (user_id, condominium_id)
     WHERE valid_to IS NULL;
 
@@ -178,7 +178,7 @@ COMMENT ON TABLE unit_ownership IS 'Titularidad de una unidad, con vigencia (ana
 
 -- Una sola titularidad vigente por persona y unidad. No limita cuantos copropietarios tiene la
 -- unidad, solo que la misma persona no figure dos veces.
-CREATE UNIQUE INDEX unit_ownership_vigente_uq
+CREATE UNIQUE INDEX unit_ownership_current_uq
     ON unit_ownership (unit_id, person_id)
     WHERE valid_to IS NULL;
 
@@ -200,13 +200,13 @@ CREATE TABLE unit_occupancy (
     CONSTRAINT unit_occupancy_unit_fk
         FOREIGN KEY (unit_id, condominium_id) REFERENCES unit (id, condominium_id),
     CONSTRAINT unit_occupancy_person_fk FOREIGN KEY (person_id) REFERENCES person (id),
-    CONSTRAINT unit_occupancy_role_ck CHECK (role IN ('RESIDENTE', 'INQUILINO')),
+    CONSTRAINT unit_occupancy_role_ck CHECK (role IN ('RESIDENT', 'TENANT')),
     CONSTRAINT unit_occupancy_vigencia_ck CHECK (valid_to IS NULL OR valid_to >= valid_from)
 );
 
 COMMENT ON TABLE unit_occupancy IS 'Quien reside en una unidad, con vigencia (analisis 5.2).';
 
-CREATE UNIQUE INDEX unit_occupancy_vigente_uq
+CREATE UNIQUE INDEX unit_occupancy_current_uq
     ON unit_occupancy (unit_id, person_id)
     WHERE valid_to IS NULL;
 
@@ -247,7 +247,7 @@ COMMENT ON TABLE billing_responsibility IS 'Quien responde por los cobros de una
 -- opcional y aqui los nulos SI tienen que compararse iguales: sin eso, la misma persona podria
 -- figurar dos veces como responsable general de la misma unidad. Requiere PostgreSQL 15 o
 -- superior y la imagen es la 16.
-CREATE UNIQUE INDEX billing_responsibility_vigente_uq
+CREATE UNIQUE INDEX billing_responsibility_current_uq
     ON billing_responsibility (unit_id, person_id, concept_id) NULLS NOT DISTINCT
     WHERE valid_to IS NULL;
 

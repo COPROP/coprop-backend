@@ -33,8 +33,8 @@ public record SessionsSignedOut(UUID accountId, int cerradas, boolean enElProvee
         implements EventoAuditable {
 
     @Override
-    public String accion() {
-        return "SESIONES_CERRADAS";
+    public String action() {
+        return "SESSIONS_CLOSED";
     }
 
     /** Nulo: una sesion no pertenece a ningun condominio. */
@@ -44,23 +44,23 @@ public record SessionsSignedOut(UUID accountId, int cerradas, boolean enElProvee
     }
 
     @Override
-    public String entidad() {
+    public String entity() {
         return "cuenta";
     }
 
     @Override
-    public UUID entidadId() {
+    public UUID entityId() {
         return accountId;
     }
 
-    /** Nada que guardar: lo que habia era un numero de sesiones que ya esta en {@link #despues()}. */
+    /** Nada que guardar: lo que habia era un numero de sesiones que ya esta en {@link #newValues()}. */
     @Override
-    public Map<String, String> antes() {
+    public Map<String, String> oldValues() {
         return Map.of();
     }
 
     @Override
-    public Map<String, String> despues() {
+    public Map<String, String> newValues() {
         return Map.of("cerradas", String.valueOf(cerradas), "enElProveedor", String.valueOf(enElProveedor));
     }
 }

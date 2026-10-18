@@ -53,7 +53,7 @@ class UnitController {
         this.unidades = unidades;
     }
 
-    @PreAuthorize("@autorizacion.puede(authentication, 'GESTIONAR_UNIDADES')")
+    @PreAuthorize("@autorizacion.puede(authentication, 'MANAGE_UNITS')")
     @PostMapping("/unidades")
     ResponseEntity<UnitView> alta(
             @PathVariable UUID condominiumId, @Valid @RequestBody NewUnit nueva, Principal quien) {
@@ -69,14 +69,14 @@ class UnitController {
      * que resolver el parseo y el informe de errores fila a fila; hacerla tambien aqui seria
      * hacerla dos veces.
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'GESTIONAR_UNIDADES')")
+    @PreAuthorize("@autorizacion.puede(authentication, 'MANAGE_UNITS')")
     @PostMapping("/unidades/lote")
     ResponseEntity<List<UnitView>> altaMasiva(
             @PathVariable UUID condominiumId, @Valid @RequestBody LoteDeUnidades lote, Principal quien) {
         return ResponseEntity.status(201).body(unidades.registerAll(condominiumId, lote.unidades(), quien.getName()));
     }
 
-    @PreAuthorize("@autorizacion.puede(authentication, 'GESTIONAR_UNIDADES')")
+    @PreAuthorize("@autorizacion.puede(authentication, 'MANAGE_UNITS')")
     @PostMapping("/bloques")
     ResponseEntity<BlockView> altaDeBloque(
             @PathVariable UUID condominiumId, @Valid @RequestBody NuevoBloque nuevo, Principal quien) {
@@ -84,7 +84,7 @@ class UnitController {
         return ResponseEntity.status(201).body(creado);
     }
 
-    @PreAuthorize("@autorizacion.puede(authentication, 'GESTIONAR_UNIDADES')")
+    @PreAuthorize("@autorizacion.puede(authentication, 'MANAGE_UNITS')")
     @PostMapping("/bloques/{blockId}/pisos")
     ResponseEntity<FloorView> altaDePiso(
             @PathVariable UUID condominiumId,

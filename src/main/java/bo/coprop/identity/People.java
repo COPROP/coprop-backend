@@ -40,7 +40,7 @@ public interface People {
     /**
      * Abre la cuenta con la que una persona entrara a la plataforma.
      *
-     * <p>Nace en {@link AccountStatus#INVITADO}: existe y nadie ha entrado con ella. El envio de
+     * <p>Nace en {@link AccountStatus#INVITED}: existe y nadie ha entrado con ella. El envio de
      * la invitacion es el issue <strong>#18</strong> y el primer login el <strong>#13</strong>;
      * esto es solo la fila.
      *

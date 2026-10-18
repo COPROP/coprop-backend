@@ -19,24 +19,24 @@ public record BillingResponsibilityAssigned(
         implements EventoAuditable {
 
     @Override
-    public String accion() {
-        return "RESPONSABILIDAD_DE_PAGO_ASIGNADA";
+    public String action() {
+        return "BILLING_RESPONSIBILITY_ASSIGNED";
     }
 
     @Override
-    public String entidad() {
+    public String entity() {
         return "responsabilidad-de-pago";
     }
 
     /** La unidad, por lo mismo que en {@link OwnershipTransferred}: la relacion lleva vigencia. */
     @Override
-    public UUID entidadId() {
+    public UUID entityId() {
         return unitId;
     }
 
     /** El concepto entra solo cuando lo hay, por lo mismo que en {@link BillingResponsibilityEnded}. */
     @Override
-    public Map<String, String> despues() {
+    public Map<String, String> newValues() {
         return conceptId == null
                 ? Map.of("personId", personId.toString())
                 : Map.of("personId", personId.toString(), "conceptId", conceptId.toString());

@@ -58,7 +58,7 @@ class EsquemaDeIdentidadTests {
         UUID persona = persona("8123456");
 
         titularidad(lasPalmas, enLasPalmas, persona, new BigDecimal("12.500000"));
-        ocupacion(villaSol, enVillaSol, persona, "INQUILINO");
+        ocupacion(villaSol, enVillaSol, persona, "TENANT");
 
         assertThat(cuantas("unit_ownership", "person_id = ?", persona)).isEqualTo(1);
         assertThat(cuantas("unit_occupancy", "person_id = ?", persona)).isEqualTo(1);
@@ -73,7 +73,7 @@ class EsquemaDeIdentidadTests {
         UUID inquilino = persona("9000002");
 
         titularidad(condominio, unidad, propietaria, new BigDecimal("8.000000"));
-        ocupacion(condominio, unidad, inquilino, "INQUILINO");
+        ocupacion(condominio, unidad, inquilino, "TENANT");
         responsabilidad(condominio, unidad, propietaria, null);
 
         // Es justo lo que una sola tabla con columna de "tipo" no podria decir: dos personas
@@ -105,7 +105,7 @@ class EsquemaDeIdentidadTests {
 
         assertThatThrownBy(() -> titularidad(condominio, unidad, persona, new BigDecimal("60.000000")))
                 .isInstanceOf(DataIntegrityViolationException.class)
-                .hasMessageContaining("unit_ownership_vigente_uq");
+                .hasMessageContaining("unit_ownership_current_uq");
     }
 
     // ----------------------------------------------------------------------------------------
@@ -132,7 +132,7 @@ class EsquemaDeIdentidadTests {
 
         assertThatThrownBy(() -> membresia(cuenta, condominio, null))
                 .isInstanceOf(DataIntegrityViolationException.class)
-                .hasMessageContaining("membership_vigente_uq");
+                .hasMessageContaining("membership_current_uq");
     }
 
     @Test
@@ -255,7 +255,7 @@ class EsquemaDeIdentidadTests {
         // indice unico no vería el duplicado.
         assertThatThrownBy(() -> responsabilidad(condominio, unidad, persona, null))
                 .isInstanceOf(DataIntegrityViolationException.class)
-                .hasMessageContaining("billing_responsibility_vigente_uq");
+                .hasMessageContaining("billing_responsibility_current_uq");
     }
 
     @Test
@@ -309,7 +309,7 @@ class EsquemaDeIdentidadTests {
         assertThatThrownBy(() -> jdbc.update(
                         """
                         INSERT INTO membership (id, user_id, condominium_id, status, valid_from, invited_by)
-                        VALUES (?, ?, ?, 'ACTIVA', ?, ?)
+                        VALUES (?, ?, ?, 'ACTIVE', ?, ?)
                         """,
                         UUID.randomUUID(),
                         cuenta,
@@ -329,7 +329,7 @@ class EsquemaDeIdentidadTests {
         jdbc.update(
                 """
                 INSERT INTO condominium (id, name, nit, type, time_zone, currency, status, created_at)
-                VALUES (?, ?, ?, 'EDIFICIO', 'America/La_Paz', 'BOB', 'ACTIVO', ?)
+                VALUES (?, ?, ?, 'BUILDING', 'America/La_Paz', 'BOB', 'ACTIVE', ?)
                 """,
                 id,
                 nombre,
@@ -349,7 +349,7 @@ class EsquemaDeIdentidadTests {
         jdbc.update(
                 """
                 INSERT INTO unit (id, condominium_id, code, type, aliquot, status)
-                VALUES (?, ?, ?, 'DEPARTAMENTO', 1.000000, 'ACTIVA')
+                VALUES (?, ?, ?, 'APARTMENT', 1.000000, 'ACTIVE')
                 """,
                 id,
                 condominiumId,
@@ -375,7 +375,7 @@ class EsquemaDeIdentidadTests {
         jdbc.update(
                 """
                 INSERT INTO user_account (id, person_id, email, status, created_at)
-                VALUES (?, ?, ?, 'INVITADO', ?)
+                VALUES (?, ?, ?, 'INVITED', ?)
                 """,
                 id,
                 personId,
@@ -389,7 +389,7 @@ class EsquemaDeIdentidadTests {
         jdbc.update(
                 """
                 INSERT INTO membership (id, user_id, condominium_id, status, valid_from, valid_to)
-                VALUES (?, ?, ?, 'ACTIVA', ?, ?)
+                VALUES (?, ?, ?, 'ACTIVE', ?, ?)
                 """,
                 id,
                 userId,

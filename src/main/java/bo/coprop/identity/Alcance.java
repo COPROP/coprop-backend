@@ -12,7 +12,7 @@ package bo.coprop.identity;
 public enum Alcance {
 
     /** No puede. Es el "—" de la matriz, y es el valor por defecto de todo lo que no se declara. */
-    NINGUNO,
+    NONE,
 
     /**
      * Puede, sobre lo suyo.
@@ -24,12 +24,12 @@ public enum Alcance {
      * responsable de sus cobros, como describe Seguridad 7.2. Si no lo es, responde <strong>404 y
      * no 403</strong>: un 403 confirmaria que esa unidad existe.
      *
-     * <p>De ahi que este valor sea mayor que {@link #NINGUNO} y menor que {@link #TODO} en el orden
+     * <p>De ahi que este valor sea mayor que {@link #NONE} y menor que {@link #ALL} en el orden
      * del enum: {@code MatrizDePermisos} compara alcances para quedarse con el mayor de los roles de
      * una membresia, y el orden de declaracion es el que decide.
      */
-    PROPIO,
+    OWN,
 
     /** Puede, en todo el alcance del rol. Es el "Sí" de la matriz. */
-    TODO
+    ALL
 }

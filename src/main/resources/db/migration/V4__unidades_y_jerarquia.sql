@@ -50,8 +50,8 @@ CREATE TABLE unit (
     -- El primer criterio de aceptacion del issue #10. Unico dentro del condominio, no global:
     -- el "302" de Las Palmas y el "302" de Villa Sol son unidades distintas.
     CONSTRAINT unit_code_uq UNIQUE (condominium_id, code),
-    CONSTRAINT unit_type_ck CHECK (type IN ('DEPARTAMENTO', 'CASA', 'LOCAL', 'PARQUEO', 'DEPOSITO')),
-    CONSTRAINT unit_status_ck CHECK (status IN ('ACTIVA', 'INACTIVA')),
+    CONSTRAINT unit_type_ck CHECK (type IN ('APARTMENT', 'HOUSE', 'COMMERCIAL', 'PARKING', 'STORAGE')),
+    CONSTRAINT unit_status_ck CHECK (status IN ('ACTIVE', 'INACTIVE')),
     CONSTRAINT unit_aliquot_ck CHECK (aliquot >= 0 AND aliquot <= 100),
     CONSTRAINT unit_area_ck CHECK (area_m2 IS NULL OR area_m2 > 0),
     -- Un piso siempre cuelga de un bloque, asi que indicar piso sin bloque no significa nada.

@@ -298,7 +298,7 @@ class RolesAdministrativosTests {
                         new NewCondominium(
                                 "Roles " + UUID.randomUUID(),
                                 nitNuevo(),
-                                CondominiumType.EDIFICIO,
+                                CondominiumType.BUILDING,
                                 "America/La_Paz",
                                 5,
                                 10),
@@ -308,13 +308,13 @@ class RolesAdministrativosTests {
 
     private static String altaDeCondominioJson() {
         return "{\"name\":\"Torre " + UUID.randomUUID() + "\",\"nit\":\"" + nitNuevo()
-                + "\",\"type\":\"EDIFICIO\",\"timeZone\":\"America/La_Paz\",\"issueDay\":5,\"dueDay\":10}";
+                + "\",\"type\":\"BUILDING\",\"timeZone\":\"America/La_Paz\",\"issueDay\":5,\"dueDay\":10}";
     }
 
     /** Un codigo distinto y valido por peticion: la validacion del cuerpo corre antes del permiso. */
     private static String unidadConCodigo() {
         String sufijo = UUID.randomUUID().toString().substring(0, 8);
-        return "{\"code\":\"R-" + sufijo + "\",\"type\":\"DEPARTAMENTO\",\"aliquot\":\"1.000000\"}";
+        return "{\"code\":\"R-" + sufijo + "\",\"type\":\"APARTMENT\",\"aliquot\":\"1.000000\"}";
     }
 
     /** El NIT es unico por condominio, y estos tests comparten base con los demas. */

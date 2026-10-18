@@ -19,28 +19,28 @@ public record InvitationAccepted(
         implements EventoAuditable {
 
     @Override
-    public String accion() {
-        return "INVITACION_ACEPTADA";
+    public String action() {
+        return "INVITATION_ACCEPTED";
     }
 
     @Override
-    public String entidad() {
+    public String entity() {
         return "invitacion";
     }
 
     @Override
-    public UUID entidadId() {
+    public UUID entityId() {
         return invitationId;
     }
 
     /**
      * Lleva la membresia que nacio.
      *
-     * <p>Es lo que ata las dos filas de la bitacora --esta y la de {@code MEMBRESIA_CONCEDIDA}-- y
+     * <p>Es lo que ata las dos filas de la bitacora --esta y la de {@code MEMBERSHIP_GRANTED}-- y
      * lo que permite responder por que esa persona esta dentro: porque acepto esta invitacion.
      */
     @Override
-    public java.util.Map<String, String> despues() {
+    public java.util.Map<String, String> newValues() {
         return java.util.Map.of("membershipId", membershipId.toString(), "accountId", accountId.toString());
     }
 }

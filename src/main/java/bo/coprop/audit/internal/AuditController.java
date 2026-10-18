@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
  * {@code condominium_id}. Por eso esta clase no tiene {@code @RequestMapping} y cada metodo escribe
  * su ruta entera.
  *
- * <p>Las dos piden {@code CONSULTAR_AUDITORIA}, y el <strong>alcance de la ruta hace el resto</strong>:
+ * <p>Las dos piden {@code VIEW_AUDIT_LOG}, y el <strong>alcance de la ruta hace el resto</strong>:
  *
  * <ul>
  *   <li>En la del condominio, el filtro del #17 ya garantizo que quien llega es miembro activo, y
@@ -78,17 +78,17 @@ class AuditController {
      * @param desde inclusive
      * @param hasta exclusive, para que dos rangos contiguos no repitan una fila
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'CONSULTAR_AUDITORIA')")
+    @PreAuthorize("@autorizacion.puede(authentication, 'VIEW_AUDIT_LOG')")
     @GetMapping("/condominios/{condominiumId}/auditoria")
     Pagina<AuditEntryView> consultar(
             @PathVariable UUID condominiumId,
             @RequestParam(required = false) @Nullable @Size(max = 100) String actor,
-            @RequestParam(required = false) @Nullable @Size(max = 40) String entidad,
+            @RequestParam(required = false) @Nullable @Size(max = 40) String entity,
             @RequestParam(required = false) @Nullable Instant desde,
             @RequestParam(required = false) @Nullable Instant hasta,
             @RequestParam(defaultValue = "0") @Min(0) int pagina,
             @RequestParam(defaultValue = "" + TAMANO_POR_DEFECTO) @Min(1) @Max(TAMANO_MAXIMO) int tamano) {
-        return bitacora.ofCondominium(condominiumId, actor, entidad, desde, hasta, pagina, tamano);
+        return bitacora.ofCondominium(condominiumId, actor, entity, desde, hasta, pagina, tamano);
     }
 
     /**
@@ -102,15 +102,15 @@ class AuditController {
      * <p>Mismos filtros y misma paginacion que la del condominio: lo que cambia es que filas se ven,
      * no como se piden.
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'CONSULTAR_AUDITORIA')")
+    @PreAuthorize("@autorizacion.puede(authentication, 'VIEW_AUDIT_LOG')")
     @GetMapping("/auditoria")
     Pagina<AuditEntryView> consultarLaDePlataforma(
             @RequestParam(required = false) @Nullable @Size(max = 100) String actor,
-            @RequestParam(required = false) @Nullable @Size(max = 40) String entidad,
+            @RequestParam(required = false) @Nullable @Size(max = 40) String entity,
             @RequestParam(required = false) @Nullable Instant desde,
             @RequestParam(required = false) @Nullable Instant hasta,
             @RequestParam(defaultValue = "0") @Min(0) int pagina,
             @RequestParam(defaultValue = "" + TAMANO_POR_DEFECTO) @Min(1) @Max(TAMANO_MAXIMO) int tamano) {
-        return bitacora.ofPlatform(actor, entidad, desde, hasta, pagina, tamano);
+        return bitacora.ofPlatform(actor, entity, desde, hasta, pagina, tamano);
     }
 }

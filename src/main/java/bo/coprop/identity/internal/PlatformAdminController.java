@@ -34,7 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
  * criterio de aceptacion del issue --"un CONDO_ADMIN no puede asignar SUPER_ADMIN"-- y sale solo de
  * la forma de la ruta, sin una regla escrita aparte.
  *
- * <p>El permiso es {@code INVITAR_SOLO_ADMINISTRADORES}, que es la celda de {@code PLATFORM_ADMIN}
+ * <p>El permiso es {@code INVITE_ADMINS_ONLY}, que es la celda de {@code PLATFORM_ADMIN}
  * en la fila "Invitar usuarios y asignar roles" de Seguridad 3: "Solo administradores". Conceder el
  * rol de plataforma es asignar un rol administrativo, el mayor de ellos, asi que la celda ya lo
  * cubre y no hace falta añadir una fila a la matriz --que seria cambiar el analisis--.
@@ -57,7 +57,7 @@ class PlatformAdminController {
      * de la cuenta. Y no sale de aqui quien lo <em>tuvo</em>: la fila se borra al revocar, y esa
      * historia la cuenta la bitacora de plataforma.
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'INVITAR_SOLO_ADMINISTRADORES')")
+    @PreAuthorize("@autorizacion.puede(authentication, 'INVITE_ADMINS_ONLY')")
     @GetMapping
     List<PlatformAdminView> listar() {
         return identidades.platformAdmins();
@@ -70,7 +70,7 @@ class PlatformAdminController {
      * 7.3 nombra asignarlos entre las operaciones sensibles. Aqui no hay condicion que poner, al
      * contrario que en el alta de una membresia: el unico rol que esta ruta reparte es este.
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'INVITAR_SOLO_ADMINISTRADORES')"
+    @PreAuthorize("@autorizacion.puede(authentication, 'INVITE_ADMINS_ONLY')"
             + " and @reautenticacion.reciente(authentication)")
     @PostMapping
     ResponseEntity<PlatformAdminView> conceder(@Valid @RequestBody NuevoSuperadministrador nuevo, Principal quien) {
@@ -89,7 +89,7 @@ class PlatformAdminController {
      *
      * <p>Responde <strong>204</strong>: no hay recurso que devolver, porque el rol ya no esta.
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'INVITAR_SOLO_ADMINISTRADORES')"
+    @PreAuthorize("@autorizacion.puede(authentication, 'INVITE_ADMINS_ONLY')"
             + " and @reautenticacion.reciente(authentication)")
     @PostMapping("/{accountId}/revocacion")
     ResponseEntity<Void> revocar(@PathVariable UUID accountId, @Valid @RequestBody Motivo motivo, Principal quien) {

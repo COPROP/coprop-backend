@@ -38,23 +38,23 @@ public record MembershipRevoked(
         implements EventoAuditable {
 
     @Override
-    public String accion() {
-        return "MEMBRESIA_DADA_DE_BAJA";
+    public String action() {
+        return "MEMBERSHIP_ENDED";
     }
 
     @Override
-    public String entidad() {
+    public String entity() {
         return "membresia";
     }
 
     @Override
-    public UUID entidadId() {
+    public UUID entityId() {
         return membershipId;
     }
 
     /** Lo que habia: la cuenta y sus roles. Ordenados, para que dos bajas iguales se vean iguales. */
     @Override
-    public Map<String, String> antes() {
+    public Map<String, String> oldValues() {
         return Map.of(
                 "accountId",
                 accountId.toString(),
@@ -69,7 +69,7 @@ public record MembershipRevoked(
      * precisamente lo que el issue exige registrar.
      */
     @Override
-    public Map<String, String> despues() {
+    public Map<String, String> newValues() {
         return Map.of("motivo", motivo, "sesionesCerradas", String.valueOf(sesionesCerradas));
     }
 }

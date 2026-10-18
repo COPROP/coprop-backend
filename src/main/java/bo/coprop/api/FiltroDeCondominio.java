@@ -149,7 +149,7 @@ class FiltroDeCondominio extends OncePerRequestFilter {
     private record MembresiaVigente(@Nullable MembershipView encontrada) {
 
         boolean activa() {
-            return encontrada != null && encontrada.status() == MembershipStatus.ACTIVA;
+            return encontrada != null && encontrada.status() == MembershipStatus.ACTIVE;
         }
 
         MembershipView vista() {

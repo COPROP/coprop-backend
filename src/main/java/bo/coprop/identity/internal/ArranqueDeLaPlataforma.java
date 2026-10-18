@@ -24,7 +24,7 @@ import org.springframework.util.StringUtils;
  * puerta trasera permanente: en cuanto hay uno, cambiar la propiedad no hace nada. Asi, dejarla
  * puesta en produccion por descuido no abre nada, y quitarla no cierra lo ya abierto.
  *
- * <p>La cuenta nace <strong>sin vincular</strong>, en {@code INVITADO}: no crea credenciales ni
+ * <p>La cuenta nace <strong>sin vincular</strong>, en {@code INVITED}: no crea credenciales ni
  * toca el proveedor de identidad. Alguien tiene que entrar con ese correo para que la cuenta se
  * vincule, que es lo que ya hace el issue #13. La propiedad dice a quien se le abre la puerta, no
  * se la abre sola.

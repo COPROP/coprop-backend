@@ -115,7 +115,7 @@ class PeopleTests {
         assertThat(cuenta.personId()).isEqualTo(persona.id());
         assertThat(cuenta.email()).isEqualTo("emma@coprop.bo");
         assertThat(cuenta.phone()).isNull();
-        assertThat(cuenta.status()).isEqualTo(AccountStatus.INVITADO);
+        assertThat(cuenta.status()).isEqualTo(AccountStatus.INVITED);
         assertThat(cuenta.mfaEnabled()).isFalse();
 
         assertThat(personas.findAccount(cuenta.id())).isEqualTo(cuenta);

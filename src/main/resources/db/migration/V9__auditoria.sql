@@ -1,6 +1,7 @@
 -- V9: la bitacora. Append-only de verdad, no por convencion (analisis 5.2 y 9.2, Seguridad 8).
 --
--- Guarda lo que 5.2 le pide: actor, accion, entidad, antes, despues, fecha e IP; mas el trace_id
+-- Guarda lo que 5.2 le pide: actor, accion, entidad, valores antes y despues, fecha e IP; mas
+-- el trace_id
 -- que resolvio 13.2, para poder cruzar una fila de la bitacora con la peticion que la origino en
 -- los logs.
 --
@@ -22,17 +23,17 @@ CREATE TABLE audit_log (
     -- la volveria imborrable o dejaria la fila huerfana. Tambien hay actores que no son cuentas,
     -- como el arranque de la plataforma.
     actor          VARCHAR(100) NOT NULL,
-    -- Que. Nombre estable, en mayusculas: MEMBRESIA_CONCEDIDA, INVITACION_EMITIDA. Lo declara cada
+    -- Que. Nombre estable, en mayusculas: MEMBERSHIP_GRANTED, INVITATION_ISSUED. Lo declara cada
     -- evento y no se cambia nunca, porque la historia de ayer lo lleva escrito.
-    accion         VARCHAR(60) NOT NULL,
+    action         VARCHAR(60) NOT NULL,
     -- Sobre que, en singular y minusculas: membresia, invitacion, configuracion.
-    entidad        VARCHAR(40) NOT NULL,
-    entidad_id     UUID NOT NULL,
+    entity        VARCHAR(40) NOT NULL,
+    entity_id     UUID NOT NULL,
     -- En que condominio. NULO cuando la accion es de plataforma y no cuelga de ninguno: conceder el
     -- rol de superadministrador, o el primer login de una cuenta.
     condominium_id UUID,
-    -- Los valores de antes y de despues, como objeto JSON de texto. Nulos cuando no aplican: antes
-    -- es nulo en toda alta, y despues en una revocacion.
+    -- El valor anterior y el posterior, como objeto JSON de texto. Nulos cuando no aplican: old_values
+    -- es nulo en toda alta, y new_values en una revocacion.
     --
     -- Texto y no JSONB, aunque el contenido sea JSON. Lo que se guarda es una FOTO opaca: valores
     -- en cadena para que la bitacora siga siendo legible dentro de un año, cuando la forma de la
@@ -41,8 +42,8 @@ CREATE TABLE audit_log (
     -- ademas obligaria a que Hibernate mapeara un jsonb: su mapeador de JSON busca el ObjectMapper
     -- de Jackson 2 y aqui manda Jackson 3, que vive en otro paquete. No es un sitio donde valga la
     -- pena pelear.
-    antes          VARCHAR(4000),
-    despues        VARCHAR(4000),
+    old_values          VARCHAR(4000),
+    new_values        VARCHAR(4000),
     -- Desde donde. La pone el filtro de trazas en el contexto de log y la lee el oyente; nula
     -- cuando el evento se reentrega tras un reinicio, porque entonces no hay peticion de la que
     -- sacarla.
@@ -62,12 +63,12 @@ COMMENT ON TABLE audit_log IS 'Bitacora append-only, retencion de un año (Segur
 -- Los tres filtros que pide el segundo criterio del issue: actor, entidad y rango de fechas. Y el
 -- condominio primero en los dos indices de consulta, porque toda lectura esta acotada a uno: la
 -- bitacora de un condominio no la ve el vecino.
-CREATE INDEX audit_log_por_condominio_idx ON audit_log (condominium_id, occurred_at DESC);
-CREATE INDEX audit_log_por_actor_idx ON audit_log (condominium_id, actor, occurred_at DESC);
-CREATE INDEX audit_log_por_entidad_idx ON audit_log (condominium_id, entidad, entidad_id, occurred_at DESC);
+CREATE INDEX audit_log_by_condominium_idx ON audit_log (condominium_id, occurred_at DESC);
+CREATE INDEX audit_log_by_actor_idx ON audit_log (condominium_id, actor, occurred_at DESC);
+CREATE INDEX audit_log_by_entity_idx ON audit_log (condominium_id, entity, entity_id, occurred_at DESC);
 
 -- Para la purga a los doce meses, que recorre por fecha y sin condominio.
-CREATE INDEX audit_log_por_fecha_idx ON audit_log (occurred_at);
+CREATE INDEX audit_log_by_date_idx ON audit_log (occurred_at);
 
 
 -- El primer criterio de aceptacion: un intento de modificar un registro falla EN LA BASE.
@@ -79,20 +80,20 @@ CREATE INDEX audit_log_por_fecha_idx ON audit_log (occurred_at);
 -- Deja pasar el TRUNCATE a proposito: es lo que necesitaria un archivado, y un TRUNCATE no puede
 -- alterar una fila sin que se note, al contrario que un UPDATE puntual. La purga de los doce meses
 -- NO usa DELETE por eso mismo; usa la funcion de abajo, que es el unico camino autorizado.
-CREATE OR REPLACE FUNCTION audit_log_es_inmutable() RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION audit_log_is_immutable() RETURNS TRIGGER AS $$
 BEGIN
     RAISE EXCEPTION 'audit_log es append-only: no se puede % una fila de la bitacora.', lower(TG_OP)
         USING ERRCODE = 'restrict_violation';
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER audit_log_sin_update
+CREATE TRIGGER audit_log_no_update
     BEFORE UPDATE ON audit_log
-    FOR EACH ROW EXECUTE FUNCTION audit_log_es_inmutable();
+    FOR EACH ROW EXECUTE FUNCTION audit_log_is_immutable();
 
-CREATE TRIGGER audit_log_sin_delete
+CREATE TRIGGER audit_log_no_delete
     BEFORE DELETE ON audit_log
-    FOR EACH ROW EXECUTE FUNCTION audit_log_es_inmutable();
+    FOR EACH ROW EXECUTE FUNCTION audit_log_is_immutable();
 
 
 -- La purga de los doce meses (Seguridad 10.1). Es una funcion y no un DELETE de la aplicacion
@@ -102,19 +103,19 @@ CREATE TRIGGER audit_log_sin_delete
 -- SECURITY DEFINER no hace falta mientras la aplicacion sea superusuario; cuando exista el rol sin
 -- superusuario, es lo que le permitira ejecutarla sin tener permiso de DELETE directo. Queda
 -- anotado en ARCHITECTURE.md con el resto de ese cambio.
-CREATE OR REPLACE FUNCTION audit_log_purgar(hasta TIMESTAMP WITH TIME ZONE) RETURNS BIGINT AS $$
+CREATE OR REPLACE FUNCTION audit_log_purge(until TIMESTAMP WITH TIME ZONE) RETURNS BIGINT AS $$
 DECLARE
-    borradas BIGINT;
+    deleted BIGINT;
 BEGIN
-    ALTER TABLE audit_log DISABLE TRIGGER audit_log_sin_delete;
-    DELETE FROM audit_log WHERE occurred_at < hasta;
-    GET DIAGNOSTICS borradas = ROW_COUNT;
-    ALTER TABLE audit_log ENABLE TRIGGER audit_log_sin_delete;
-    RETURN borradas;
+    ALTER TABLE audit_log DISABLE TRIGGER audit_log_no_delete;
+    DELETE FROM audit_log WHERE occurred_at < until;
+    GET DIAGNOSTICS deleted = ROW_COUNT;
+    ALTER TABLE audit_log ENABLE TRIGGER audit_log_no_delete;
+    RETURN deleted;
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION audit_log_purgar IS 'Borra la bitacora anterior a esa fecha. Unico camino autorizado: el disparador rechaza cualquier otro DELETE.';
+COMMENT ON FUNCTION audit_log_purge IS 'Borra la bitacora anterior a esa fecha. Unico camino autorizado: el disparador rechaza cualquier otro DELETE.';
 
 
 -- Para el dia que la aplicacion deje de conectarse como superusuario, que es el mismo cambio que
@@ -122,7 +123,7 @@ COMMENT ON FUNCTION audit_log_purgar IS 'Borra la bitacora anterior a esa fecha.
 -- ser dos barreras:
 --
 --   REVOKE UPDATE, DELETE, TRUNCATE ON audit_log FROM coprop_app;
---   ALTER FUNCTION audit_log_purgar(TIMESTAMP WITH TIME ZONE) SECURITY DEFINER;
+--   ALTER FUNCTION audit_log_purge(TIMESTAMP WITH TIME ZONE) SECURITY DEFINER;
 --
 -- No se deja puesto hoy porque un REVOKE sobre un superusuario no hace nada, y una barrera que no
 -- muerde es peor que ninguna: la primera vez que alguien la vea, creera que esta protegido.

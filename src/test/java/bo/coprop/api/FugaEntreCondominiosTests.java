@@ -118,7 +118,7 @@ class FugaEntreCondominiosTests {
 
     @BeforeAll
     void prepararLosDosCondominios() {
-        propio = altaDeCondominio("FUGA-PROPIO");
+        propio = altaDeCondominio("FUGA-OWN");
         ajeno = altaDeCondominio("FUGA-AJENO");
 
         unidadPropia = altaDeUnidad(propio, "P-101");
@@ -126,7 +126,7 @@ class FugaEntreCondominiosTests {
         bloquePropio = unidades.addBlock(propio, "Bloque propio", "admin").id();
         bloqueAjeno = unidades.addBlock(ajeno, "Bloque ajeno", "admin").id();
 
-        // Quien pide: cuenta con membresia ACTIVA en el propio y ninguna en el ajeno.
+        // Quien pide: cuenta con membresia ACTIVE en el propio y ninguna en el ajeno.
         AccountView cuenta = cuentaNueva();
         membresiaPropia = membresias
                 .grant(propio, cuenta.id(), Set.of(MembershipRole.CONDO_ADMIN), null, "admin")
@@ -174,7 +174,7 @@ class FugaEntreCondominiosTests {
         responsableParaCerrar =
                 personas.register(new NewPerson("Paga", "Perez", null), "admin").id();
         relaciones.grantOwnership(propio, unidadPropia, vendedor, new BigDecimal("100.000000"), "admin");
-        relaciones.grantOccupancy(propio, unidadPropia, ocupanteParaMudar, OccupancyRole.INQUILINO, "admin");
+        relaciones.grantOccupancy(propio, unidadPropia, ocupanteParaMudar, OccupancyRole.TENANT, "admin");
         relaciones.assignBilling(propio, unidadPropia, responsableParaCerrar, null, "admin");
 
         String sujeto = ProveedorDeTokensDePrueba.sujetoNuevo();
@@ -184,7 +184,7 @@ class FugaEntreCondominiosTests {
     private UUID altaDeCondominio(String nombre) {
         return condominios
                 .register(
-                        new NewCondominium(nombre, nitNuevo(), CondominiumType.EDIFICIO, "America/La_Paz", 5, 10),
+                        new NewCondominium(nombre, nitNuevo(), CondominiumType.BUILDING, "America/La_Paz", 5, 10),
                         "admin")
                 .id();
     }
@@ -197,7 +197,7 @@ class FugaEntreCondominiosTests {
     private UUID altaDeUnidad(UUID condominio, String codigo) {
         return unidades.register(
                         condominio,
-                        new NewUnit(codigo, UnitType.DEPARTAMENTO, new BigDecimal("1.000000"), null, null, null),
+                        new NewUnit(codigo, UnitType.APARTMENT, new BigDecimal("1.000000"), null, null, null),
                         "admin")
                 .id();
     }
@@ -266,12 +266,12 @@ class FugaEntreCondominiosTests {
                         "dar de alta una unidad",
                         HttpMethod.POST,
                         "/api/v1/condominios/%s/unidades",
-                        "{\"code\":\"X-1\",\"type\":\"DEPARTAMENTO\",\"aliquot\":\"1.000000\"}"),
+                        "{\"code\":\"X-1\",\"type\":\"APARTMENT\",\"aliquot\":\"1.000000\"}"),
                 new Endpoint(
                         "alta masiva de unidades",
                         HttpMethod.POST,
                         "/api/v1/condominios/%s/unidades/lote",
-                        "{\"unidades\":[{\"code\":\"X-2\",\"type\":\"DEPARTAMENTO\",\"aliquot\":\"1.000000\"}]}"),
+                        "{\"unidades\":[{\"code\":\"X-2\",\"type\":\"APARTMENT\",\"aliquot\":\"1.000000\"}]}"),
                 new Endpoint("consultar una unidad", HttpMethod.GET, "/api/v1/condominios/%s/unidades/%s", null),
                 new Endpoint(
                         "dar de alta un bloque",
@@ -297,7 +297,7 @@ class FugaEntreCondominiosTests {
                         "registrar un ocupante",
                         HttpMethod.POST,
                         "/api/v1/condominios/%s/unidades/%s/ocupantes",
-                        "{\"personId\":\"" + persona + "\",\"role\":\"INQUILINO\"}"),
+                        "{\"personId\":\"" + persona + "\",\"role\":\"TENANT\"}"),
                 new Endpoint(
                         "registrar un responsable de pago",
                         HttpMethod.POST,

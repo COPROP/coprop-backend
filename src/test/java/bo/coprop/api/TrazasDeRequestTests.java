@@ -113,8 +113,8 @@ class TrazasDeRequestTests {
             @GetMapping("/varias-lineas")
             void variasLineas() {
                 log.info("primera linea");
-                log.info("segunda linea, despues de hacer algo");
-                log.info("tercera linea, antes de responder");
+                log.info("segunda linea, newValues de hacer algo");
+                log.info("tercera linea, oldValues de responder");
             }
         }
     }

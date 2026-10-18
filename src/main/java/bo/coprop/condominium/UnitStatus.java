@@ -8,6 +8,6 @@ package bo.coprop.condominium;
  * sigue consultable.
  */
 public enum UnitStatus {
-    ACTIVA,
-    INACTIVA
+    ACTIVE,
+    INACTIVE
 }

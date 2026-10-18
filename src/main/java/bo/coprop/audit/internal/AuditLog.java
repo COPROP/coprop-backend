@@ -15,8 +15,11 @@ import org.jspecify.annotations.Nullable;
  * lo hace cumplir es un disparador en la base (migracion V9). Que la entidad tampoco tenga forma de
  * modificarse evita que alguien lo intente y descubra la barrera en produccion.
  *
- * <p>Los nombres de columna van en español porque el analisis nombra esta entidad por sus datos y en
- * español: actor, accion, entidad, antes, despues, fecha, IP.
+ * <p><strong>Las columnas van en ingles</strong> como el resto del proyecto, aunque el analisis
+ * nombre esta entidad por sus datos y en español: actor, accion, entidad, antes, despues, fecha e
+ * IP. La correspondencia es directa --{@code action}, {@code entity}, {@code oldValues},
+ * {@code newValues}, {@code occurredAt}, {@code ip}-- y los dos valores guardados dejaron de
+ * llamarse "antes" y "despues" para decir que llevan un objeto dentro.
  */
 @Entity
 @Table(name = "audit_log")
@@ -29,13 +32,13 @@ class AuditLog {
     private String actor;
 
     @Column(nullable = false, length = 60)
-    private String accion;
+    private String action;
 
     @Column(nullable = false, length = 40)
-    private String entidad;
+    private String entity;
 
-    @Column(name = "entidad_id", nullable = false)
-    private UUID entidadId;
+    @Column(name = "entity_id", nullable = false)
+    private UUID entityId;
 
     /** Nulo en las acciones de plataforma, que no cuelgan de ningun condominio. */
     @Column(name = "condominium_id")
@@ -43,11 +46,11 @@ class AuditLog {
 
     /** JSON de texto. Nulo en toda alta: no habia nada antes. */
     @Column(length = 4000)
-    private @Nullable String antes;
+    private @Nullable String oldValues;
 
     /** JSON de texto. Nulo cuando la accion no deja valores que mirar. */
     @Column(length = 4000)
-    private @Nullable String despues;
+    private @Nullable String newValues;
 
     /** Nula cuando el evento se reentrego y no habia peticion de la que sacarla. */
     @Column(length = 45)
@@ -63,23 +66,23 @@ class AuditLog {
 
     AuditLog(
             String actor,
-            String accion,
-            String entidad,
-            UUID entidadId,
+            String action,
+            String entity,
+            UUID entityId,
             @Nullable UUID condominiumId,
-            @Nullable String antes,
-            @Nullable String despues,
+            @Nullable String oldValues,
+            @Nullable String newValues,
             @Nullable String ip,
             @Nullable String traceId,
             Instant occurredAt) {
         this.id = UUID.randomUUID();
         this.actor = actor;
-        this.accion = accion;
-        this.entidad = entidad;
-        this.entidadId = entidadId;
+        this.action = action;
+        this.entity = entity;
+        this.entityId = entityId;
         this.condominiumId = condominiumId;
-        this.antes = antes;
-        this.despues = despues;
+        this.oldValues = oldValues;
+        this.newValues = newValues;
         this.ip = ip;
         this.traceId = traceId;
         this.occurredAt = occurredAt;
@@ -94,15 +97,15 @@ class AuditLog {
     }
 
     String getAccion() {
-        return accion;
+        return action;
     }
 
     String getEntidad() {
-        return entidad;
+        return entity;
     }
 
     UUID getEntidadId() {
-        return entidadId;
+        return entityId;
     }
 
     @Nullable
@@ -112,12 +115,12 @@ class AuditLog {
 
     @Nullable
     String getAntes() {
-        return antes;
+        return oldValues;
     }
 
     @Nullable
     String getDespues() {
-        return despues;
+        return newValues;
     }
 
     @Nullable

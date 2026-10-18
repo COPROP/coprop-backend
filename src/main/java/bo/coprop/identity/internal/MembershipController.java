@@ -85,7 +85,7 @@ class MembershipController {
      *     {@code true} salen todas, de la mas reciente a la mas antigua, y la misma cuenta puede
      *     aparecer varias veces: volver a entrar despues de una baja abre una fila nueva
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'INVITAR_USUARIOS')")
+    @PreAuthorize("@autorizacion.puede(authentication, 'INVITE_USERS')")
     @GetMapping
     List<MembershipView> listar(
             @PathVariable UUID condominiumId, @RequestParam(defaultValue = "false") boolean cerradas) {
@@ -93,7 +93,7 @@ class MembershipController {
     }
 
     /** Una membresia del condominio, para quien reparte los roles. Misma regla que el listado. */
-    @PreAuthorize("@autorizacion.puede(authentication, 'INVITAR_USUARIOS')")
+    @PreAuthorize("@autorizacion.puede(authentication, 'INVITE_USERS')")
     @GetMapping("/{membershipId}")
     MembershipView consultar(@PathVariable UUID condominiumId, @PathVariable UUID membershipId) {
         return membresias.find(condominiumId, membershipId);
@@ -103,7 +103,7 @@ class MembershipController {
      * La baja: esa cuenta deja de pertenecer a este condominio. Issue #19.
      *
      * <p><strong>Pide poder conceder los roles que la membresia tiene</strong>, no solo
-     * {@code INVITAR_USUARIOS}, y es la misma regla del alta leida al reves: quien no puede nombrar
+     * {@code INVITE_USERS}, y es la misma regla del alta leida al reves: quien no puede nombrar
      * a un administrador tampoco puede quitarlo. Sin esto, el superadministrador --que segun la
      * matriz solo reparte roles administrativos-- podria dar de baja a cualquier propietario de
      * cualquier edificio, que es justo lo que esa celda acota.

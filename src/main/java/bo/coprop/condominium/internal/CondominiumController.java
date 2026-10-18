@@ -45,7 +45,7 @@ class CondominiumController {
     }
 
     // Seguridad 3: crear condominios es del superadministrador, y solo de el.
-    @PreAuthorize("@autorizacion.puede(authentication, 'CREAR_CONDOMINIOS')")
+    @PreAuthorize("@autorizacion.puede(authentication, 'CREATE_CONDOMINIUMS')")
     @PostMapping
     ResponseEntity<CondominiumView> alta(@Valid @RequestBody NewCondominium nuevo, Principal quien) {
         CondominiumView creado = condominios.register(nuevo, quien.getName());
@@ -79,7 +79,7 @@ class CondominiumController {
      * <p>Existe porque el alta no se puede deshacer y hasta ahora un NIT con un digito cambiado se
      * arreglaba en la base a mano.
      *
-     * <p><strong>El permiso es {@code CREAR_CONDOMINIOS}</strong>, y la matriz no tiene una fila que
+     * <p><strong>El permiso es {@code CREATE_CONDOMINIUMS}</strong>, y la matriz no tiene una fila que
      * diga "editar condominio". Se resuelve igual que lo hizo
      * {@code PUT /{condominiumId}/configuracion} con la suya: el registro del condominio --su
      * nombre, su NIT, donde esta-- es de quien lo dio de alta, que es el superadministrador y nadie
@@ -94,7 +94,7 @@ class CondominiumController {
      * <p>Lo que este endpoint <strong>no</strong> cambia es el tipo y el estado, cada uno por su
      * motivo, y los dos estan escritos en {@link Condominiums#edit}.
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'CREAR_CONDOMINIOS')"
+    @PreAuthorize("@autorizacion.puede(authentication, 'CREATE_CONDOMINIUMS')"
             + " and @reautenticacion.siCambiaElNit(authentication, #condominiumId, #cambio.nit())")
     @PutMapping("/{condominiumId}")
     CondominiumView editar(@PathVariable UUID condominiumId, @Valid @RequestBody Edicion cambio, Principal quien) {
@@ -105,7 +105,7 @@ class CondominiumController {
     // el dinero. La matriz no tiene una fila con este nombre --lo mas cercano es "configurar
     // conceptos, tarifas de agua y politica de mora"-- y se resuelve del lado de la separacion de
     // funciones: quien administra personas y unidades no toca lo que se cobra.
-    @PreAuthorize("@autorizacion.puede(authentication, 'CONFIGURAR_COBROS')")
+    @PreAuthorize("@autorizacion.puede(authentication, 'CONFIGURE_CHARGES')")
     @PutMapping("/{condominiumId}/configuracion")
     CondominiumView cambiarConfiguracion(
             @PathVariable UUID condominiumId, @Valid @RequestBody CambioDeConfiguracion cambio, Principal quien) {

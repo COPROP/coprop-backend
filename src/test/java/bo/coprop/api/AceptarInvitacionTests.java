@@ -128,9 +128,9 @@ class AceptarInvitacionTests {
         assertThat(nacida.roles()).containsExactly(MembershipRole.OWNER);
 
         // La misma cuenta y la misma persona que antes de entrar: "no se crea una segunda cuenta".
-        AccountView despues = personas.findAccount(invitada.id());
-        assertThat(despues.personId()).isEqualTo(personaDeLaInvitada);
-        assertThat(despues.email()).isEqualTo(invitada.email());
+        AccountView newValues = personas.findAccount(invitada.id());
+        assertThat(newValues.personId()).isEqualTo(personaDeLaInvitada);
+        assertThat(newValues.email()).isEqualTo(invitada.email());
 
         // Y ahora /me si lo lista, que es lo que vera la pantalla despues de aceptar.
         mockMvc.perform(get("/api/v1/me").header(HttpHeaders.AUTHORIZATION, autorizacion))
@@ -145,7 +145,7 @@ class AceptarInvitacionTests {
                         new NewCondominium(
                                 "Acepta " + UUID.randomUUID(),
                                 nitNuevo(),
-                                CondominiumType.EDIFICIO,
+                                CondominiumType.BUILDING,
                                 "America/La_Paz",
                                 5,
                                 10),

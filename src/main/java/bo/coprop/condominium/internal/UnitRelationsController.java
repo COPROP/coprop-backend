@@ -55,7 +55,7 @@ class UnitRelationsController {
         this.relaciones = relaciones;
     }
 
-    @PreAuthorize("@autorizacion.puede(authentication, 'GESTIONAR_UNIDADES')")
+    @PreAuthorize("@autorizacion.puede(authentication, 'MANAGE_UNITS')")
     @PostMapping("/propietarios")
     ResponseEntity<OwnershipView> registrarPropietario(
             @PathVariable UUID condominiumId,
@@ -70,7 +70,7 @@ class UnitRelationsController {
     /**
      * Los propietarios vigentes, con su porcentaje. Es a quienes se les cobra.
      *
-     * <p>Por eso lo gobierna {@code VER_ESTADO_DE_CUENTA} y no el permiso de gestionar unidades:
+     * <p>Por eso lo gobierna {@code VIEW_ACCOUNT_STATEMENT} y no el permiso de gestionar unidades:
      * saber quien responde por una unidad es la cabecera de su estado de cuenta. La matriz da esa
      * fila entera a los dos administradores, "Propias" al propietario y al inquilino --que asi ven
      * a sus copropietarios y a nadie mas-- y nada a porteria ni al directorio.
@@ -79,13 +79,13 @@ class UnitRelationsController {
      * propietario que pide la de un vecino recibe <strong>404</strong>; y porteria recibe
      * <strong>403</strong>, porque ahi lo que falla es el rol y no el recurso.
      */
-    @PreAuthorize("@acceso.puedeSobreLaUnidad(authentication, 'VER_ESTADO_DE_CUENTA', #condominiumId, #unitId)")
+    @PreAuthorize("@acceso.puedeSobreLaUnidad(authentication, 'VIEW_ACCOUNT_STATEMENT', #condominiumId, #unitId)")
     @GetMapping("/propietarios")
     List<OwnershipView> propietarios(@PathVariable UUID condominiumId, @PathVariable UUID unitId) {
         return relaciones.ownersOf(condominiumId, unitId);
     }
 
-    @PreAuthorize("@autorizacion.puede(authentication, 'GESTIONAR_UNIDADES')")
+    @PreAuthorize("@autorizacion.puede(authentication, 'MANAGE_UNITS')")
     @PostMapping("/ocupantes")
     ResponseEntity<OccupancyView> registrarOcupante(
             @PathVariable UUID condominiumId,
@@ -97,7 +97,7 @@ class UnitRelationsController {
         return ResponseEntity.status(201).body(creada);
     }
 
-    @PreAuthorize("@autorizacion.puede(authentication, 'GESTIONAR_UNIDADES')")
+    @PreAuthorize("@autorizacion.puede(authentication, 'MANAGE_UNITS')")
     @PostMapping("/responsables-de-pago")
     ResponseEntity<BillingResponsibilityView> asignarResponsable(
             @PathVariable UUID condominiumId,
@@ -112,7 +112,7 @@ class UnitRelationsController {
     /**
      * El historico de titularidades: quien ha sido dueño de esta unidad y cuando. Issue #19.
      *
-     * <p>Lo pide {@code GESTIONAR_UNIDADES} y no {@code VER_ESTADO_DE_CUENTA} como el listado de
+     * <p>Lo pide {@code MANAGE_UNITS} y no {@code VIEW_ACCOUNT_STATEMENT} como el listado de
      * arriba, y la diferencia es la que marca Seguridad 6.2: al propietario anterior se le entrega
      * un comprobante de su epoca <strong>a traves del administrador</strong>, no mirando el
      * historico el mismo. Dejar que un copropietario de hoy vea la cadena entera de dueños le daria
@@ -121,7 +121,7 @@ class UnitRelationsController {
      * <p>Incluye la titularidad vigente, para que la lista se lea como una cadena y no haya que
      * juntarla con la otra consulta.
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'GESTIONAR_UNIDADES')")
+    @PreAuthorize("@autorizacion.puede(authentication, 'MANAGE_UNITS')")
     @GetMapping("/propietarios/historico")
     List<OwnershipView> historicoDePropietarios(@PathVariable UUID condominiumId, @PathVariable UUID unitId) {
         return relaciones.ownershipHistoryOf(condominiumId, unitId);
@@ -137,7 +137,7 @@ class UnitRelationsController {
      *
      * <p>Responde la titularidad del comprador, que es lo unico que queda abierto al terminar.
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'GESTIONAR_UNIDADES')")
+    @PreAuthorize("@autorizacion.puede(authentication, 'MANAGE_UNITS')")
     @PostMapping("/transferencia")
     OwnershipView transferir(
             @PathVariable UUID condominiumId,
@@ -155,7 +155,7 @@ class UnitRelationsController {
      * de existir, y que por debajo se cierre una vigencia en vez de borrarse es asunto del dominio.
      * Responde 204 por lo mismo: no hay nada vigente que devolver.
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'GESTIONAR_UNIDADES')")
+    @PreAuthorize("@autorizacion.puede(authentication, 'MANAGE_UNITS')")
     @DeleteMapping("/ocupantes/{personId}")
     ResponseEntity<Void> terminarOcupacion(
             @PathVariable UUID condominiumId, @PathVariable UUID unitId, @PathVariable UUID personId, Principal quien) {
@@ -170,7 +170,7 @@ class UnitRelationsController {
      *     asigno: cerrar la general no cierra las de un concepto concreto, porque son filas
      *     distintas y responden por cosas distintas
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'GESTIONAR_UNIDADES')")
+    @PreAuthorize("@autorizacion.puede(authentication, 'MANAGE_UNITS')")
     @DeleteMapping("/responsables-de-pago/{personId}")
     ResponseEntity<Void> terminarResponsabilidad(
             @PathVariable UUID condominiumId,

@@ -84,7 +84,7 @@ class MembershipsTests {
 
         assertThat(creada.accountId()).isEqualTo(cuenta);
         assertThat(creada.condominiumId()).isEqualTo(condominio);
-        assertThat(creada.status()).isEqualTo(MembershipStatus.ACTIVA);
+        assertThat(creada.status()).isEqualTo(MembershipStatus.ACTIVE);
         assertThat(creada.roles()).containsExactly(MembershipRole.OWNER);
 
         assertThat(membresias.find(condominio, creada.id())).isEqualTo(creada);
@@ -226,7 +226,7 @@ class MembershipsTests {
         assertThat(dada.validTo()).isEqualTo(AHORA);
         assertThat(dada.daAcceso()).isFalse();
         // El estado no se toca: la fila sigue diciendo como estaba cuando se la dio de baja.
-        assertThat(dada.status()).isEqualTo(MembershipStatus.ACTIVA);
+        assertThat(dada.status()).isEqualTo(MembershipStatus.ACTIVE);
         // Ya no es vigente, pero la fila esta: el segundo criterio del issue.
         assertThat(membresias.ofCondominium(condominio)).isEmpty();
         assertThat(membresias.allOfCondominium(condominio))
@@ -315,7 +315,7 @@ class MembershipsTests {
 
         MembershipView suspendida = membresias.suspend(condominio, concedida.id(), "cuota impaga", "admin");
 
-        assertThat(suspendida.status()).isEqualTo(MembershipStatus.SUSPENDIDA);
+        assertThat(suspendida.status()).isEqualTo(MembershipStatus.SUSPENDED);
         assertThat(suspendida.validTo()).isNull();
         assertThat(suspendida.daAcceso()).isFalse();
         // Sigue siendo del condominio: es lo que la distingue de una baja. El filtro de aislamiento
@@ -710,7 +710,7 @@ class MembershipsTests {
         jdbc.update(
                 """
                 INSERT INTO condominium (id, name, nit, type, time_zone, currency, status, created_at)
-                VALUES (?, 'Condominio de prueba', ?, 'EDIFICIO', 'America/La_Paz', 'BOB', 'ACTIVO', ?)
+                VALUES (?, 'Condominio de prueba', ?, 'BUILDING', 'America/La_Paz', 'BOB', 'ACTIVE', ?)
                 """,
                 id,
                 nit,

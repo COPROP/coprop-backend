@@ -94,12 +94,12 @@ class MisSesionesTests {
                 .andExpect(jsonPath("$.length()").value(2))
                 // De la mas usada a la menos: la del telefono se uso hace un minuto.
                 .andExpect(jsonPath("$[0].id").value("del-telefono"))
-                .andExpect(jsonPath("$[0].origen").value("PROVEEDOR"))
+                .andExpect(jsonPath("$[0].origen").value("PROVIDER"))
                 .andExpect(jsonPath("$[0].ip").value("190.129.1.1"))
                 // El proveedor gobierna sus propios tiempos, asi que de esa no se sabe cuando vence.
                 .andExpect(jsonPath("$[0].expira").doesNotExist())
                 .andExpect(jsonPath("$[1].id").value("del-navegador"))
-                .andExpect(jsonPath("$[1].origen").value("NAVEGADOR"))
+                .andExpect(jsonPath("$[1].origen").value("BROWSER"))
                 // La del navegador no trae IP: la tabla de la V6 no guarda de donde vino.
                 .andExpect(jsonPath("$[1].ip").doesNotExist())
                 .andExpect(jsonPath("$[1].expira").exists());
@@ -144,7 +144,7 @@ class MisSesionesTests {
         mockMvc.perform(peticion(HttpMethod.GET, "/api/v1/me/sesiones", quien.token(), null))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].origen").value("NAVEGADOR"));
+                .andExpect(jsonPath("$[0].origen").value("BROWSER"));
     }
 
     @Test

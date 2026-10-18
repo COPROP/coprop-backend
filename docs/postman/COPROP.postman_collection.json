@@ -163,7 +163,7 @@
                 "sesiones"
               ]
             },
-            "description": "Dónde está abierta tu cuenta ahora mismo (Seguridad §8).\n\n**Son dos mitades y salen juntas.** `origen: NAVEGADOR` son las sesiones de servidor del BFF, las que sostienen la cookie: de esas se sabe cuándo caducan, porque sus tiempos los pone esta aplicación. `origen: PROVEEDOR` son las de Keycloak, las que sostienen el refresh token de la app móvil: de esas se sabe la IP, que la tabla del BFF no guarda. Una lista que mirara solo una de las dos diría que no hay nadie dentro mientras el teléfono sigue renovando su token.\n\n`actual: true` marca la sesión desde la que estás preguntando. **Desde Postman siempre sale `false`**: se entra con `Bearer` y ahí no hay sesión de servidor con la que compararse.\n\nSi Keycloak no contesta, devuelve media lista y no un error."
+            "description": "Dónde está abierta tu cuenta ahora mismo (Seguridad §8).\n\n**Son dos mitades y salen juntas.** `origen: BROWSER` son las sesiones de servidor del BFF, las que sostienen la cookie: de esas se sabe cuándo caducan, porque sus tiempos los pone esta aplicación. `origen: PROVIDER` son las de Keycloak, las que sostienen el refresh token de la app móvil: de esas se sabe la IP, que la tabla del BFF no guarda. Una lista que mirara solo una de las dos diría que no hay nadie dentro mientras el teléfono sigue renovando su token.\n\n`actual: true` marca la sesión desde la que estás preguntando. **Desde Postman siempre sale `false`**: se entra con `Bearer` y ahí no hay sesión de servidor con la que compararse.\n\nSi Keycloak no contesta, devuelve media lista y no un error."
           }
         },
         {
@@ -184,7 +184,7 @@
                 "cierre"
               ]
             },
-            "description": "El botón de Seguridad §5.3, cuyo motivo típico está escrito en la propia tabla del análisis: la pérdida o el robo del celular.\n\n**Cierra también la sesión desde la que lo pides**, y las dos puertas: las del BFF y las de Keycloak. Dejar la tuya obligaría a decidir cuál es la tuya, que es justo lo que no se puede emparejar entre las dos mitades.\n\nResponde **204**. Después de esto, el `Bearer` de Postman deja de servir en cuanto Keycloak invalide el refresh token: hay que volver a pedirlo.\n\nDeja fila en la bitácora **de plataforma** —`SESIONES_CERRADAS`, sin condominio— porque una sesión no es de ningún edificio."
+            "description": "El botón de Seguridad §5.3, cuyo motivo típico está escrito en la propia tabla del análisis: la pérdida o el robo del celular.\n\n**Cierra también la sesión desde la que lo pides**, y las dos puertas: las del BFF y las de Keycloak. Dejar la tuya obligaría a decidir cuál es la tuya, que es justo lo que no se puede emparejar entre las dos mitades.\n\nResponde **204**. Después de esto, el `Bearer` de Postman deja de servir en cuanto Keycloak invalide el refresh token: hay que volver a pedirlo.\n\nDeja fila en la bitácora **de plataforma** —`SESSIONS_CLOSED`, sin condominio— porque una sesión no es de ningún edificio."
           }
         }
       ]
@@ -286,7 +286,7 @@
                 "cuenta"
               ]
             },
-            "description": "La cuenta nace en `INVITADO` y sin contraseña: esa la guarda Keycloak, no esta aplicación. Pasa a `ACTIVO` en el primer login, que es cuando queda vinculada al sujeto del proveedor de identidad.\n\nUna persona tiene **una sola cuenta**, y dos cuentas no comparten correo.",
+            "description": "La cuenta nace en `INVITED` y sin contraseña: esa la guarda Keycloak, no esta aplicación. Pasa a `ACTIVE` en el primer login, que es cuando queda vinculada al sujeto del proveedor de identidad.\n\nUna persona tiene **una sola cuenta**, y dos cuentas no comparten correo.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"emma@coprop.bo\",\n  \"phone\": null\n}",
@@ -362,10 +362,10 @@
                 "condominios"
               ]
             },
-            "description": "`type`: `EDIFICIO`, `CASAS` o `MIXTO`. El `nit` no se puede repetir: dos condominios con el mismo serían el mismo, y a partir de ahí los pagos de uno podrían aplicarse al otro.\n\n**No pisa la variable `condominiumId`** a propósito: no serías miembro del que acabas de crear, así que las peticiones de abajo empezarían a responder 404. `timeZone` tiene que ser una zona IANA de verdad, y se valida en el alta y no meses después, cuando ya haya vencimientos mal calculados.\n\n**Ojo**: esta ruta no cuelga de ningún condominio, así que cualquier cuenta puede crear uno. Quién debería poder es el issue #16. Y después del 201, consultarlo responde **404** hasta que tengas membresía.",
+            "description": "`type`: `BUILDING`, `HOUSES` o `MIXED`. El `nit` no se puede repetir: dos condominios con el mismo serían el mismo, y a partir de ahí los pagos de uno podrían aplicarse al otro.\n\n**No pisa la variable `condominiumId`** a propósito: no serías miembro del que acabas de crear, así que las peticiones de abajo empezarían a responder 404. `timeZone` tiene que ser una zona IANA de verdad, y se valida en el alta y no meses después, cuando ya haya vencimientos mal calculados.\n\n**Ojo**: esta ruta no cuelga de ningún condominio, así que cualquier cuenta puede crear uno. Quién debería poder es el issue #16. Y después del 201, consultarlo responde **404** hasta que tengas membresía.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Torre Sucre\",\n  \"nit\": \"7001234567\",\n  \"type\": \"EDIFICIO\",\n  \"timeZone\": \"America/La_Paz\",\n  \"issueDay\": 5,\n  \"dueDay\": 10\n}",
+              "raw": "{\n  \"name\": \"Torre Sucre\",\n  \"nit\": \"7001234567\",\n  \"type\": \"BUILDING\",\n  \"timeZone\": \"America/La_Paz\",\n  \"issueDay\": 5,\n  \"dueDay\": 10\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -580,10 +580,10 @@
                 "unidades"
               ]
             },
-            "description": "`type`: `DEPARTAMENTO`, `CASA`, `LOCAL`, `PARQUEO` o `DEPOSITO`.\n\nLa **alícuota lleva seis decimales** a propósito: a dos, un edificio de 200 unidades deja bolivianos sin repartir cada mes. No se valida contra el 100% —eso no se puede comprobar unidad a unidad; es validación de la emisión, en M2—, solo se acota entre 0 y 100.",
+            "description": "`type`: `APARTMENT`, `HOUSE`, `COMMERCIAL`, `PARKING` o `STORAGE`.\n\nLa **alícuota lleva seis decimales** a propósito: a dos, un edificio de 200 unidades deja bolivianos sin repartir cada mes. No se valida contra el 100% —eso no se puede comprobar unidad a unidad; es validación de la emisión, en M2—, solo se acota entre 0 y 100.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"code\": \"A-301\",\n  \"type\": \"DEPARTAMENTO\",\n  \"aliquot\": \"1.250000\",\n  \"areaM2\": \"82.50\",\n  \"blockId\": null,\n  \"floorId\": null\n}",
+              "raw": "{\n  \"code\": \"A-301\",\n  \"type\": \"APARTMENT\",\n  \"aliquot\": \"1.250000\",\n  \"areaM2\": \"82.50\",\n  \"blockId\": null,\n  \"floorId\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -637,7 +637,7 @@
             "description": "**Todo o nada**: si una falla no se crea ninguna. Los códigos repetidos se comprueban antes de tocar la base y en una sola consulta, para que el error diga cuáles son en vez de llegar como un choque de integridad.\n\nRecibe una lista, no un archivo: la importación desde Excel es el issue #30.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"unidades\": [\n    {\n      \"code\": \"A-302\",\n      \"type\": \"DEPARTAMENTO\",\n      \"aliquot\": \"1.250000\"\n    },\n    {\n      \"code\": \"P-12\",\n      \"type\": \"PARQUEO\",\n      \"aliquot\": \"0.100000\"\n    }\n  ]\n}",
+              "raw": "{\n  \"unidades\": [\n    {\n      \"code\": \"A-302\",\n      \"type\": \"APARTMENT\",\n      \"aliquot\": \"1.250000\"\n    },\n    {\n      \"code\": \"P-12\",\n      \"type\": \"PARKING\",\n      \"aliquot\": \"0.100000\"\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -759,10 +759,10 @@
                 "ocupantes"
               ]
             },
-            "description": "`role`: `RESIDENTE` o `INQUILINO`.\n\nLa ocupación **no es un estado de la unidad**: \"ocupada por propietario\", \"alquilada\" y \"desocupada\" se modelan aquí, con vigencia. La unidad solo está `ACTIVA` o `INACTIVA`.",
+            "description": "`role`: `RESIDENT` o `TENANT`.\n\nLa ocupación **no es un estado de la unidad**: \"ocupada por propietario\", \"alquilada\" y \"desocupada\" se modelan aquí, con vigencia. La unidad solo está `ACTIVE` o `INACTIVE`.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"personId\": \"{{personId}}\",\n  \"role\": \"INQUILINO\"\n}",
+              "raw": "{\n  \"personId\": \"{{personId}}\",\n  \"role\": \"TENANT\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -867,7 +867,7 @@
                 "historico"
               ]
             },
-            "description": "Quién ha sido dueño de esta unidad y cuándo, de lo más reciente a lo más antiguo, incluida la titularidad vigente (#19).\n\nPide GESTIONAR_UNIDADES y no VER_ESTADO_DE_CUENTA como el listado de arriba: Seguridad §6.2 deja el comprobante de la época del vendedor en manos del administrador, y dejar que un copropietario de hoy vea la cadena entera de dueños le daría el nombre de gente que ya no tiene nada que ver con el edificio."
+            "description": "Quién ha sido dueño de esta unidad y cuándo, de lo más reciente a lo más antiguo, incluida la titularidad vigente (#19).\n\nPide MANAGE_UNITS y no VIEW_ACCOUNT_STATEMENT como el listado de arriba: Seguridad §6.2 deja el comprobante de la época del vendedor en manos del administrador, y dejar que un copropietario de hoy vea la cadena entera de dueños le daría el nombre de gente que ya no tiene nada que ver con el edificio."
           }
         },
         {
@@ -1147,7 +1147,7 @@
                 "suspension"
               ]
             },
-            "description": "Suspensión temporal (#19). La fila NO se cierra: cambia a SUSPENDIDA y sigue abierta, así que la persona sigue siendo del condominio y no entra. Eso es lo que la distingue de una baja, que no se deshace.\n\nSuspender dos veces responde 409.",
+            "description": "Suspensión temporal (#19). La fila NO se cierra: cambia a SUSPENDED y sigue abierta, así que la persona sigue siendo del condominio y no entra. Eso es lo que la distingue de una baja, que no se deshace.\n\nSuspender dos veces responde 409.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"motivo\": \"cuota impaga desde tres meses\"\n}",
@@ -1319,7 +1319,7 @@
                 "reenvio"
               ]
             },
-            "description": "Revoca esta y emite otra. **No prolonga la anterior**: el enlace viejo deja de valer en el acto, porque dos enlaces vivos son dos accesos y solo uno se controla.\n\nResponde **201** y la `Location` de la nueva, que es el recurso que de verdad queda vivo.\n\nSirve también para una vencida: es el \"EXPIRADO → INVITADO\" del diagrama de Seguridad §6."
+            "description": "Revoca esta y emite otra. **No prolonga la anterior**: el enlace viejo deja de valer en el acto, porque dos enlaces vivos son dos accesos y solo uno se controla.\n\nResponde **201** y la `Location` de la nueva, que es el recurso que de verdad queda vivo.\n\nSirve también para una vencida: es el \"EXPIRADO → INVITED\" del diagrama de Seguridad §6."
           },
           "event": [
             {
@@ -1488,7 +1488,7 @@
                 }
               ]
             },
-            "description": "Pide `CONSULTAR_AUDITORIA`: los dos administradores del condominio y el superadministrador, que no opera pero audita (Seguridad §10.1).\n\nLos cuatro filtros de abajo vienen **desactivados**: actívalos para probarlos. Se combinan, y `entidad` toma `membresia`, `invitacion`, `configuracion` o `cuenta`.\n\n`desde` es inclusivo y `hasta` exclusivo, así que dos rangos contiguos no devuelven la misma fila dos veces. Las fechas van en ISO-8601 con zona, igual que las que devuelve la respuesta: lo que se lee en una fila se puede pegar tal cual como filtro.\n\nCada fila trae el actor, la acción, sobre qué, los valores de antes y de después, la IP y el `traceId` de la petición que la originó. Con ese `traceId` se encuentran sus líneas de log.\n\n**Paginada siempre**: es el primer endpoint paginado del sistema, y por él se movió el sobre `Pagina` de `api` a `shared`. El tope de `tamano` es 200."
+            "description": "Pide `VIEW_AUDIT_LOG`: los dos administradores del condominio y el superadministrador, que no opera pero audita (Seguridad §10.1).\n\nLos cuatro filtros de abajo vienen **desactivados**: actívalos para probarlos. Se combinan, y `entidad` toma `membresia`, `invitacion`, `configuracion` o `cuenta`.\n\n`desde` es inclusivo y `hasta` exclusivo, así que dos rangos contiguos no devuelven la misma fila dos veces. Las fechas van en ISO-8601 con zona, igual que las que devuelve la respuesta: lo que se lee en una fila se puede pegar tal cual como filtro.\n\nCada fila trae el actor, la acción, sobre qué, los valores de antes y de después, la IP y el `traceId` de la petición que la originó. Con ese `traceId` se encuentran sus líneas de log.\n\n**Paginada siempre**: es el primer endpoint paginado del sistema, y por él se movió el sobre `Pagina` de `api` a `shared`. El tope de `tamano` es 200."
           }
         },
         {
@@ -1727,7 +1727,7 @@
                 "parametricas"
               ]
             },
-            "description": "Las trece enumeraciones públicas del dominio, por nombre y con sus valores.\n\nLas claves son el nombre de la enumeración tal como la nombra el análisis §5.2, así que no hay traducción entre leer esa sección y leer la respuesta.\n\nLos valores van en el orden en que se declararon y no alfabético: `AccountStatus` empieza por `INVITADO` porque ese es el ciclo de vida de la cuenta, y ordenarlo de otro modo movería las opciones de sitio en un desplegable.\n\nSolo códigos, sin etiquetas: el texto que lee una persona es del cliente."
+            "description": "Las trece enumeraciones públicas del dominio, por nombre y con sus valores.\n\nLas claves son el nombre de la enumeración tal como la nombra el análisis §5.2, así que no hay traducción entre leer esa sección y leer la respuesta.\n\nLos valores van en el orden en que se declararon y no alfabético: `AccountStatus` empieza por `INVITED` porque ese es el ciclo de vida de la cuenta, y ordenarlo de otro modo movería las opciones de sitio en un desplegable.\n\nSolo códigos, sin etiquetas: el texto que lee una persona es del cliente."
           }
         },
         {
@@ -1747,7 +1747,7 @@
                 "matriz-de-permisos"
               ]
             },
-            "description": "La matriz de Seguridad §3 tal como la aplica el backend: 23 permisos por 7 roles, 161 celdas.\n\nSale de `MatrizDePermisos`, la misma clase que decide cada `@PreAuthorize`, así que una pantalla que la pinte desde aquí no puede divergir de la autorización real.\n\n**Cada fila declara los siete roles, incluidos los que no pueden**, con `NINGUNO`. Omitirlos daría una respuesta más corta y obligaría al cliente a decidir qué significa una ausencia: no puede, o no se declaró."
+            "description": "La matriz de Seguridad §3 tal como la aplica el backend: 23 permisos por 7 roles, 161 celdas.\n\nSale de `MatrizDePermisos`, la misma clase que decide cada `@PreAuthorize`, así que una pantalla que la pinte desde aquí no puede divergir de la autorización real.\n\n**Cada fila declara los siete roles, incluidos los que no pueden**, con `NONE`. Omitirlos daría una respuesta más corta y obligaría al cliente a decidir qué significa una ausencia: no puede, o no se declaró."
           }
         }
       ]

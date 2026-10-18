@@ -144,7 +144,7 @@ class FiltroDeVigenciaDeSesion extends OncePerRequestFilter {
             return ADMINISTRATIVA;
         }
         boolean administraAlgunCondominio = membresias.ofAccount(accountId).stream()
-                .filter(membresia -> membresia.status() == MembershipStatus.ACTIVA)
+                .filter(membresia -> membresia.status() == MembershipStatus.ACTIVE)
                 .flatMap(membresia -> membresia.roles().stream())
                 .anyMatch(MatrizDePermisos::esAdministrativo);
         return administraAlgunCondominio ? ADMINISTRATIVA : ORDINARIA;

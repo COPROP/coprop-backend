@@ -36,6 +36,6 @@ public record MembershipView(
      * cerrada conserva el estado que tenia cuando se cerro, porque cerrar no lo toca.
      */
     public boolean daAcceso() {
-        return validTo == null && status == MembershipStatus.ACTIVA;
+        return validTo == null && status == MembershipStatus.ACTIVE;
     }
 }

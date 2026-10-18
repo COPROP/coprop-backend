@@ -88,7 +88,7 @@ class MeController {
      */
     private List<MiPerfil.MiCondominio> misCondominios(UUID cuenta, UUID persona) {
         return membresias.ofAccount(cuenta).stream()
-                .filter(membresia -> membresia.status() == MembershipStatus.ACTIVA)
+                .filter(membresia -> membresia.status() == MembershipStatus.ACTIVE)
                 .map(membresia -> deLaMembresia(membresia, persona))
                 // Por nombre y no por el orden en que se concedieron las membresias: el selector lo
                 // lee una persona, y un orden que cambia entre dos peticiones se nota.
