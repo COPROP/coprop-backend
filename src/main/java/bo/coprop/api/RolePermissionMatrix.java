@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Lo que devuelve {@code GET /api/v1/parametricas/matriz-de-permisos}: la matriz de Seguridad 3 tal
+ * Lo que devuelve {@code GET /api/v1/catalogs/permission-matrix}: la matriz de Seguridad 3 tal
  * como la aplica el backend. Issue #89.
  *
  * <p><strong>Sale de {@code PermissionMatrix}, no de una copia.</strong> Es el punto entero: una

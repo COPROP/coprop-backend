@@ -74,13 +74,13 @@ class PeopleTests {
     @Test
     @DisplayName("el alta de una persona que ya existe devuelve la misma, sin error")
     void aRepeatedRegistrationReturnsTheSameOne() {
-        PersonView primera = people.register(emma("8123456"), "admin");
+        PersonView first = people.register(emma("8123456"), "admin");
 
         // Decision 7: responde igual exista o no. La persona es global, asi que distinguir los dos
         // casos le diria al administrador de un condominio que esa persona esta en otro.
         PersonView segunda = people.register(new NewPerson("Emma Lucia", "Tola Vargas", "8123456"), "otro");
 
-        assertThat(segunda.id()).isEqualTo(primera.id());
+        assertThat(segunda.id()).isEqualTo(first.id());
         // Se reutiliza la fila tal como esta: el alta no es una via para editar a alguien.
         assertThat(segunda.firstNames()).isEqualTo("Emma");
     }

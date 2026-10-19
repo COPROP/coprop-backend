@@ -23,17 +23,17 @@ class CondominiumsService implements Condominiums {
     private static final String MONEDA_DEL_MVP = "BOB";
 
     private final CondominiumRepository condominiums;
-    private final CondominiumConfigRepository configuraciones;
+    private final CondominiumConfigRepository configs;
     private final ApplicationEventPublisher eventos;
     private final Clock clock;
 
     CondominiumsService(
             CondominiumRepository condominiums,
-            CondominiumConfigRepository configuraciones,
+            CondominiumConfigRepository configs,
             ApplicationEventPublisher eventos,
             Clock clock) {
         this.condominiums = condominiums;
-        this.configuraciones = configuraciones;
+        this.configs = configs;
         this.eventos = eventos;
         this.clock = clock;
     }
@@ -51,7 +51,7 @@ class CondominiumsService implements Condominiums {
         Condominium condominium = condominiums.save(
                 new Condominium(body.name(), body.nit(), body.type(), body.timeZone(), MONEDA_DEL_MVP, ahora));
         CondominiumConfig config =
-                configuraciones.save(new CondominiumConfig(condominium.getId(), body.issueDay(), body.dueDay(), ahora));
+                configs.save(new CondominiumConfig(condominium.getId(), body.issueDay(), body.dueDay(), ahora));
 
         eventos.publishEvent(new CondominiumRegistered(condominium.getId(), condominium.getName(), actor, ahora));
 
@@ -77,9 +77,9 @@ class CondominiumsService implements Condominiums {
         // de un mismo flush, asi que sin esto la fila nueva entra mientras la vieja sigue abierta y
         // el indice parcial de "una sola vigente por condominio" la rechaza. El indice esta
         // haciendo su trabajo; lo que hay que arreglar es el orden.
-        configuraciones.flush();
+        configs.flush();
 
-        CondominiumConfig body = configuraciones.save(new CondominiumConfig(condominiumId, issueDay, dueDay, ahora));
+        CondominiumConfig body = configs.save(new CondominiumConfig(condominiumId, issueDay, dueDay, ahora));
 
         eventos.publishEvent(new CondominiumConfigChanged(
                 condominiumId, current.getIssueDay(), current.getDueDay(), issueDay, dueDay, actor, ahora));
@@ -129,8 +129,7 @@ class CondominiumsService implements Condominiums {
 
     /** La unica fila de configuracion abierta del condominio. No haberla es un estado roto. */
     private CondominiumConfig currentConfigOf(UUID condominiumId) {
-        return configuraciones
-                .findByCondominiumIdAndValidToIsNull(condominiumId)
+        return configs.findByCondominiumIdAndValidToIsNull(condominiumId)
                 .orElseThrow(() -> new IllegalStateException(
                         "El condominio %s no tiene configuracion vigente.".formatted(condominiumId)));
     }

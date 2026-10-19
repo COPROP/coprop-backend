@@ -35,12 +35,12 @@ class KeycloakRealmTests {
     private static JsonNode leer() {
         try {
             return new ObjectMapper().readTree(Files.readString(ARCHIVO, StandardCharsets.UTF_8));
-        } catch (IOException fallo) {
-            throw new IllegalStateException("No se pudo leer " + ARCHIVO, fallo);
+        } catch (IOException failure) {
+            throw new IllegalStateException("No se pudo leer " + ARCHIVO, failure);
         }
     }
 
-    private static JsonNode cliente(String clientId) {
+    private static JsonNode client(String clientId) {
         for (JsonNode candidato : REALM.get("clients")) {
             if (clientId.equals(candidato.get("clientId").asString())) {
                 return candidato;
@@ -66,7 +66,7 @@ class KeycloakRealmTests {
     @Test
     @DisplayName("la web va por el BFF: cliente confidencial y la vuelta al backend, no al navegador")
     void theWebClientIsConfidential() {
-        var web = cliente("coprop-web");
+        var web = client("coprop-web");
 
         assertThat(web.get("publicClient").asBoolean()).isFalse();
         assertThat(web.get("standardFlowEnabled").asBoolean()).isTrue();
@@ -84,7 +84,7 @@ class KeycloakRealmTests {
     @Test
     @DisplayName("el unico cliente publico es el movil, que es el unico que guarda tokens")
     void theMobileClientIsPublicWithPkce() {
-        var movil = cliente("coprop-movil");
+        var movil = client("coprop-movil");
 
         assertThat(movil.get("publicClient").asBoolean()).isTrue();
         assertThat(movil.get("attributes").get("pkce.code.challenge.method").asString())
@@ -102,11 +102,11 @@ class KeycloakRealmTests {
 
     @Test
     void theApiIsBearerOnlyAndTheAdminClientIsServiceAccountOnly() {
-        var api = cliente("coprop-api");
+        var api = client("coprop-api");
         assertThat(api.get("bearerOnly").asBoolean()).isTrue();
         assertThat(api.get("standardFlowEnabled").asBoolean()).isFalse();
 
-        var admin = cliente("coprop-admin");
+        var admin = client("coprop-admin");
         assertThat(admin.get("serviceAccountsEnabled").asBoolean()).isTrue();
         assertThat(admin.get("standardFlowEnabled").asBoolean()).isFalse();
     }
@@ -115,16 +115,16 @@ class KeycloakRealmTests {
     @DisplayName("el token no lleva roles: ni los del realm ni los de condominio")
     void noUserClientRequestsTheRolesScope() {
         for (String clientId : List.of("coprop-web", "coprop-movil")) {
-            var cliente = cliente(clientId);
+            var client = client(clientId);
 
             // Los roles por condominio viven en la base de COPROP (Seguridad 4.2). Estas dos
             // lineas son lo que impide que Keycloak meta roles suyos en el token: sin el scope
             // "roles" no hay mapeador que los escriba, y sin fullScopeAllowed no hay nada que
             // mapear.
-            assertThat(textos(cliente, "defaultClientScopes"))
+            assertThat(textos(client, "defaultClientScopes"))
                     .as("scopes de %s", clientId)
                     .doesNotContain("roles");
-            assertThat(cliente.get("fullScopeAllowed").asBoolean())
+            assertThat(client.get("fullScopeAllowed").asBoolean())
                     .as("fullScopeAllowed de %s", clientId)
                     .isFalse();
         }
@@ -134,7 +134,7 @@ class KeycloakRealmTests {
     void userTokensCarryTheApiAudience() {
         for (String clientId : List.of("coprop-web", "coprop-movil")) {
             var audiencias = new ArrayList<String>();
-            for (JsonNode mapeador : cliente(clientId).get("protocolMappers")) {
+            for (JsonNode mapeador : client(clientId).get("protocolMappers")) {
                 if ("oidc-audience-mapper".equals(mapeador.get("protocolMapper").asString())) {
                     audiencias.add(mapeador.get("config")
                             .get("included.client.audience")
@@ -173,12 +173,12 @@ class KeycloakRealmTests {
         assertThat(literales).isEmpty();
     }
 
-    private static void recogerSecretosLiterales(JsonNode nodo, String ruta, List<String> literales) {
+    private static void recogerSecretosLiterales(JsonNode nodo, String path, List<String> literales) {
         if (nodo.isObject()) {
-            for (var entrada : nodo.properties()) {
-                var key = entrada.getKey();
-                var hijo = entrada.getValue();
-                var rutaHija = ruta.isEmpty() ? key : ruta + "." + key;
+            for (var entry : nodo.properties()) {
+                var key = entry.getKey();
+                var hijo = entry.getValue();
+                var rutaHija = path.isEmpty() ? key : path + "." + key;
                 var esSecreto = key.equals("secret")
                         || key.toLowerCase(java.util.Locale.ROOT).endsWith("secret");
                 if (esSecreto && hijo.isString() && !hijo.asString().startsWith("${")) {
@@ -189,7 +189,7 @@ class KeycloakRealmTests {
         } else if (nodo.isArray()) {
             var indice = 0;
             for (JsonNode hijo : nodo) {
-                recogerSecretosLiterales(hijo, ruta + "[" + indice++ + "]", literales);
+                recogerSecretosLiterales(hijo, path + "[" + indice++ + "]", literales);
             }
         }
     }
@@ -219,9 +219,9 @@ class KeycloakRealmTests {
     @DisplayName("el usuario de desarrollo lleva el rol por defecto del realm")
     void theDevelopmentUserCarriesTheDefaultRole() {
         var rolesDelDev = new ArrayList<String>();
-        for (JsonNode usuario : REALM.get("users")) {
-            if ("dev@coprop.local".equals(usuario.path("username").asString(""))) {
-                rolesDelDev.addAll(textos(usuario, "realmRoles"));
+        for (JsonNode user : REALM.get("users")) {
+            if ("dev@coprop.local".equals(user.path("username").asString(""))) {
+                rolesDelDev.addAll(textos(user, "realmRoles"));
             }
         }
 

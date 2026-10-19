@@ -47,8 +47,8 @@ class TestTokenProvider {
     private static RSAKey generar() {
         try {
             return new RSAKeyGenerator(2048).keyID("prueba").generate();
-        } catch (Exception fallo) {
-            throw new IllegalStateException("No se pudo generar la clave de prueba", fallo);
+        } catch (Exception failure) {
+            throw new IllegalStateException("No se pudo generar la clave de prueba", failure);
         }
     }
 
@@ -70,7 +70,7 @@ class TestTokenProvider {
      * pasarian sin comprobar nada. Lo que no trae segundo factor se pide a mano, con
      * {@link #sinSegundoFactor} y {@link #conSegundoFactorEn}.
      */
-    static String valido(String tokenSubject, String email) {
+    static String valid(String tokenSubject, String email) {
         return token(tokenSubject, email, true, Instant.now().plus(5, ChronoUnit.MINUTES), AUDIENCIA, CLAVE);
     }
 
@@ -110,28 +110,23 @@ class TestTokenProvider {
     }
 
     /** Sin {@code amr} ni {@code auth_time}: un proveedor que no los manda. */
-    static String sinAfirmacionesDeAutenticacion(String tokenSubject, String email) {
+    static String withoutAuthenticationClaims(String tokenSubject, String email) {
         return token(
                 tokenSubject, email, true, Instant.now().plus(5, ChronoUnit.MINUTES), AUDIENCIA, CLAVE, null, null);
     }
 
     static String token(
-            String tokenSubject,
-            String email,
-            boolean correoVerificado,
-            Instant expiresAt,
-            String audiencia,
-            RSAKey key) {
+            String tokenSubject, String email, boolean emailVerified, Instant expiresAt, String audience, RSAKey key) {
         return token(
-                tokenSubject, email, correoVerificado, expiresAt, audiencia, key, List.of("pwd", "otp"), Instant.now());
+                tokenSubject, email, emailVerified, expiresAt, audience, key, List.of("pwd", "otp"), Instant.now());
     }
 
     static String token(
             String tokenSubject,
             String email,
-            boolean correoVerificado,
+            boolean emailVerified,
             Instant expiresAt,
-            String audiencia,
+            String audience,
             RSAKey key,
             @Nullable List<String> amr,
             @Nullable Instant autenticadoEn) {
@@ -139,11 +134,11 @@ class TestTokenProvider {
             var constructor = new JWTClaimsSet.Builder()
                     .subject(tokenSubject)
                     .issuer(EMISOR)
-                    .audience(audiencia)
+                    .audience(audience)
                     .issueTime(Date.from(expiresAt.minus(5, ChronoUnit.MINUTES)))
                     .expirationTime(Date.from(expiresAt))
                     .claim("email", email)
-                    .claim("email_verified", correoVerificado);
+                    .claim("email_verified", emailVerified);
             if (amr != null) {
                 constructor.claim("amr", amr);
             }
@@ -152,17 +147,17 @@ class TestTokenProvider {
                 // serializado como texto no lo lee el decodificador y la afirmacion se pierde.
                 constructor.claim("auth_time", autenticadoEn.getEpochSecond());
             }
-            var afirmaciones = constructor.build();
-            var firmado = new SignedJWT(
+            var claims = constructor.build();
+            var signed = new SignedJWT(
                     new JWSHeader.Builder(JWSAlgorithm.RS256)
                             .type(JOSEObjectType.JWT)
                             .keyID(key.getKeyID())
                             .build(),
-                    afirmaciones);
-            firmado.sign(new RSASSASigner(key.toPrivateKey()));
-            return firmado.serialize();
-        } catch (Exception fallo) {
-            throw new IllegalStateException("No se pudo firmar el token de prueba", fallo);
+                    claims);
+            signed.sign(new RSASSASigner(key.toPrivateKey()));
+            return signed.serialize();
+        } catch (Exception failure) {
+            throw new IllegalStateException("No se pudo firmar el token de prueba", failure);
         }
     }
 

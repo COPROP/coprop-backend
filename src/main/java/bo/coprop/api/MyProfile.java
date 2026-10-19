@@ -17,7 +17,7 @@ import java.util.Set;
  *
  * <p><strong>Compone vistas de los dos modulos en vez de aplanarlas.</strong> El condominio viaja
  * como su {@link CondominiumView} y la persona como su {@link PersonView}, con los nombres de campo
- * que ya tienen en {@code /condominios/{id}} y en {@code /personas/{id}}. Aplanarlo daria un JSON
+ * que ya tienen en {@code /condominiums/{id}} y en {@code /people/{id}}. Aplanarlo daria un JSON
  * mas corto y un segundo contrato que mantener al dia a mano: el dia que al condominio se le añada
  * un campo, aqui saldria solo.
  *

@@ -54,15 +54,15 @@ class BffSessions implements Sessions {
      */
     @Override
     public int closeThoseOf(Set<String> names) {
-        Set<String> encontradas = new HashSet<>();
+        Set<String> found = new HashSet<>();
         for (String name : names) {
-            encontradas.addAll(sessions.findByPrincipalName(name).keySet());
+            found.addAll(sessions.findByPrincipalName(name).keySet());
         }
-        encontradas.forEach(sessions::deleteById);
-        if (!encontradas.isEmpty()) {
-            log.info("Cerradas {} sesiones del BFF.", encontradas.size());
+        found.forEach(sessions::deleteById);
+        if (!found.isEmpty()) {
+            log.info("Cerradas {} sesiones del BFF.", found.size());
         }
-        return encontradas.size();
+        return found.size();
     }
 
     /**
@@ -78,11 +78,11 @@ class BffSessions implements Sessions {
      */
     @Override
     public List<BffSession> listThoseOf(Set<String> names) {
-        Map<String, Session> encontradas = new HashMap<>();
+        Map<String, Session> found = new HashMap<>();
         for (String name : names) {
-            encontradas.putAll(sessions.findByPrincipalName(name));
+            found.putAll(sessions.findByPrincipalName(name));
         }
-        return encontradas.values().stream()
+        return found.values().stream()
                 .map(BffSessions::toView)
                 .sorted(Comparator.comparing(BffSession::lastAccess).reversed())
                 .toList();

@@ -60,7 +60,7 @@ class UnitControllerTests {
     @Test
     @DisplayName("el alta de una unidad devuelve 201 con su identificador")
     void theRegistrationReturns201() throws Exception {
-        mockMvc.perform(post("/api/v1/condominios/{id}/unidades", lasPalmas)
+        mockMvc.perform(post("/api/v1/condominiums/{id}/units", lasPalmas)
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(unit("302")))
@@ -81,7 +81,7 @@ class UnitControllerTests {
                 ]}
                 """;
 
-        mockMvc.perform(post("/api/v1/condominios/{id}/unidades/lote", lasPalmas)
+        mockMvc.perform(post("/api/v1/condominiums/{id}/units/batch", lasPalmas)
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(batch))
@@ -93,17 +93,17 @@ class UnitControllerTests {
     @Test
     @DisplayName("un codigo repetido sale como regla de negocio en problem+json, no como un 500")
     void aRepeatedCodeGives422() throws Exception {
-        mockMvc.perform(post("/api/v1/condominios/{id}/unidades", lasPalmas)
+        mockMvc.perform(post("/api/v1/condominiums/{id}/units", lasPalmas)
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(unit("302")));
 
-        mockMvc.perform(post("/api/v1/condominios/{id}/unidades", lasPalmas)
+        mockMvc.perform(post("/api/v1/condominiums/{id}/units", lasPalmas)
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(unit("302")))
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.codigo").value("REGLA_DE_NEGOCIO"));
+                .andExpect(jsonPath("$.code").value("BUSINESS_RULE"));
     }
 
     @Test
@@ -113,24 +113,24 @@ class UnitControllerTests {
                 {"code":"302","type":"APARTMENT","aliquot":"150.0"}
                 """;
 
-        mockMvc.perform(post("/api/v1/condominios/{id}/unidades", lasPalmas)
+        mockMvc.perform(post("/api/v1/condominiums/{id}/units", lasPalmas)
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(imposible))
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.codigo").value("VALIDACION"))
-                .andExpect(jsonPath("$.errores[0].field").value("aliquot"));
+                .andExpect(jsonPath("$.code").value("VALIDATION"))
+                .andExpect(jsonPath("$.errors[0].field").value("aliquot"));
     }
 
     @Test
     @DisplayName("dar de alta en un condominio que no existe da 404")
     void inANonExistentCondominiumItGives404() throws Exception {
-        mockMvc.perform(post("/api/v1/condominios/{id}/unidades", UUID.randomUUID())
+        mockMvc.perform(post("/api/v1/condominiums/{id}/units", UUID.randomUUID())
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(unit("302")))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 
     @Test
@@ -138,7 +138,7 @@ class UnitControllerTests {
     void theUnitIsQueriedByItsRoute() throws Exception {
         UnitView propia = units.register(lasPalmas, body("302"), "emma");
 
-        mockMvc.perform(get("/api/v1/condominios/{id}/unidades/{unitId}", lasPalmas, propia.id()))
+        mockMvc.perform(get("/api/v1/condominiums/{id}/units/{unitId}", lasPalmas, propia.id()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("302"));
     }
@@ -154,9 +154,9 @@ class UnitControllerTests {
         UnitView ajena = units.register(villaSol, body("302"), "emma");
 
         // El condominio de la ruta no es decorativo: 404 y no la unidad de al lado.
-        mockMvc.perform(get("/api/v1/condominios/{id}/unidades/{unitId}", lasPalmas, ajena.id()))
+        mockMvc.perform(get("/api/v1/condominiums/{id}/units/{unitId}", lasPalmas, ajena.id()))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 
     private static NewUnit body(String code) {

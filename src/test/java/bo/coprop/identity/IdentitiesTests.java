@@ -57,20 +57,20 @@ class IdentitiesTests {
     @Test
     @DisplayName("el primer login vincula la cuenta al sujeto del token y la activa")
     void elPrimerLoginVincula(PublishedEvents eventos) {
-        AccountView invitada = accountOf("emma@coprop.bo");
-        assertThat(invitada.status()).isEqualTo(AccountStatus.INVITED);
+        AccountView invited = accountOf("emma@coprop.bo");
+        assertThat(invited.status()).isEqualTo(AccountStatus.INVITED);
 
-        AccountView entrada = requireNonNull(identities.signIn(SUJETO, "emma@coprop.bo", true), "tenia que entrar");
+        AccountView entry = requireNonNull(identities.signIn(SUJETO, "emma@coprop.bo", true), "tenia que entrar");
 
-        assertThat(entrada.id()).isEqualTo(invitada.id());
-        assertThat(entrada.status()).isEqualTo(AccountStatus.ACTIVE);
+        assertThat(entry.id()).isEqualTo(invited.id());
+        assertThat(entry.status()).isEqualTo(AccountStatus.ACTIVE);
         assertThat(eventos.ofType(AccountActivated.class))
-                .containsExactly(new AccountActivated(invitada.id(), invitada.personId(), SUJETO, AHORA));
+                .containsExactly(new AccountActivated(invited.id(), invited.personId(), SUJETO, AHORA));
     }
 
     @Test
     @DisplayName("el segundo login no vuelve a vincular ni publica nada")
-    void elSegundoLoginNoPublicaNada(PublishedEvents eventos) {
+    void theSecondLoginPublishesNothing(PublishedEvents eventos) {
         accountOf("emma@coprop.bo");
         identities.signIn(SUJETO, "emma@coprop.bo", true);
 
@@ -140,9 +140,9 @@ class IdentitiesTests {
         // El proveedor de identidad no promete como escribe el correo, y UNIQUE (email) si
         // distingue. Sin esto, un token con el correo en mayusculas abriria el camino de "no hay
         // cuenta" para alguien que si la tiene.
-        AccountView entrada = requireNonNull(identities.signIn(SUJETO, "Emma@Coprop.bo", true), "tenia que entrar");
+        AccountView entry = requireNonNull(identities.signIn(SUJETO, "Emma@Coprop.bo", true), "tenia que entrar");
 
-        assertThat(entrada.id()).isEqualTo(account.id());
+        assertThat(entry.id()).isEqualTo(account.id());
     }
 
     /** Reloj parado: asi el evento del primer login se compara contra una fecha concreta. */

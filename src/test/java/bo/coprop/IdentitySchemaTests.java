@@ -69,12 +69,12 @@ class IdentitySchemaTests {
     void theOwnerPaysForWhatTheTenantOccupies() {
         UUID condominium = condominium("1000000003", "Torre Azul");
         UUID unit = unit(condominium, "501");
-        UUID propietaria = person("9000001");
+        UUID owner = person("9000001");
         UUID inquilino = person("9000002");
 
-        ownership(condominium, unit, propietaria, new BigDecimal("8.000000"));
+        ownership(condominium, unit, owner, new BigDecimal("8.000000"));
         occupancy(condominium, unit, inquilino, "TENANT");
-        billingResponsibility(condominium, unit, propietaria, null);
+        billingResponsibility(condominium, unit, owner, null);
 
         // Es justo lo que una sola tabla con columna de "tipo" no podria decir: dos personas
         // distintas, con dos papeles distintos, vigentes a la vez sobre la misma unidad.
@@ -442,8 +442,8 @@ class IdentitySchemaTests {
                 DESDE);
     }
 
-    private int cuantas(String tabla, String condicion, @Nullable Object parametro) {
-        String sql = "SELECT count(*) FROM " + tabla + " WHERE " + condicion;
+    private int cuantas(String tabla, String condition, @Nullable Object parametro) {
+        String sql = "SELECT count(*) FROM " + tabla + " WHERE " + condition;
         Integer total = parametro == null
                 ? jdbc.queryForObject(sql, Integer.class)
                 : jdbc.queryForObject(sql, Integer.class, parametro);

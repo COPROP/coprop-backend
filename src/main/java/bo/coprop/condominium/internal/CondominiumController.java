@@ -28,14 +28,14 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>La ruta se declara sin el prefijo de version: lo antepone la configuracion del modulo
  * {@code api} a todo lo anotado con {@link ApiController}, asi que esto se sirve bajo
- * {@code /api/v1/condominios}, que es lo que fija Seguridad 5.4.
+ * {@code /api/v1/condominiums}, que es lo que fija Seguridad 5.4.
  *
  * <p>El alta es del superadministrador y la configuracion del que maneja el dinero (#16). La
  * consulta no pide permiso a proposito, y el porque esta en ella.
  */
 @ApiController
 @RestController
-@RequestMapping("/condominios")
+@RequestMapping("/condominiums")
 class CondominiumController {
 
     private final Condominiums condominiums;
@@ -48,9 +48,9 @@ class CondominiumController {
     @PreAuthorize("@authorization.can(authentication, 'CREATE_CONDOMINIUMS')")
     @PostMapping
     ResponseEntity<CondominiumView> alta(@Valid @RequestBody NewCondominium body, Principal principal) {
-        CondominiumView creado = condominiums.register(body, principal.getName());
-        return ResponseEntity.created(URI.create("/api/v1/condominios/" + creado.id()))
-                .body(creado);
+        CondominiumView created = condominiums.register(body, principal.getName());
+        return ResponseEntity.created(URI.create("/api/v1/condominiums/" + created.id()))
+                .body(created);
     }
 
     /**
@@ -81,7 +81,7 @@ class CondominiumController {
      *
      * <p><strong>El permiso es {@code CREATE_CONDOMINIUMS}</strong>, y la matriz no tiene una fila que
      * diga "editar condominio". Se resuelve igual que lo hizo
-     * {@code PUT /{condominiumId}/configuracion} con la suya: el registro del condominio --su
+     * {@code PUT /{condominiumId}/configuration} con la suya: el registro del condominio --su
      * nombre, su NIT, donde esta-- es de quien lo dio de alta, que es el superadministrador y nadie
      * mas. El administrador del condominio administra lo que hay dentro, no la ficha.
      *
@@ -97,7 +97,7 @@ class CondominiumController {
     @PreAuthorize("@authorization.can(authentication, 'CREATE_CONDOMINIUMS')"
             + " and @reauthentication.ifNitChanges(authentication, #condominiumId, #change.nit())")
     @PutMapping("/{condominiumId}")
-    CondominiumView editar(@PathVariable UUID condominiumId, @Valid @RequestBody Edicion change, Principal principal) {
+    CondominiumView editar(@PathVariable UUID condominiumId, @Valid @RequestBody Edit change, Principal principal) {
         return condominiums.edit(condominiumId, change.name(), change.nit(), change.address(), principal.getName());
     }
 
@@ -106,8 +106,8 @@ class CondominiumController {
     // conceptos, tarifas de agua y politica de mora"-- y se resuelve del lado de la separacion de
     // funciones: quien administra personas y unidades no toca lo que se cobra.
     @PreAuthorize("@authorization.can(authentication, 'CONFIGURE_CHARGES')")
-    @PutMapping("/{condominiumId}/configuracion")
-    CondominiumView cambiarConfiguracion(
+    @PutMapping("/{condominiumId}/configuration")
+    CondominiumView changeConfig(
             @PathVariable UUID condominiumId, @Valid @RequestBody ConfigChange change, Principal principal) {
         return condominiums.changeConfig(condominiumId, change.issueDay(), change.dueDay(), principal.getName());
     }
@@ -120,7 +120,7 @@ class CondominiumController {
      * y porque mandarla nula es la unica forma de decir que no se sabe. Las longitudes son las de la
      * tabla.
      */
-    record Edicion(
+    record Edit(
             @NotBlank @Size(max = 160) String name,
             @NotBlank @Size(max = 20) String nit,
             @Nullable @Size(max = 200) String address) {}

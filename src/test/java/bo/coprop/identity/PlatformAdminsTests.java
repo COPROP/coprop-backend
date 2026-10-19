@@ -73,13 +73,13 @@ class PlatformAdminsTests {
         UUID quienConcede = accountOf("concede@coprop.bo");
         UUID quienRecibe = accountOf("recibe@coprop.bo");
 
-        PlatformAdminView concedido = identities.grantPlatformAdmin(quienRecibe, quienConcede.toString());
+        PlatformAdminView granted = identities.grantPlatformAdmin(quienRecibe, quienConcede.toString());
 
-        assertThat(concedido).isEqualTo(new PlatformAdminView(quienRecibe, quienConcede, AHORA));
+        assertThat(granted).isEqualTo(new PlatformAdminView(quienRecibe, quienConcede, AHORA));
         assertThat(identities.esSuperadministrador(quienRecibe)).isTrue();
         // El listado es lo que hace posible revocar: sin el habria que conocer de antemano el
         // identificador de la cuenta.
-        assertThat(identities.platformAdmins()).contains(concedido);
+        assertThat(identities.platformAdmins()).contains(granted);
     }
 
     @Test
@@ -129,7 +129,7 @@ class PlatformAdminsTests {
         assertThat(identities.esSuperadministrador(quienLoPierde)).isFalse();
         // Seguridad 8 pide revocar las sesiones al retirar un rol administrativo, y no hay rol mas
         // administrativo que este. Sin condicion ninguna: no hay membresias que contar.
-        assertThat(sessions.cerradas()).containsExactly(Set.of(quienLoPierde.toString()));
+        assertThat(sessions.closed()).containsExactly(Set.of(quienLoPierde.toString()));
         assertThat(proveedor.aQuienSeLeCerraronSesiones()).containsExactly("pierde@coprop.bo");
     }
 
@@ -137,12 +137,12 @@ class PlatformAdminsTests {
     @DisplayName("revocarle el rol a quien no lo tiene responde como si no existiera")
     void whoDoesNotHaveItGets404() {
         UUID quienRevoca = accountOf("revoca2@coprop.bo");
-        UUID cualquiera = accountOf("cualquiera@coprop.bo");
+        UUID any = accountOf("cualquiera@coprop.bo");
 
         // 404 y no 422: quien administra la plataforma no es dato publico, asi que preguntar por una
         // cuenta que no lo administra tiene que responder lo mismo que preguntar por una que no
         // existe. Mismo criterio que el 404-no-403 del #17.
-        assertThatThrownBy(() -> identities.revokePlatformAdmin(cualquiera, "por si acaso", quienRevoca.toString()))
+        assertThatThrownBy(() -> identities.revokePlatformAdmin(any, "por si acaso", quienRevoca.toString()))
                 .isInstanceOf(ResourceNotFound.class);
     }
 

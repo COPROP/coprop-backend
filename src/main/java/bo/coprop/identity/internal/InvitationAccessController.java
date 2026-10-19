@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>No cuelgan de un condominio, y no es un descuido: quien llega con un token todavia no esta en
  * ninguno, que es justamente lo que la invitacion va a arreglar. Si colgaran de
- * {@code /condominios/{id}/...}, el filtro del #17 pediria una membresia que aun no existe y
+ * {@code /condominiums/{id}/...}, el filtro del #17 pediria una membresia que aun no existe y
  * responderia 404 a todo el mundo.
  *
  * <p><strong>El token viaja en el cuerpo, no en la ruta.</strong> Es una credencial: en la ruta
@@ -35,7 +35,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @ApiController
 @RestController
-@RequestMapping("/invitaciones")
+@RequestMapping("/invitations")
 class InvitationAccessController {
 
     private final Invitations invitations;
@@ -56,7 +56,7 @@ class InvitationAccessController {
      * Seguridad 6.1 y la pagina necesita distinguirlos para decir "revisa tu correo" o "inicia
      * sesion".
      */
-    @PostMapping("/apertura")
+    @PostMapping("/opening")
     Opening open(@Valid @RequestBody ConToken cuerpo) {
         Invitations.Opening opening = invitations.open(cuerpo.token());
         return new Opening(opening.condominiumId(), opening.credentialSent());
@@ -71,7 +71,7 @@ class InvitationAccessController {
      * misma cuenta, que es el segundo criterio del issue, y por eso aceptar no necesita saber como
      * entro.
      */
-    @PostMapping("/aceptacion")
+    @PostMapping("/acceptance")
     InvitationView accept(@Valid @RequestBody ConToken cuerpo, Principal principal) {
         return invitations.accept(cuerpo.token(), UUID.fromString(principal.getName()));
     }

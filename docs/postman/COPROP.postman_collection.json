@@ -2,7 +2,7 @@
   "info": {
     "name": "COPROP — API v1",
     "_postman_id": "9c6f1b6a-0f2e-4f1f-9a3e-coprop000001",
-    "description": "La API de COPROP, servida en http://localhost:8080 con `./gradlew bootRun`.\n\n## Cómo autenticarse\n\nLa colección entera usa **Authorization Code con PKCE** contra el cliente `coprop-movil`.\nLa web entra por el BFF con cookie, que no se puede recorrer desde Postman porque hay un\nformulario de login de por medio.\n\nAntes de la primera vez, que Keycloak acepte la vuelta de Postman:\n\n```bash\nexport COPROP_MOVIL_REDIRECT_URI=https://oauth.pstmn.io/v1/callback\ndocker compose up -d --force-recreate keycloak\n```\n\nDespués, en esta colección: *Authorization* → **Get New Access Token**, y se entra con\n`dev@coprop.local` / `dev-local-coprop`. **El token dura 5 minutos** (Seguridad §5.3):\ncuando empiece a responder 401, se pide otro.\n\n## Antes: la semilla\n\n**La cuenta `dev@coprop.local` ya existe sin sembrar nada**: la abre la aplicación al arrancar,\nsi no hay ningún superadministrador. La semilla ya no hace falta para empezar; lo que hace es\nahorrar pasos y fijar los identificadores a los que apuntan las variables de esta colección:\n\n```bash\ndocker exec -i coprop-postgres psql -U coprop -d coprop < docker/postgres/semilla-de-desarrollo.sql\n```\n\nDeja esa cuenta como **CONDO_ADMIN y FINANCE_ADMIN** del condominio *Torre Sucre (desarrollo)*,\ny un segundo condominio donde **NO** es miembro, que es el escenario real de fuga.\n\nSe puede repetir, y conviene hacerlo cada vez que se recree el contenedor de Keycloak: ahí la\ncuenta nace con un `sub` nuevo, y como una cuenta ya vinculada no se revincula, el login empieza\na responder `SIN_CUENTA`. La semilla suelta ese vínculo.\n\n## Lo que sorprende la primera vez\n\n1. **Autenticarse no alcanza para ver un condominio.** Hace falta una membresía activa en él,\n   y sin ella todo responde **404** —nunca 403: distinguirlos diría qué condominios existen—.\n2. **Se puede crear un condominio y después no verlo**, por lo mismo: el alta no cuelga de\n   ningún condominio, pero consultarlo sí. Por eso esa petición no pisa la variable.\n\n## Variables\n\nLos dos condominios vienen puestos con los identificadores de la semilla. Las altas de bloque,\nunidad, persona, cuenta, membresía e invitación **guardan solas** el id que devuelven, así que\nlas peticiones se pueden encadenar de arriba abajo sin copiar nada a mano.\n\nLa única excepción es el **token de una invitación**: no sale en ninguna respuesta —en la base\nsolo hay su hash— y se copia del correo, en Mailpit (http://localhost:8025), a la variable\n`invitationToken`.\n\nLos errores siguen el RFC 9457: se ramifica por el campo `codigo`, nunca por `title` ni por\n`detail`.",
+    "description": "La API de COPROP, servida en http://localhost:8080 con `./gradlew bootRun`.\n\n## Cómo autenticarse\n\nLa colección entera usa **Authorization Code con PKCE** contra el cliente `coprop-movil`.\nLa web entra por el BFF con cookie, que no se puede recorrer desde Postman porque hay un\nformulario de login de por medio.\n\nAntes de la primera vez, que Keycloak acepte la vuelta de Postman:\n\n```bash\nexport COPROP_MOVIL_REDIRECT_URI=https://oauth.pstmn.io/v1/callback\ndocker compose up -d --force-recreate keycloak\n```\n\nDespués, en esta colección: *Authorization* → **Get New Access Token**, y se entra con\n`dev@coprop.local` / `dev-local-coprop`. **El token dura 5 minutos** (Seguridad §5.3):\ncuando empiece a responder 401, se pide otro.\n\n## Antes: la semilla\n\n**La cuenta `dev@coprop.local` ya existe sin sembrar nada**: la abre la aplicación al arrancar,\nsi no hay ningún superadministrador. La semilla ya no hace falta para empezar; lo que hace es\nahorrar pasos y fijar los identificadores a los que apuntan las variables de esta colección:\n\n```bash\ndocker exec -i coprop-postgres psql -U coprop -d coprop < docker/postgres/semilla-de-desarrollo.sql\n```\n\nDeja esa cuenta como **CONDO_ADMIN y FINANCE_ADMIN** del condominio *Torre Sucre (desarrollo)*,\ny un segundo condominio donde **NO** es miembro, que es el escenario real de fuga.\n\nSe puede repetir, y conviene hacerlo cada vez que se recree el contenedor de Keycloak: ahí la\ncuenta nace con un `sub` nuevo, y como una cuenta ya vinculada no se revincula, el login empieza\na responder `NO_ACCOUNT`. La semilla suelta ese vínculo.\n\n## Lo que sorprende la primera vez\n\n1. **Autenticarse no alcanza para ver un condominio.** Hace falta una membresía activa en él,\n   y sin ella todo responde **404** —nunca 403: distinguirlos diría qué condominios existen—.\n2. **Se puede crear un condominio y después no verlo**, por lo mismo: el alta no cuelga de\n   ningún condominio, pero consultarlo sí. Por eso esa petición no pisa la variable.\n\n## Variables\n\nLos dos condominios vienen puestos con los identificadores de la semilla. Las altas de bloque,\nunidad, persona, cuenta, membresía e invitación **guardan solas** el id que devuelven, así que\nlas peticiones se pueden encadenar de arriba abajo sin copiar nada a mano.\n\nLa única excepción es el **token de una invitación**: no sale en ninguna respuesta —en la base\nsolo hay su hash— y se copia del correo, en Mailpit (http://localhost:8025), a la variable\n`invitationToken`.\n\nLos errores siguen el RFC 9457: se ramifica por el campo `codigo`, nunca por `title` ni por\n`detail`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -143,7 +143,7 @@
                 "me"
               ]
             },
-            "description": "Devuelve la persona, la cuenta, si administra la plataforma, y un elemento por condominio con los roles de esa membresía y las unidades con las que tiene relación vigente.\n\n**No recibe ningún identificador**: todo sale del token. La consulta de una cuenta por id es otra cosa, en `/api/v1/cuentas/{accountId}`.\n\n**200 con `condominios` vacío** si no hay ninguna membresía activa, y no 404: es una respuesta correcta a una pregunta sobre uno mismo. Con la semilla corrida sale un condominio, *Torre Sucre (desarrollo)*; el del vecino no sale, y eso es lo que hay que mirar."
+            "description": "Devuelve la persona, la cuenta, si administra la plataforma, y un elemento por condominio con los roles de esa membresía y las unidades con las que tiene relación vigente.\n\n**No recibe ningún identificador**: todo sale del token. La consulta de una cuenta por id es otra cosa, en `/api/v1/accounts/{accountId}`.\n\n**200 con `condominios` vacío** si no hay ninguna membresía activa, y no 404: es una respuesta correcta a una pregunta sobre uno mismo. Con la semilla corrida sale un condominio, *Torre Sucre (desarrollo)*; el del vecino no sale, y eso es lo que hay que mirar."
           }
         },
         {
@@ -152,7 +152,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/me/sesiones",
+              "raw": "{{baseUrl}}/api/v1/me/sessions",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -172,7 +172,7 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/me/sesiones/cierre",
+              "raw": "{{baseUrl}}/api/v1/me/sessions/closure",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -204,7 +204,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/personas",
+              "raw": "{{baseUrl}}/api/v1/people",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -250,7 +250,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/personas/{{personId}}",
+              "raw": "{{baseUrl}}/api/v1/people/{{personId}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -274,7 +274,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/personas/{{personId}}/cuenta",
+              "raw": "{{baseUrl}}/api/v1/people/{{personId}}/account",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -322,7 +322,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/cuentas/{{accountId}}",
+              "raw": "{{baseUrl}}/api/v1/accounts/{{accountId}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -352,7 +352,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios",
+              "raw": "{{baseUrl}}/api/v1/condominiums",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -380,7 +380,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -405,7 +405,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -416,7 +416,7 @@
                 "{{condominiumId}}"
               ]
             },
-            "description": "Corrige los tres datos descriptivos: nombre, NIT y direccion (#90). Es del superadministrador y de nadie mas: el administrador del condominio administra lo que hay dentro, no la ficha.\n\n**El NIT pide segundo factor, el resto no.** La condicion compara contra la base: mandar el NIT que el condominio ya tiene no es un cambio, asi que corregir una tilde del nombre no obliga a reautenticarse. Cambiarlo de verdad sin factor reciente da 401 con REAUTENTICACION_REQUERIDA.\n\n**No cambia el tipo ni el estado.** El tipo habria que validarlo contra la estructura ya registrada y suspender un condominio es una accion de negocio cuyo efecto sobre los QR vivos y la mora esta sin decidir.\n\nUn NIT que ya es de otro condominio responde 409: dos con el mismo NIT serian el mismo.",
+            "description": "Corrige los tres datos descriptivos: nombre, NIT y direccion (#90). Es del superadministrador y de nadie mas: el administrador del condominio administra lo que hay dentro, no la ficha.\n\n**El NIT pide segundo factor, el resto no.** La condicion compara contra la base: mandar el NIT que el condominio ya tiene no es un cambio, asi que corregir una tilde del nombre no obliga a reautenticarse. Cambiarlo de verdad sin factor reciente da 401 con REAUTHENTICATION_REQUIRED.\n\n**No cambia el tipo ni el estado.** El tipo habria que validarlo contra la estructura ya registrada y suspender un condominio es una accion de negocio cuyo efecto sobre los QR vivos y la mora esta sin decidir.\n\nUn NIT que ya es de otro condominio responde 409: dos con el mismo NIT serian el mismo.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Las Palmas\",\n  \"nit\": \"1234567890\",\n  \"address\": \"Av. Ballivian 123, Zona Sur\"\n}",
@@ -439,7 +439,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/configuracion",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/configuration",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -479,7 +479,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/bloques",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/blocks",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -531,7 +531,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/bloques/{{blockId}}/pisos",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/blocks/{{blockId}}/floors",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -568,7 +568,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/unidades",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/units",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -621,7 +621,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/unidades/lote",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/units/batch",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -652,7 +652,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/unidades/{{unitId}}",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/units/{{unitId}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -685,7 +685,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/unidades/{{unitId}}/propietarios",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/units/{{unitId}}/owners",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -717,7 +717,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/unidades/{{unitId}}/propietarios",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/units/{{unitId}}/owners",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -745,7 +745,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/unidades/{{unitId}}/ocupantes",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/units/{{unitId}}/occupants",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -782,7 +782,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/unidades/{{unitId}}/responsables-de-pago",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/units/{{unitId}}/billing-responsibles",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -820,7 +820,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/unidades/{{unitId}}/transferencia",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/units/{{unitId}}/transfer",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -852,7 +852,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/unidades/{{unitId}}/propietarios/historico",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/units/{{unitId}}/owners/history",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -876,7 +876,7 @@
             "method": "DELETE",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/unidades/{{unitId}}/ocupantes/{{personId}}",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/units/{{unitId}}/occupants/{{personId}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -900,7 +900,7 @@
             "method": "DELETE",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/unidades/{{unitId}}/responsables-de-pago/{{personId}}",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/units/{{unitId}}/billing-responsibles/{{personId}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -935,7 +935,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/membresias",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/memberships",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -983,7 +983,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/membresias",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/memberships",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1004,7 +1004,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/membresias/{{membershipId}}",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/memberships/{{membershipId}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1026,7 +1026,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/membresias?cerradas=true",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/memberships?closed=true",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1059,7 +1059,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/membresias/{{membershipId}}/roles",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/memberships/{{membershipId}}/roles",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1073,7 +1073,7 @@
                 "roles"
               ]
             },
-            "description": "El administrador del condominio asigna y quita roles dentro de SU condominio, sin pasar por el superadministrador (#20, §10.1).\n\nEl conjunto llega COMPLETO: lo que no venga aquí es lo que se quita. Es un PUT y no un PATCH porque los roles de una membresía son un solo valor; así repetir la petición no cambia nada y la bitácora puede guardar las dos mitades del cambio.\n\nNO cierra la membresía: edita la fila, así que la respuesta sigue trayendo validTo nulo. El padrón no muestra una baja que nadie dio, y la historia de los roles vive en la bitácora.\n\nSurte efecto en la SIGUIENTE petición: los roles se releen en cada request y nunca estuvieron en el token.\n\nCuatro rechazos que conviene conocer:\n- PLATFORM_ADMIN en el cuerpo → 422. No es un rol de condominio, y no lo es para nadie: se concede por POST /api/v1/superadministradores.\n- Una membresía de otro condominio → 404, nunca 403.\n- Quitarle CONDO_ADMIN al último administrador → 422.\n- Cambiarse los roles a sí mismo → 422.\n\nSi el cambio RETIRA un rol administrativo, se le cierran las sesiones aunque siga en el condominio (§8). Y si quedan CONDO_ADMIN y FINANCE_ADMIN en la misma persona, la bitácora lo registra con concentraFunciones: true.",
+            "description": "El administrador del condominio asigna y quita roles dentro de SU condominio, sin pasar por el superadministrador (#20, §10.1).\n\nEl conjunto llega COMPLETO: lo que no venga aquí es lo que se quita. Es un PUT y no un PATCH porque los roles de una membresía son un solo valor; así repetir la petición no cambia nada y la bitácora puede guardar las dos mitades del cambio.\n\nNO cierra la membresía: edita la fila, así que la respuesta sigue trayendo validTo nulo. El padrón no muestra una baja que nadie dio, y la historia de los roles vive en la bitácora.\n\nSurte efecto en la SIGUIENTE petición: los roles se releen en cada request y nunca estuvieron en el token.\n\nCuatro rechazos que conviene conocer:\n- PLATFORM_ADMIN en el cuerpo → 422. No es un rol de condominio, y no lo es para nadie: se concede por POST /api/v1/platform-admins.\n- Una membresía de otro condominio → 404, nunca 403.\n- Quitarle CONDO_ADMIN al último administrador → 422.\n- Cambiarse los roles a sí mismo → 422.\n\nSi el cambio RETIRA un rol administrativo, se le cierran las sesiones aunque siga en el condominio (§8). Y si quedan CONDO_ADMIN y FINANCE_ADMIN en la misma persona, la bitácora lo registra con concentraFunciones: true.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"roles\": [\"OWNER\", \"CONDO_ADMIN\"],\n  \"motivo\": \"se hace cargo del edificio\"\n}",
@@ -1096,7 +1096,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/membresias/{{membershipId}}/baja",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/memberships/{{membershipId}}/termination",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1110,7 +1110,7 @@
                 "baja"
               ]
             },
-            "description": "Esa cuenta deja de pertenecer a este condominio (#19). No borra nada: cierra la vigencia de la fila y responde la membresía con su validTo puesto.\n\nSurte efecto en la SIGUIENTE petición, sin esperar a que caduque ningún token: el filtro de condominio relee la membresía en cada request. Para verlo, pedir GET /api/v1/condominios/{{condominiumId}} con el token de esa persona —responde 404— y GET /api/v1/me, que sigue respondiendo 200 con la lista de condominios vacía.\n\nEl motivo es obligatorio y acaba SÓLO en la bitácora: la fila cerrada dice cuándo y la bitácora por qué.\n\nDos rechazos que conviene conocer: nadie se da de baja a sí mismo (422) y no se cierra la última membresía con CONDO_ADMIN del condominio (422).",
+            "description": "Esa cuenta deja de pertenecer a este condominio (#19). No borra nada: cierra la vigencia de la fila y responde la membresía con su validTo puesto.\n\nSurte efecto en la SIGUIENTE petición, sin esperar a que caduque ningún token: el filtro de condominio relee la membresía en cada request. Para verlo, pedir GET /api/v1/condominiums/{{condominiumId}} con el token de esa persona —responde 404— y GET /api/v1/me, que sigue respondiendo 200 con la lista de condominios vacía.\n\nEl motivo es obligatorio y acaba SÓLO en la bitácora: la fila cerrada dice cuándo y la bitácora por qué.\n\nDos rechazos que conviene conocer: nadie se da de baja a sí mismo (422) y no se cierra la última membresía con CONDO_ADMIN del condominio (422).",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"motivo\": \"vendio su departamento\"\n}",
@@ -1133,7 +1133,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/membresias/{{membershipId}}/suspension",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/memberships/{{membershipId}}/suspension",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1170,7 +1170,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/membresias/{{membershipId}}/reactivacion",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/memberships/{{membershipId}}/reactivation",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1200,7 +1200,7 @@
     },
     {
       "name": "6. Invitaciones",
-      "description": "**No hay registro abierto: solo se entra por invitación** (Seguridad §6). El orden es el de §6.1: primero la persona y su relación con la unidad, después la invitación.\n\n**El token no sale en ninguna respuesta** y en la base solo hay su SHA-256: se copia del correo, en Mailpit (http://localhost:8025) y se pega en la variable `invitationToken`. Si se pierde, se reenvía.\n\nVive siete días y sirve una vez. Usado, revocado o vencido responde `404 NO_ENCONTRADO`, igual que uno inventado.",
+      "description": "**No hay registro abierto: solo se entra por invitación** (Seguridad §6). El orden es el de §6.1: primero la persona y su relación con la unidad, después la invitación.\n\n**El token no sale en ninguna respuesta** y en la base solo hay su SHA-256: se copia del correo, en Mailpit (http://localhost:8025) y se pega en la variable `invitationToken`. Si se pierde, se reenvía.\n\nVive siete días y sirve una vez. Usado, revocado o vencido responde `404 NOT_FOUND`, igual que uno inventado.",
       "item": [
         {
           "name": "Emitir una invitación",
@@ -1213,7 +1213,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/invitaciones",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/invitations",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1263,7 +1263,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/invitaciones",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/invitations",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1284,7 +1284,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/invitaciones/{{invitationId}}",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/invitations/{{invitationId}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1305,7 +1305,7 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/invitaciones/{{invitationId}}/reenvio",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/invitations/{{invitationId}}/resend",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1345,7 +1345,7 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/invitaciones/{{invitationId}}/revocacion",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/invitations/{{invitationId}}/revocation",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1359,7 +1359,7 @@
                 "revocacion"
               ]
             },
-            "description": "`POST .../revocacion` y no `DELETE`: la fila no se borra, se cierra con una fecha. Lo que la bitácora del issue #21 querrá es la fila cerrada, no su ausencia.\n\nUna invitación ya aceptada no se revoca: la membresía existe y lo que toca es darla de baja (issue #19)."
+            "description": "`POST .../revocation` y no `DELETE`: la fila no se borra, se cierra con una fecha. Lo que la bitácora del issue #21 querrá es la fila cerrada, no su ausencia.\n\nUna invitación ya aceptada no se revoca: la membresía existe y lo que toca es darla de baja (issue #19)."
           }
         },
         {
@@ -1376,7 +1376,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/invitaciones/apertura",
+              "raw": "{{baseUrl}}/api/v1/invitations/opening",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1410,7 +1410,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/invitaciones/aceptacion",
+              "raw": "{{baseUrl}}/api/v1/invitations/acceptance",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1445,7 +1445,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}/auditoria?tamano=20",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/audit-log?size=20",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1497,7 +1497,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/auditoria?tamano=20",
+              "raw": "{{baseUrl}}/api/v1/audit-log?size=20",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1533,7 +1533,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominioAjeno}}",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominioAjeno}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1553,7 +1553,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominios/{{condominiumId}}",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1582,7 +1582,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/superadministradores",
+              "raw": "{{baseUrl}}/api/v1/platform-admins",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1606,7 +1606,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/superadministradores",
+              "raw": "{{baseUrl}}/api/v1/platform-admins",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1616,7 +1616,7 @@
                 "superadministradores"
               ]
             },
-            "description": "Hasta el issue #20 el rol sólo lo abría el arranque, y sólo cuando no había ninguno: la plataforma podía empezar pero no crecer, y el segundo superadministrador salía de un INSERT a mano.\n\nSin motivo, igual que el alta de una membresía: lo que hay que explicar es por qué se quita.\n\n**Nadie se lo concede a sí mismo** (422), y lo impide además un CHECK en la base. A quien ya lo tiene responde 409: la fila existe y no hay grados.\n\nSurte efecto en la siguiente petición. Para verlo: pedir POST /api/v1/condominios con el token de esa cuenta antes —403— y después —201—.",
+            "description": "Hasta el issue #20 el rol sólo lo abría el arranque, y sólo cuando no había ninguno: la plataforma podía empezar pero no crecer, y el segundo superadministrador salía de un INSERT a mano.\n\nSin motivo, igual que el alta de una membresía: lo que hay que explicar es por qué se quita.\n\n**Nadie se lo concede a sí mismo** (422), y lo impide además un CHECK en la base. A quien ya lo tiene responde 409: la fila existe y no hay grados.\n\nSurte efecto en la siguiente petición. Para verlo: pedir POST /api/v1/condominiums con el token de esa cuenta antes —403— y después —201—.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"accountId\": \"{{accountId}}\"\n}",
@@ -1639,7 +1639,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/superadministradores/{{accountId}}/revocacion",
+              "raw": "{{baseUrl}}/api/v1/platform-admins/{{accountId}}/revocation",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1717,7 +1717,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/parametricas",
+              "raw": "{{baseUrl}}/api/v1/catalogs",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1736,7 +1736,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/parametricas/matriz-de-permisos",
+              "raw": "{{baseUrl}}/api/v1/catalogs/permission-matrix",
               "host": [
                 "{{baseUrl}}"
               ],

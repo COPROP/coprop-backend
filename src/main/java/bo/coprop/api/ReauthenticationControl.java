@@ -98,16 +98,16 @@ class ReauthenticationControl {
      *     sabe
      */
     public boolean recent(Authentication principal) {
-        var autenticacion = AuthenticatedIdentity.autenticacionDe(principal);
-        if (autenticacion == null) {
+        var authentication = AuthenticatedIdentity.authenticationFactsOf(principal);
+        if (authentication == null) {
             // Sin identidad resuelta no hay nada que leer. Se exige, que es la respuesta segura:
             // dar por bueno lo que no se sabe es justamente lo que este control existe para evitar.
             throw require(principal, "esta peticion no trae identidad de COPROP resuelta");
         }
-        if (autenticacion.metodos().stream().noneMatch(SEGUNDO_FACTOR::contains)) {
-            throw require(principal, "se autentico con " + autenticacion.metodos() + " y ahi no hay segundo factor");
+        if (authentication.metodos().stream().noneMatch(SEGUNDO_FACTOR::contains)) {
+            throw require(principal, "se autentico con " + authentication.metodos() + " y ahi no hay segundo factor");
         }
-        Instant cuando = autenticacion.cuando();
+        Instant cuando = authentication.cuando();
         if (cuando == null) {
             throw require(principal, "su autenticacion no dice cuando fue");
         }

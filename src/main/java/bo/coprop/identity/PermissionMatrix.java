@@ -117,19 +117,19 @@ public final class PermissionMatrix {
 
         // Administra personas, unidades y areas comunes. NO maneja dinero: es la separacion de
         // funciones de Seguridad 3. Si ve reportes y saldos, que es mirar, no mover.
-        var administracion = new EnumMap<Permission, Scope>(Permission.class);
-        administracion.put(MANAGE_UNITS, ALL);
-        administracion.put(INVITE_USERS, ALL);
-        administracion.put(RECORD_METER_READINGS, ALL);
-        administracion.put(MANAGE_AMENITIES, ALL);
-        administracion.put(OPERATE_AMENITIES, ALL);
-        administracion.put(RESERVE, ALL);
-        administracion.put(VIEW_ACCOUNT_STATEMENT, ALL);
-        administracion.put(VIEW_CREDIT_BALANCES, ALL);
-        administracion.put(VIEW_REPORTS, ALL);
-        administracion.put(VIEW_DELINQUENCY_BY_UNIT, ALL);
-        administracion.put(VIEW_AUDIT_LOG, ALL);
-        matriz.put(MembershipRole.CONDO_ADMIN, administracion);
+        var administration = new EnumMap<Permission, Scope>(Permission.class);
+        administration.put(MANAGE_UNITS, ALL);
+        administration.put(INVITE_USERS, ALL);
+        administration.put(RECORD_METER_READINGS, ALL);
+        administration.put(MANAGE_AMENITIES, ALL);
+        administration.put(OPERATE_AMENITIES, ALL);
+        administration.put(RESERVE, ALL);
+        administration.put(VIEW_ACCOUNT_STATEMENT, ALL);
+        administration.put(VIEW_CREDIT_BALANCES, ALL);
+        administration.put(VIEW_REPORTS, ALL);
+        administration.put(VIEW_DELINQUENCY_BY_UNIT, ALL);
+        administration.put(VIEW_AUDIT_LOG, ALL);
+        matriz.put(MembershipRole.CONDO_ADMIN, administration);
 
         // Maneja el dinero y NO puede asignarse roles, que es la otra mitad de la separacion de
         // funciones: si pudiera, se daria CONDO_ADMIN y la separacion no existiria.

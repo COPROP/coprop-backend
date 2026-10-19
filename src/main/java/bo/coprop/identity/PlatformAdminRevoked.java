@@ -15,7 +15,7 @@ import org.jspecify.annotations.Nullable;
  * indistinguible de no haber concedido nunca.
  *
  * <p>Va sin condominio, como {@link PlatformAdminGranted}: el alcance de este rol es la plataforma.
- * Las dos salen por {@code GET /api/v1/auditoria} y no por la de un condominio.
+ * Las dos salen por {@code GET /api/v1/audit-log} y no por la de un condominio.
  *
  * @param sesionesCerradas si se le cerraron las sesiones. Se intenta siempre --Seguridad 8 pide
  *     revocarlas al retirar un rol administrativo, y no hay rol mas administrativo que este-- y lo

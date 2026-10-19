@@ -94,13 +94,13 @@ public interface IdentityProvider {
             String id, @org.jspecify.annotations.Nullable String ip, Instant created, Instant lastAccess) {}
 
     /** El proveedor de identidad no pudo hacerlo. */
-    class FalloDelProveedorDeIdentidad extends RuntimeException {
+    class IdentityProviderFailure extends RuntimeException {
 
-        public FalloDelProveedorDeIdentidad(String message, Throwable causa) {
+        public IdentityProviderFailure(String message, Throwable causa) {
             super(message, causa);
         }
 
-        public FalloDelProveedorDeIdentidad(String message) {
+        public IdentityProviderFailure(String message) {
             super(message);
         }
     }

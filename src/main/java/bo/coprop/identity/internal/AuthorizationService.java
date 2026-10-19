@@ -97,7 +97,7 @@ class AuthorizationService implements Authorization {
     public boolean canChange(Authentication principal, UUID condominiumId, UUID membershipId) {
         Membership membership = memberships
                 .findById(membershipId)
-                .filter(encontrada -> encontrada.getCondominiumId().equals(condominiumId))
+                .filter(found -> found.getCondominiumId().equals(condominiumId))
                 .orElseThrow(() -> bo.coprop.shared.ResourceNotFound.de("la membresia", membershipId));
         return canGrant(principal, membership.getRoles());
     }
@@ -111,8 +111,8 @@ class AuthorizationService implements Authorization {
      */
     private static Set<MembershipRole> rolesOf(Authentication principal) {
         var roles = EnumSet.noneOf(MembershipRole.class);
-        for (GrantedAuthority autoridad : principal.getAuthorities()) {
-            String name = autoridad.getAuthority();
+        for (GrantedAuthority authority : principal.getAuthorities()) {
+            String name = authority.getAuthority();
             if (name == null || !name.startsWith(PREFIJO)) {
                 continue;
             }

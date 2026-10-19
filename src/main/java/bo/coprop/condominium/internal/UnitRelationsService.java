@@ -151,22 +151,22 @@ class UnitRelationsService implements UnitRelations {
         }
 
         Instant ahora = clock.instant();
-        BigDecimal porcentaje = delVendedor.getShare();
+        BigDecimal percentage = delVendedor.getShare();
 
         delVendedor.close(ahora);
         // Las otras dos relaciones del vendedor con esta unidad se cierran tambien: las tres dan
         // acceso por igual, asi que dejar una abierta dejaria al vendedor viendo lo que ya no es
         // suyo, que es justo el criterio del issue.
-        int cerradas = 1
+        int closed = 1
                 + closeOccupancyIfAny(condominiumId, unitId, fromPersonId, ahora, actor)
                 + closeBillingResponsibilities(condominiumId, unitId, fromPersonId, ahora, actor);
         ownerships.flush();
 
         UnitOwnership delComprador =
-                ownerships.save(new UnitOwnership(condominiumId, unitId, toPersonId, porcentaje, ahora));
+                ownerships.save(new UnitOwnership(condominiumId, unitId, toPersonId, percentage, ahora));
 
         eventos.publishEvent(new OwnershipTransferred(
-                condominiumId, unitId, fromPersonId, toPersonId, porcentaje, cerradas, actor, ahora));
+                condominiumId, unitId, fromPersonId, toPersonId, percentage, closed, actor, ahora));
 
         return view(delComprador);
     }
@@ -282,22 +282,22 @@ class UnitRelationsService implements UnitRelations {
     @Override
     @Transactional(readOnly = true)
     public List<RelatedUnitView> relatedTo(UUID condominiumId, UUID personId) {
-        Map<UUID, EnumSet<UnitRelation>> relaciones = new LinkedHashMap<>();
-        anotar(relaciones, unitsOwnedBy(condominiumId, personId), UnitRelation.OWNER);
-        anotar(relaciones, unitsOccupiedBy(condominiumId, personId), UnitRelation.OCCUPANT);
-        anotar(relaciones, unitsBilledTo(condominiumId, personId), UnitRelation.BILLING_RESPONSIBLE);
-        if (relaciones.isEmpty()) {
+        Map<UUID, EnumSet<UnitRelation>> relations = new LinkedHashMap<>();
+        anotar(relations, unitsOwnedBy(condominiumId, personId), UnitRelation.OWNER);
+        anotar(relations, unitsOccupiedBy(condominiumId, personId), UnitRelation.OCCUPANT);
+        anotar(relations, unitsBilledTo(condominiumId, personId), UnitRelation.BILLING_RESPONSIBLE);
+        if (relations.isEmpty()) {
             return List.of();
         }
 
         // Las unidades, en bloque y no una por una: una persona con veinte parqueos no puede costar
         // veinte consultas. Es el mismo criterio con el que el alta masiva comprueba los codigos.
-        return units.findAllById(relaciones.keySet()).stream()
+        return units.findAllById(relations.keySet()).stream()
                 .map(unit -> new RelatedUnitView(
                         unit.getId(),
                         unit.getCode(),
                         unit.getType(),
-                        Set.copyOf(Objects.requireNonNull(relaciones.get(unit.getId())))))
+                        Set.copyOf(Objects.requireNonNull(relations.get(unit.getId())))))
                 .sorted(Comparator.comparing(RelatedUnitView::code))
                 .toList();
     }
@@ -309,11 +309,11 @@ class UnitRelationsService implements UnitRelations {
      * papeles. Es {@code LinkedHashMap} para que el orden no dependa del hash, aunque despues se
      * ordene por codigo.
      */
-    private static void anotar(Map<UUID, EnumSet<UnitRelation>> relaciones, List<UUID> units, UnitRelation relacion) {
+    private static void anotar(Map<UUID, EnumSet<UnitRelation>> relations, List<UUID> units, UnitRelation relation) {
         for (UUID unit : units) {
-            relaciones
+            relations
                     .computeIfAbsent(unit, id -> EnumSet.noneOf(UnitRelation.class))
-                    .add(relacion);
+                    .add(relation);
         }
     }
 

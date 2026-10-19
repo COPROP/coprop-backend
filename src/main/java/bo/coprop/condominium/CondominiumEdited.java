@@ -36,11 +36,11 @@ public record CondominiumEdited(
 
     /** La direccion puede ser nula y {@code Map.of} no admite nulos. */
     private static Map<String, String> fila(String name, String nit, @Nullable String address) {
-        var campos = new LinkedHashMap<String, String>();
-        campos.put("name", name);
-        campos.put("nit", nit);
-        campos.put("address", address == null ? "" : address);
-        return campos;
+        var fields = new LinkedHashMap<String, String>();
+        fields.put("name", name);
+        fields.put("nit", nit);
+        fields.put("address", address == null ? "" : address);
+        return fields;
     }
 
     @Override

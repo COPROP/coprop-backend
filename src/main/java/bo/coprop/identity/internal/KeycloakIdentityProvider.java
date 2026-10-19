@@ -46,7 +46,7 @@ class KeycloakIdentityProvider implements IdentityProvider {
      * <p>Las dos, y en este orden. {@code UPDATE_PASSWORD} es lo que hace falta para entrar, porque
      * el usuario nace sin credencial. {@code VERIFY_EMAIL} no es ceremonia: el primer login del
      * issue #13 <strong>exige {@code email_verified}</strong> para vincular la cuenta de COPROP, asi
-     * que sin esto la persona pondria su contraseña y aun asi recibiria {@code SIN_CUENTA}.
+     * que sin esto la persona pondria su contraseña y aun asi recibiria {@code NO_ACCOUNT}.
      */
     private static final List<String> ACCIONES = List.of("UPDATE_PASSWORD", "VERIFY_EMAIL");
 
@@ -62,7 +62,7 @@ class KeycloakIdentityProvider implements IdentityProvider {
             @Value("${coprop.oidc.admin-cliente-secreto}") String clienteSecreto) {
         this.http = clienteHttp();
         this.issuer = issuer;
-        this.admin = baseDeAdministracion(issuer);
+        this.admin = adminBase(issuer);
         this.clienteId = clienteId;
         this.clienteSecreto = clienteSecreto;
     }
@@ -94,7 +94,7 @@ class KeycloakIdentityProvider implements IdentityProvider {
      * puedan quedar apuntando a realms distintos, que es un fallo silencioso: las operaciones irian
      * a un realm y los tokens vendrian de otro.
      */
-    private static String baseDeAdministracion(String issuer) {
+    private static String adminBase(String issuer) {
         int realms = issuer.lastIndexOf("/realms/");
         if (realms < 0) {
             throw new IllegalArgumentException(
@@ -105,18 +105,18 @@ class KeycloakIdentityProvider implements IdentityProvider {
 
     @Override
     public void prepararCredencial(String email) {
-        String token = tokenDeAdministracion();
-        String usuario = find(email, token);
-        if (usuario == null) {
+        String token = adminToken();
+        String user = find(email, token);
+        if (user == null) {
             create(email, token);
-            usuario = find(email, token);
-            if (usuario == null) {
-                throw new FalloDelProveedorDeIdentidad(
+            user = find(email, token);
+            if (user == null) {
+                throw new IdentityProviderFailure(
                         "Keycloak acepto crear el usuario pero newValues no lo encuentra; revisar el realm.");
             }
             log.info("Usuario creado en el proveedor de identidad para correo={}", email);
         }
-        requestEmailActions(usuario, token);
+        requestEmailActions(user, token);
     }
 
     /**
@@ -132,14 +132,14 @@ class KeycloakIdentityProvider implements IdentityProvider {
      */
     @Override
     public void closeSessions(String email) {
-        String token = tokenDeAdministracion();
-        String usuario = find(email, token);
-        if (usuario == null) {
+        String token = adminToken();
+        String user = find(email, token);
+        if (user == null) {
             log.info("No hay usuario en el proveedor de identidad para correo={}; no hay sesiones que cerrar.", email);
             return;
         }
         pedir("cerrar las sesiones del usuario", () -> http.post()
-                .uri(admin + "/users/{id}/logout", usuario)
+                .uri(admin + "/users/{id}/logout", user)
                 .header("Authorization", "Bearer " + token)
                 .retrieve()
                 .toBodilessEntity());
@@ -158,13 +158,13 @@ class KeycloakIdentityProvider implements IdentityProvider {
      */
     @Override
     public List<ProviderSession> sessionsOf(String email) {
-        String token = tokenDeAdministracion();
-        String usuario = find(email, token);
-        if (usuario == null) {
+        String token = adminToken();
+        String user = find(email, token);
+        if (user == null) {
             return List.of();
         }
         List<Map<String, Object>> sessions = pedir("listar las sesiones del usuario", () -> http.get()
-                .uri(admin + "/users/{id}/sessions", usuario)
+                .uri(admin + "/users/{id}/sessions", user)
                 .header("Authorization", "Bearer " + token)
                 .retrieve()
                 .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {}));
@@ -206,10 +206,10 @@ class KeycloakIdentityProvider implements IdentityProvider {
      */
     private static @org.jspecify.annotations.Nullable Instant instanteDe(
             @org.jspecify.annotations.Nullable Object valor) {
-        return valor instanceof Number numero ? Instant.ofEpochMilli(numero.longValue()) : null;
+        return valor instanceof Number number ? Instant.ofEpochMilli(number.longValue()) : null;
     }
 
-    private String tokenDeAdministracion() {
+    private String adminToken() {
         var credenciales = new LinkedMultiValueMap<String, String>();
         credenciales.add("grant_type", "client_credentials");
         credenciales.add("client_id", clienteId);
@@ -224,7 +224,7 @@ class KeycloakIdentityProvider implements IdentityProvider {
 
         Object token = response == null ? null : response.get("access_token");
         if (!(token instanceof String valor) || valor.isBlank()) {
-            throw new FalloDelProveedorDeIdentidad(
+            throw new IdentityProviderFailure(
                     "Keycloak no devolvio access_token al pedirle el token de administracion.");
         }
         return valor;
@@ -232,17 +232,17 @@ class KeycloakIdentityProvider implements IdentityProvider {
 
     /** El identificador del usuario con ese correo, o nulo si no hay ninguno. */
     private @org.jspecify.annotations.Nullable String find(String email, String token) {
-        List<Map<String, Object>> encontrados = pedir("buscar el usuario", () -> http.get()
+        List<Map<String, Object>> found = pedir("buscar el usuario", () -> http.get()
                 // exact: sin esto Keycloak busca por coincidencia parcial y un correo que
                 // sea prefijo de otro devolveria el ajeno primero.
                 .uri(admin + "/users?exact=true&briefRepresentation=true&email={email}", email)
                 .header("Authorization", "Bearer " + token)
                 .retrieve()
                 .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {}));
-        if (encontrados == null || encontrados.isEmpty()) {
+        if (found == null || found.isEmpty()) {
             return null;
         }
-        Object id = encontrados.get(0).get("id");
+        Object id = found.get(0).get("id");
         return id instanceof String valor ? valor : null;
     }
 
@@ -254,7 +254,7 @@ class KeycloakIdentityProvider implements IdentityProvider {
         // primer login del #13 lo exige para vincular. Darlo por verificado aqui convertiria "nos
         // dijeron ese correo" en "ese correo es suyo", que es justo lo que no se puede asumir de un
         // dato que escribio el administrador.
-        Map<String, Object> usuario = Map.of(
+        Map<String, Object> user = Map.of(
                 "username", email,
                 "email", email,
                 "enabled", true,
@@ -265,7 +265,7 @@ class KeycloakIdentityProvider implements IdentityProvider {
                 .uri(admin + "/users")
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(usuario)
+                .body(user)
                 .retrieve()
                 .toBodilessEntity());
     }
@@ -284,9 +284,9 @@ class KeycloakIdentityProvider implements IdentityProvider {
      * <p>Se llama tambien cuando el usuario ya existia, y por eso el puerto promete ser idempotente:
      * abrir el enlace dos veces vuelve a mandar el correo en vez de reventar.
      */
-    private void requestEmailActions(String usuario, String token) {
+    private void requestEmailActions(String user, String token) {
         pedir("pedir las acciones por correo", () -> http.put()
-                .uri(admin + "/users/{id}/execute-actions-email", usuario)
+                .uri(admin + "/users/{id}/execute-actions-email", user)
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(ACCIONES)
@@ -301,11 +301,11 @@ class KeycloakIdentityProvider implements IdentityProvider {
      * adivinar si fallo el token, la busqueda o el alta. El mensaje del proveedor no se arrastra al
      * cliente: lo que sale por HTTP es el error de dominio de quien llama.
      */
-    private static <T> T pedir(String queSeHacia, java.util.function.Supplier<T> llamada) {
+    private static <T> T pedir(String queSeHacia, java.util.function.Supplier<T> call) {
         try {
-            return llamada.get();
-        } catch (RestClientException fallo) {
-            throw new FalloDelProveedorDeIdentidad("Keycloak fallo al %s.".formatted(queSeHacia), fallo);
+            return call.get();
+        } catch (RestClientException failure) {
+            throw new IdentityProviderFailure("Keycloak fallo al %s.".formatted(queSeHacia), failure);
         }
     }
 }

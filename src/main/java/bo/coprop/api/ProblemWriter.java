@@ -25,11 +25,11 @@ class ProblemWriter {
         this.mapeador = mapeador;
     }
 
-    void escribir(HttpServletRequest peticion, HttpServletResponse response, ErrorCode code, String detalle)
+    void escribir(HttpServletRequest request, HttpServletResponse response, ErrorCode code, String detalle)
             throws IOException {
-        ProblemDetail problema = ProblemCatalog.problema(code, detalle, peticion.getRequestURI());
+        ProblemDetail problem = ProblemCatalog.problem(code, detalle, request.getRequestURI());
         response.setStatus(ProblemCatalog.statusOf(code).value());
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
-        mapeador.writeValue(response.getOutputStream(), problema);
+        mapeador.writeValue(response.getOutputStream(), problem);
     }
 }

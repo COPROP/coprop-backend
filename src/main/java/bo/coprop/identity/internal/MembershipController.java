@@ -45,7 +45,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @ApiController
 @RestController
-@RequestMapping("/condominios/{condominiumId}/membresias")
+@RequestMapping("/condominiums/{condominiumId}/memberships")
 class MembershipController {
 
     private final Memberships memberships;
@@ -68,7 +68,7 @@ class MembershipController {
         MembershipView created =
                 memberships.grant(condominiumId, body.accountId(), body.roles(), body.invitedBy(), principal.getName());
         return ResponseEntity.created(
-                        URI.create("/api/v1/condominios/" + condominiumId + "/membresias/" + created.id()))
+                        URI.create("/api/v1/condominiums/" + condominiumId + "/memberships/" + created.id()))
                 .body(created);
     }
 
@@ -88,9 +88,8 @@ class MembershipController {
      */
     @PreAuthorize("@authorization.can(authentication, 'INVITE_USERS')")
     @GetMapping
-    List<MembershipView> list(
-            @PathVariable UUID condominiumId, @RequestParam(defaultValue = "false") boolean cerradas) {
-        return cerradas ? memberships.allOfCondominium(condominiumId) : memberships.ofCondominium(condominiumId);
+    List<MembershipView> list(@PathVariable UUID condominiumId, @RequestParam(defaultValue = "false") boolean closed) {
+        return closed ? memberships.allOfCondominium(condominiumId) : memberships.ofCondominium(condominiumId);
     }
 
     /** Una membresia del condominio, para quien reparte los roles. Misma regla que el listado. */
@@ -115,7 +114,7 @@ class MembershipController {
      * responde la membresia cerrada, con su {@code validTo} puesto.
      */
     @PreAuthorize("@authorization.canChange(authentication, #condominiumId, #membershipId)")
-    @PostMapping("/{membershipId}/baja")
+    @PostMapping("/{membershipId}/termination")
     MembershipView terminate(
             @PathVariable UUID condominiumId,
             @PathVariable UUID membershipId,
@@ -183,7 +182,7 @@ class MembershipController {
 
     /** Levanta la suspension. Vuelve a dar acceso en la siguiente peticion. Issue #19. */
     @PreAuthorize("@authorization.canChange(authentication, #condominiumId, #membershipId)")
-    @PostMapping("/{membershipId}/reactivacion")
+    @PostMapping("/{membershipId}/reactivation")
     MembershipView reinstate(
             @PathVariable UUID condominiumId,
             @PathVariable UUID membershipId,

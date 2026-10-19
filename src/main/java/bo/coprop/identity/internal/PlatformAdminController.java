@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
  * ninguno: la plataforma podia empezar pero no crecer, y el segundo superadministrador salia de un
  * {@code INSERT} a mano. Esto lo convierte en una operacion con actor, motivo y bitacora.
  *
- * <p><strong>La ruta es global</strong>, sin {@code /condominios/{id}} delante, y eso es lo que
+ * <p><strong>La ruta es global</strong>, sin {@code /condominiums/{id}} delante, y eso es lo que
  * decide quien pasa. En una ruta global el filtro de condominio no corre, asi que las unicas
  * autoridades de la peticion son las que puso el filtro de identidad: la de plataforma, si la tiene.
  * Un {@code CONDO_ADMIN} llega aqui sin ninguna y recibe <strong>403</strong>, que es el primer
@@ -41,7 +41,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @ApiController
 @RestController
-@RequestMapping("/superadministradores")
+@RequestMapping("/platform-admins")
 class PlatformAdminController {
 
     private final Identities identities;
@@ -74,9 +74,8 @@ class PlatformAdminController {
             + " and @reauthentication.recent(authentication)")
     @PostMapping
     ResponseEntity<PlatformAdminView> grant(@Valid @RequestBody NewPlatformAdmin body, Principal principal) {
-        PlatformAdminView concedido = identities.grantPlatformAdmin(body.accountId(), principal.getName());
-        return ResponseEntity.created(URI.create("/api/v1/superadministradores"))
-                .body(concedido);
+        PlatformAdminView granted = identities.grantPlatformAdmin(body.accountId(), principal.getName());
+        return ResponseEntity.created(URI.create("/api/v1/platform-admins")).body(granted);
     }
 
     /**
@@ -91,7 +90,7 @@ class PlatformAdminController {
      */
     @PreAuthorize("@authorization.can(authentication, 'INVITE_ADMINS_ONLY')"
             + " and @reauthentication.recent(authentication)")
-    @PostMapping("/{accountId}/revocacion")
+    @PostMapping("/{accountId}/revocation")
     ResponseEntity<Void> revoke(@PathVariable UUID accountId, @Valid @RequestBody Reason reason, Principal principal) {
         identities.revokePlatformAdmin(accountId, reason.reason(), principal.getName());
         return ResponseEntity.noContent().build();

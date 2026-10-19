@@ -32,12 +32,12 @@ import org.springframework.web.bind.annotation.RestController;
  * tiene que estar.
  *
  * <p>Comparte el prefijo {@code /me} con {@link MeController} y son dos controladores distintos a
- * proposito, por lo mismo que {@code /condominios/{id}} lo comparten {@code condominium} e
+ * proposito, por lo mismo que {@code /condominiums/{id}} lo comparten {@code condominium} e
  * {@code identity}: cada uno sirve la parte que le toca y la ruta es del cliente, no de un modulo.
  */
 @ApiController
 @RestController
-@RequestMapping("/me/sesiones")
+@RequestMapping("/me/sessions")
 class SessionsController {
 
     private final Identities identities;
@@ -57,10 +57,10 @@ class SessionsController {
      * pasa a quien entra por primera vez con la app movil y nunca por la web.
      */
     @GetMapping
-    List<MySession> list(Principal principal, HttpServletRequest peticion) {
-        String currentSession = sessionId(peticion);
+    List<MySession> list(Principal principal, HttpServletRequest request) {
+        String currentSession = sessionId(request);
         return identities
-                .sessionsOf(AuthenticatedIdentity.actorOf(autenticacionDe(principal))
+                .sessionsOf(AuthenticatedIdentity.actorOf(authenticationFactsOf(principal))
                         .accountId())
                 .stream()
                 .map(session -> MySession.de(session, currentSession))
@@ -82,9 +82,9 @@ class SessionsController {
      * mismo que la baja de una membresia: lo que pasa aqui no es borrar filas, es una operacion con
      * nombre que deja rastro en la bitacora.
      */
-    @PostMapping("/cierre")
+    @PostMapping("/closure")
     ResponseEntity<Void> closeAll(Principal principal) {
-        var actor = AuthenticatedIdentity.actorOf(autenticacionDe(principal));
+        var actor = AuthenticatedIdentity.actorOf(authenticationFactsOf(principal));
         identities.signOutEverywhere(actor.accountId(), principal.getName());
         return ResponseEntity.noContent().build();
     }
@@ -98,18 +98,18 @@ class SessionsController {
      * cadena de seguridad, y {@link AuthenticatedIdentity#actorDe} ya explica por que eso revienta
      * en vez de responder un 403.
      */
-    private static org.springframework.security.core.Authentication autenticacionDe(Principal principal) {
-        if (principal instanceof org.springframework.security.core.Authentication autenticacion) {
-            return autenticacion;
+    private static org.springframework.security.core.Authentication authenticationFactsOf(Principal principal) {
+        if (principal instanceof org.springframework.security.core.Authentication authentication) {
+            return authentication;
         }
         throw new IllegalStateException(
-                "La peticion llego a /me/sesiones con un Principal que no es una Authentication: %s."
+                "La peticion llego a /me/sessions con un Principal que no es una Authentication: %s."
                         .formatted(principal.getClass().getName()));
     }
 
     /** El identificador de la sesion de esta peticion, o nada si viene por la app movil. */
-    private static @Nullable String sessionId(HttpServletRequest peticion) {
-        HttpSession session = peticion.getSession(false);
+    private static @Nullable String sessionId(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
         return session == null ? null : session.getId();
     }
 

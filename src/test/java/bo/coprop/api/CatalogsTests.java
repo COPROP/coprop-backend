@@ -42,8 +42,8 @@ import tools.jackson.databind.ObjectMapper;
 @AutoConfigureMockMvc
 class CatalogsTests {
 
-    private static final String PARAMETRICAS = "/api/v1/parametricas";
-    private static final String MATRIZ = PARAMETRICAS + "/matriz-de-permisos";
+    private static final String PARAMETRICAS = "/api/v1/catalogs";
+    private static final String MATRIZ = PARAMETRICAS + "/permission-matrix";
 
     /** Los paquetes raiz de los tres modulos cuyas enumeraciones son contrato. */
     private static final List<String> PAQUETES =
@@ -104,14 +104,14 @@ class CatalogsTests {
         Permission[] permissions = Permission.values();
         for (int fila = 0; fila < permissions.length; fila++) {
             Permission permission = permissions[fila];
-            String ruta = "$.permissions[" + fila + "]";
-            response.andExpect(jsonPath(ruta + ".permission").value(permission.name()))
-                    .andExpect(jsonPath(ruta + ".requiresSecondFactor")
+            String path = "$.permissions[" + fila + "]";
+            response.andExpect(jsonPath(path + ".permission").value(permission.name()))
+                    .andExpect(jsonPath(path + ".requiresSecondFactor")
                             .value(PermissionMatrix.requiresSecondFactor(permission)))
-                    .andExpect(jsonPath(ruta + ".scopes.length()").value(MembershipRole.values().length));
+                    .andExpect(jsonPath(path + ".scopes.length()").value(MembershipRole.values().length));
             for (MembershipRole rol : MembershipRole.values()) {
-                Scope esperado = PermissionMatrix.scopeOf(rol, permission);
-                response.andExpect(jsonPath(ruta + ".scopes." + rol.name()).value(esperado.name()));
+                Scope expected = PermissionMatrix.scopeOf(rol, permission);
+                response.andExpect(jsonPath(path + ".scopes." + rol.name()).value(expected.name()));
             }
         }
     }
@@ -151,7 +151,7 @@ class CatalogsTests {
         var names = new ArrayList<String>();
         for (String paquete : PAQUETES) {
             escaner.findCandidateComponents(paquete).stream()
-                    .map(definicion -> definicion.getBeanClassName())
+                    .map(definition -> definition.getBeanClassName())
                     .filter(Objects::nonNull)
                     .filter(name -> !name.contains(".internal."))
                     // Las clases anidadas que genera un valor de enum con cuerpo propio no son
@@ -166,6 +166,6 @@ class CatalogsTests {
     private String token() {
         var person = people.register(new NewPerson("Emma", "Tola", null), "admin");
         AccountView account = people.openAccount(person.id(), TestTokenProvider.correoNuevo(), null, "admin");
-        return "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), account.email());
+        return "Bearer " + TestTokenProvider.valid(TestTokenProvider.sujetoNuevo(), account.email());
     }
 }

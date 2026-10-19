@@ -100,7 +100,7 @@ class AuditLog {
         return action;
     }
 
-    String getEntidad() {
+    String getEntity() {
         return entity;
     }
 

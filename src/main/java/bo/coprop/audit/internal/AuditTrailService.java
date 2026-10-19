@@ -57,7 +57,7 @@ class AuditTrailService implements AuditTrail {
      * lo da por nulo. Es la misma razon que en el issue #13.
      */
     @Autowired
-    private EntityManager entidades;
+    private EntityManager entities;
 
     AuditTrailService(AuditLogRepository auditTrail, ObjectMapper json) {
         this.auditTrail = auditTrail;
@@ -113,7 +113,7 @@ class AuditTrailService implements AuditTrail {
                     delContexto(LogKeys.IP),
                     delContexto(LogKeys.TRAZA),
                     evento.occurredAt()));
-        } catch (RuntimeException fallo) {
+        } catch (RuntimeException failure) {
             log.error(
                     "No se pudo registrar en la bitacora: action={}, entity={}, entityId={}, actor={}, condominio={}, fecha={}.",
                     evento.action(),
@@ -122,7 +122,7 @@ class AuditTrailService implements AuditTrail {
                     evento.actor(),
                     evento.condominiumId(),
                     evento.occurredAt(),
-                    fallo);
+                    failure);
         }
     }
 
@@ -160,18 +160,18 @@ class AuditTrailService implements AuditTrail {
             UUID condominiumId,
             @Nullable String actor,
             @Nullable String entity,
-            @Nullable Instant desde,
+            @Nullable Instant from,
             @Nullable Instant until,
             int page,
-            int tamano) {
+            int size) {
         return PagedResponse.de(
                 auditTrail.find(
                         condominiumId,
                         actor,
                         entity,
-                        desde == null ? PRINCIPIO_DE_LOS_TIEMPOS : desde,
+                        from == null ? PRINCIPIO_DE_LOS_TIEMPOS : from,
                         until == null ? FIN_DE_LOS_TIEMPOS : until,
-                        PageRequest.of(page, tamano, loUltimoPrimero())),
+                        PageRequest.of(page, size, newestFirst())),
                 this::view);
     }
 
@@ -180,17 +180,17 @@ class AuditTrailService implements AuditTrail {
     public PagedResponse<AuditEntryView> ofPlatform(
             @Nullable String actor,
             @Nullable String entity,
-            @Nullable Instant desde,
+            @Nullable Instant from,
             @Nullable Instant until,
             int page,
-            int tamano) {
+            int size) {
         return PagedResponse.de(
                 auditTrail.findPlatformEntries(
                         actor,
                         entity,
-                        desde == null ? PRINCIPIO_DE_LOS_TIEMPOS : desde,
+                        from == null ? PRINCIPIO_DE_LOS_TIEMPOS : from,
                         until == null ? FIN_DE_LOS_TIEMPOS : until,
-                        PageRequest.of(page, tamano, loUltimoPrimero())),
+                        PageRequest.of(page, size, newestFirst())),
                 this::view);
     }
 
@@ -200,7 +200,7 @@ class AuditTrailService implements AuditTrail {
      * <p>El segundo criterio de orden es el identificador, para que dos filas del mismo instante
      * --una operacion que publica dos eventos-- no cambien de sitio entre dos paginas.
      */
-    private static Sort loUltimoPrimero() {
+    private static Sort newestFirst() {
         return Sort.by(Sort.Order.desc("occurredAt"), Sort.Order.desc("id"));
     }
 
@@ -214,11 +214,10 @@ class AuditTrailService implements AuditTrail {
     @Override
     @Transactional
     public long purge(Instant until) {
-        Object deleted = entidades
-                .createNativeQuery("select audit_log_purge(cast(:hasta as timestamptz))")
+        Object deleted = entities.createNativeQuery("select audit_log_purge(cast(:hasta as timestamptz))")
                 .setParameter("hasta", until.toString())
                 .getSingleResult();
-        long cuantas = deleted instanceof Number numero ? numero.longValue() : 0L;
+        long cuantas = deleted instanceof Number number ? number.longValue() : 0L;
         if (cuantas > 0) {
             log.info("Purgadas {} filas de la bitacora anteriores a {}.", cuantas, until);
         }
@@ -230,7 +229,7 @@ class AuditTrailService implements AuditTrail {
                 fila.getId(),
                 fila.getActor(),
                 fila.getAction(),
-                fila.getEntidad(),
+                fila.getEntity(),
                 fila.getEntidadId(),
                 fila.getCondominiumId(),
                 deJson(fila.getAntes()),

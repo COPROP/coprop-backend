@@ -82,12 +82,12 @@ class PlatformBootstrapTests {
         // granted_by nulo es la unica forma de distinguir despues el que abrio el arranque de los
         // que concedio una persona. La bitacora del issue #21 lo va a querer.
         var jdbc = new JdbcTemplate(dataSource);
-        Integer sinConcedente = jdbc.queryForObject(
+        Integer withoutAGrantor = jdbc.queryForObject(
                 "select count(*) from platform_admin p join user_account c on c.id = p.user_id"
                         + " where lower(c.email) = lower(?) and p.granted_by is null",
                 Integer.class,
                 CORREO);
 
-        assertThat(sinConcedente).isEqualTo(1);
+        assertThat(withoutAGrantor).isEqualTo(1);
     }
 }
