@@ -4,9 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import bo.coprop.TestcontainersConfiguration;
-import bo.coprop.shared.ConflictoDeEstado;
-import bo.coprop.shared.RecursoNoEncontrado;
-import bo.coprop.shared.ReglaDeNegocioViolada;
+import bo.coprop.shared.BusinessRuleViolated;
+import bo.coprop.shared.ResourceNotFound;
+import bo.coprop.shared.StateConflict;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -36,7 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
  * uno, y este test arranca solo este modulo. Que haga falta ese apaño es la prueba de que el
  * limite esta puesto.
  */
-@Import({TestcontainersConfiguration.class, DoblesDeAcceso.class, MembershipsTests.RelojFijo.class})
+@Import({TestcontainersConfiguration.class, AccessDoubles.class, MembershipsTests.RelojFijo.class})
 @ApplicationModuleTest(BootstrapMode.DIRECT_DEPENDENCIES)
 @Transactional
 class MembershipsTests {
@@ -46,15 +46,15 @@ class MembershipsTests {
     private final JdbcTemplate jdbc;
     private final People personas;
     private final Memberships membresias;
-    private final DoblesDeAcceso.SesionesDePrueba sesiones;
-    private final DoblesDeAcceso.ProveedorDeIdentidadDePrueba proveedor;
+    private final AccessDoubles.SesionesDePrueba sesiones;
+    private final AccessDoubles.ProveedorDeIdentidadDePrueba proveedor;
 
     MembershipsTests(
             @Autowired DataSource dataSource,
             @Autowired People personas,
             @Autowired Memberships membresias,
-            @Autowired DoblesDeAcceso.SesionesDePrueba sesiones,
-            @Autowired DoblesDeAcceso.ProveedorDeIdentidadDePrueba proveedor) {
+            @Autowired AccessDoubles.SesionesDePrueba sesiones,
+            @Autowired AccessDoubles.ProveedorDeIdentidadDePrueba proveedor) {
         this.jdbc = new JdbcTemplate(dataSource);
         this.personas = personas;
         this.membresias = membresias;
@@ -98,7 +98,7 @@ class MembershipsTests {
         membresias.grant(condominio, cuenta, Set.of(MembershipRole.OWNER), null, "admin");
 
         assertThatThrownBy(() -> membresias.grant(condominio, cuenta, Set.of(MembershipRole.TENANT), null, "admin"))
-                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("ya tiene membresia vigente");
     }
 
@@ -136,7 +136,7 @@ class MembershipsTests {
         UUID cuenta = cuentaDe("cinco@coprop.bo", "7000005");
 
         assertThatThrownBy(() -> membresias.grant(condominio, cuenta, Set.of(), null, "admin"))
-                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("al menos un rol");
     }
 
@@ -147,7 +147,7 @@ class MembershipsTests {
         UUID cuenta = cuentaDe("seis@coprop.bo", "7000006");
 
         assertThatThrownBy(() -> membresias.grant(condominio, cuenta, Set.of(MembershipRole.OWNER), cuenta, "admin"))
-                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("si mismo");
     }
 
@@ -158,7 +158,7 @@ class MembershipsTests {
 
         assertThatThrownBy(() ->
                         membresias.grant(condominio, UUID.randomUUID(), Set.of(MembershipRole.OWNER), null, "admin"))
-                .isInstanceOf(RecursoNoEncontrado.class);
+                .isInstanceOf(ResourceNotFound.class);
     }
 
     @Test
@@ -169,7 +169,7 @@ class MembershipsTests {
         UUID cuenta = cuentaDe("siete@coprop.bo", "7000007");
         MembershipView enElAjeno = membresias.grant(ajeno, cuenta, Set.of(MembershipRole.OWNER), null, "admin");
 
-        assertThatThrownBy(() -> membresias.find(propio, enElAjeno.id())).isInstanceOf(RecursoNoEncontrado.class);
+        assertThatThrownBy(() -> membresias.find(propio, enElAjeno.id())).isInstanceOf(ResourceNotFound.class);
     }
 
     @Test
@@ -260,7 +260,7 @@ class MembershipsTests {
         membresias.revoke(condominio, concedida.id(), "se mudo", "admin");
 
         assertThatThrownBy(() -> membresias.revoke(condominio, concedida.id(), "otra vez", "admin"))
-                .isInstanceOf(ConflictoDeEstado.class)
+                .isInstanceOf(StateConflict.class)
                 .hasMessageContaining("dada de baja");
     }
 
@@ -272,7 +272,7 @@ class MembershipsTests {
         MembershipView suya = membresias.grant(condominio, cuenta, Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
 
         assertThatThrownBy(() -> membresias.revoke(condominio, suya.id(), "me voy", cuenta.toString()))
-                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("si mismo");
     }
 
@@ -284,11 +284,11 @@ class MembershipsTests {
         MembershipView unica = membresias.grant(condominio, admin, Set.of(MembershipRole.CONDO_ADMIN), null, "emma");
 
         assertThatThrownBy(() -> membresias.revoke(condominio, unica.id(), "renuncio", "emma"))
-                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("ultima membresia con CONDO_ADMIN");
 
         assertThatThrownBy(() -> membresias.suspend(condominio, unica.id(), "de viaje", "emma"))
-                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("ultima membresia con CONDO_ADMIN");
     }
 
@@ -347,13 +347,13 @@ class MembershipsTests {
         MembershipView concedida = membresias.grant(condominio, cuenta, Set.of(MembershipRole.OWNER), null, "admin");
 
         assertThatThrownBy(() -> membresias.reinstate(condominio, concedida.id(), "por si acaso", "admin"))
-                .isInstanceOf(ConflictoDeEstado.class)
+                .isInstanceOf(StateConflict.class)
                 .hasMessageContaining("no esta suspendida");
 
         membresias.suspend(condominio, concedida.id(), "cuota impaga", "admin");
 
         assertThatThrownBy(() -> membresias.suspend(condominio, concedida.id(), "otra vez", "admin"))
-                .isInstanceOf(ConflictoDeEstado.class)
+                .isInstanceOf(StateConflict.class)
                 .hasMessageContaining("ya esta suspendida");
     }
 
@@ -366,7 +366,7 @@ class MembershipsTests {
         membresias.revoke(condominio, concedida.id(), "se mudo", "admin");
 
         assertThatThrownBy(() -> membresias.reinstate(condominio, concedida.id(), "que vuelva", "admin"))
-                .isInstanceOf(ConflictoDeEstado.class)
+                .isInstanceOf(StateConflict.class)
                 .hasMessageContaining("membresia nueva");
     }
 
@@ -379,7 +379,7 @@ class MembershipsTests {
         MembershipView enElAjeno = membresias.grant(ajeno, cuenta, Set.of(MembershipRole.OWNER), null, "admin");
 
         assertThatThrownBy(() -> membresias.revoke(propio, enElAjeno.id(), "no es mia", "admin"))
-                .isInstanceOf(RecursoNoEncontrado.class);
+                .isInstanceOf(ResourceNotFound.class);
     }
 
     @Test
@@ -533,7 +533,7 @@ class MembershipsTests {
         // ni repartir roles, y recuperarlo exigiria al superadministrador.
         assertThatThrownBy(() -> membresias.changeRoles(
                         condominio, unica.id(), Set.of(MembershipRole.OWNER), "ya no administra", "admin"))
-                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("ultima membresia con CONDO_ADMIN");
     }
 
@@ -570,7 +570,7 @@ class MembershipsTests {
                         Set.of(MembershipRole.CONDO_ADMIN),
                         "me quito el dinero",
                         cuenta.toString()))
-                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("si mismo");
     }
 
@@ -586,11 +586,11 @@ class MembershipsTests {
         // que la primera prohibe.
         assertThatThrownBy(() -> membresias.changeRoles(
                         condominio, suya.id(), Set.of(MembershipRole.PLATFORM_ADMIN), "que administre todo", "admin"))
-                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("PLATFORM_ADMIN");
 
         assertThatThrownBy(() -> membresias.changeRoles(condominio, suya.id(), Set.of(), "sin nada", "admin"))
-                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("al menos un rol");
     }
 
@@ -606,7 +606,7 @@ class MembershipsTests {
         // vuelva es conceder una membresia nueva.
         assertThatThrownBy(() ->
                         membresias.changeRoles(condominio, suya.id(), Set.of(MembershipRole.TENANT), "volvio", "admin"))
-                .isInstanceOf(ConflictoDeEstado.class);
+                .isInstanceOf(StateConflict.class);
     }
 
     @Test
@@ -619,7 +619,7 @@ class MembershipsTests {
 
         assertThatThrownBy(() -> membresias.changeRoles(
                         propio, enElAjeno.id(), Set.of(MembershipRole.TENANT), "no es mia", "admin"))
-                .isInstanceOf(RecursoNoEncontrado.class);
+                .isInstanceOf(ResourceNotFound.class);
     }
 
     @Test

@@ -4,7 +4,7 @@ import bo.coprop.identity.AccountView;
 import bo.coprop.identity.NewPerson;
 import bo.coprop.identity.People;
 import bo.coprop.identity.PersonView;
-import bo.coprop.shared.ControladorDeApi;
+import bo.coprop.shared.ApiController;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -33,7 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
  * se pregunta si administra <em>alguno</em>. La consulta añade lo propio, que es la cadena del
  * <strong>#15</strong> sobre un recurso que no cuelga de ningun condominio.
  */
-@ControladorDeApi
+@ApiController
 @RestController
 @RequestMapping("/personas")
 class PersonController {

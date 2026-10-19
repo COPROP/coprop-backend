@@ -28,7 +28,7 @@ spring:
     # El valor de partida, y el techo. Seguridad 5.3 pide una hora de inactividad para los roles
     # administrativos y 24 para propietarios, y eso NO se puede fijar aqui: Spring Session tiene un
     # solo tiempo para toda la aplicacion y los roles por condominio viven en la base de COPROP, no
-    # en la sesion. Lo resuelve FiltroDeVigenciaDeSesion (#22), que lo baja a una hora por peticion
+    # en la sesion. Lo resuelve SessionValidityFilter (#22), que lo baja a una hora por peticion
     # cuando la cuenta administra algo. Este numero es el que vale mientras no haya identidad
     # resuelta, y tambien el tope absoluto que el filtro comprueba contra la hora de creacion.
     timeout: 24h

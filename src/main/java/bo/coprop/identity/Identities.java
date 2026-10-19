@@ -67,9 +67,9 @@ public interface Identities {
      * <p>Publica {@link PlatformAdminGranted}, que es la fila de la bitacora de plataforma.
      *
      * @param actor la cuenta que lo concede, que viaja tambien como {@code grantedBy}
-     * @throws bo.coprop.shared.RecursoNoEncontrado si la cuenta no existe
-     * @throws bo.coprop.shared.ReglaDeNegocioViolada si se lo concede a si mismo
-     * @throws bo.coprop.shared.ConflictoDeEstado si esa cuenta ya lo tiene
+     * @throws bo.coprop.shared.ResourceNotFound si la cuenta no existe
+     * @throws bo.coprop.shared.BusinessRuleViolated si se lo concede a si mismo
+     * @throws bo.coprop.shared.StateConflict si esa cuenta ya lo tiene
      */
     PlatformAdminView grantPlatformAdmin(java.util.UUID accountId, String actor);
 
@@ -90,9 +90,9 @@ public interface Identities {
      *
      * @param motivo por que se le quita. Obligatorio: la fila se borra, asi que esto es lo unico que
      *     lo explica
-     * @throws bo.coprop.shared.RecursoNoEncontrado si esa cuenta no lo tiene --y responde lo mismo
+     * @throws bo.coprop.shared.ResourceNotFound si esa cuenta no lo tiene --y responde lo mismo
      *     que si no existiera, porque quien administra la plataforma no es dato publico--
-     * @throws bo.coprop.shared.ReglaDeNegocioViolada si se lo revoca a si mismo
+     * @throws bo.coprop.shared.BusinessRuleViolated si se lo revoca a si mismo
      */
     void revokePlatformAdmin(java.util.UUID accountId, String motivo, String actor);
 
@@ -118,9 +118,9 @@ public interface Identities {
      * que la del cierre de sesiones (#19): enseñar media lista es mejor que no enseñar ninguna a
      * quien esta intentando averiguar si le robaron la cuenta.
      *
-     * @throws bo.coprop.shared.RecursoNoEncontrado si la cuenta no existe
+     * @throws bo.coprop.shared.ResourceNotFound si la cuenta no existe
      */
-    java.util.List<SesionActivaView> sessionsOf(java.util.UUID accountId);
+    java.util.List<ActiveSessionView> sessionsOf(java.util.UUID accountId);
 
     /**
      * Cierra todas las sesiones de una cuenta: el "cerrar sesion en todos los dispositivos" de
@@ -135,7 +135,7 @@ public interface Identities {
      *
      * @param actor quien lo pide, que hoy es siempre la propia cuenta
      * @return cuantas sesiones del BFF se cerraron
-     * @throws bo.coprop.shared.RecursoNoEncontrado si la cuenta no existe
+     * @throws bo.coprop.shared.ResourceNotFound si la cuenta no existe
      */
     int signOutEverywhere(java.util.UUID accountId, String actor);
 }

@@ -45,4 +45,4 @@ logging:
     format:
       # Una linea JSON por evento, con el MDC entero y todo enmascarado. En local no se activa:
       # alli manda la legibilidad y el enmascarado lo aplica el patron de logback-spring.xml.
-      console: bo.coprop.shared.FormatoJsonDeLog
+      console: bo.coprop.shared.JsonLogLayout

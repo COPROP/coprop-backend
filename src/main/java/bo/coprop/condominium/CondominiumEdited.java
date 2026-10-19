@@ -1,6 +1,6 @@
 package bo.coprop.condominium;
 
-import bo.coprop.shared.EventoAuditable;
+import bo.coprop.shared.AuditableEvent;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -32,7 +32,7 @@ public record CondominiumEdited(
         @Nullable String address,
         String actor,
         Instant occurredAt)
-        implements EventoAuditable {
+        implements AuditableEvent {
 
     /** La direccion puede ser nula y {@code Map.of} no admite nulos. */
     private static Map<String, String> fila(String name, String nit, @Nullable String address) {

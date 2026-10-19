@@ -6,8 +6,8 @@ import bo.coprop.condominium.CondominiumRegistered;
 import bo.coprop.condominium.CondominiumView;
 import bo.coprop.condominium.Condominiums;
 import bo.coprop.condominium.NewCondominium;
-import bo.coprop.shared.RecursoNoEncontrado;
-import bo.coprop.shared.ReglaDeNegocioViolada;
+import bo.coprop.shared.BusinessRuleViolated;
+import bo.coprop.shared.ResourceNotFound;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
@@ -44,7 +44,7 @@ class CondominiumsService implements Condominiums {
         // El NIT identifica legalmente al condominio: dos con el mismo serian el mismo, y a partir
         // de ahi los pagos de uno podrian aplicarse al otro.
         if (condominios.existsByNit(nuevo.nit())) {
-            throw new ReglaDeNegocioViolada("Ya existe un condominio con el NIT %s.".formatted(nuevo.nit()));
+            throw new BusinessRuleViolated("Ya existe un condominio con el NIT %s.".formatted(nuevo.nit()));
         }
 
         Instant ahora = reloj.instant();
@@ -95,7 +95,7 @@ class CondominiumsService implements Condominiums {
         // Con IdNot y no con existsByNit: guardar el NIT que ya tenia no es un choque, y sin esto
         // corregir solo el nombre seria imposible.
         if (condominios.existsByNitAndIdNot(nit, condominiumId)) {
-            throw new ReglaDeNegocioViolada("Ya existe un condominio con el NIT %s.".formatted(nit));
+            throw new BusinessRuleViolated("Ya existe un condominio con el NIT %s.".formatted(nit));
         }
 
         // Los valores de antes se leen ANTES de editar. Con la entidad gestionada, leerlos despues
@@ -138,7 +138,7 @@ class CondominiumsService implements Condominiums {
     private Condominium buscar(UUID condominiumId) {
         return condominios
                 .findById(condominiumId)
-                .orElseThrow(() -> RecursoNoEncontrado.de("el condominio", condominiumId));
+                .orElseThrow(() -> ResourceNotFound.de("el condominio", condominiumId));
     }
 
     private static CondominiumView vista(Condominium condominio, CondominiumConfig config) {

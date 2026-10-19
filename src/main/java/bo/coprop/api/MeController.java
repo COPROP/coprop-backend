@@ -7,7 +7,7 @@ import bo.coprop.identity.MembershipStatus;
 import bo.coprop.identity.MembershipView;
 import bo.coprop.identity.Memberships;
 import bo.coprop.identity.People;
-import bo.coprop.shared.ControladorDeApi;
+import bo.coprop.shared.ApiController;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
@@ -42,7 +42,7 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>Vive en {@code api} y no en un modulo de dominio porque es la unica respuesta que cruza
  * {@code identity} y {@code condominium}; el porque esta en el {@code package-info} de este paquete.
  */
-@ControladorDeApi
+@ApiController
 @RestController
 @RequestMapping("/me")
 class MeController {
@@ -67,12 +67,12 @@ class MeController {
     }
 
     @GetMapping
-    MiPerfil consultar(Authentication quien) {
-        var actor = IdentidadAutenticada.actorDe(quien);
+    MyProfile consultar(Authentication quien) {
+        var actor = AuthenticatedIdentity.actorDe(quien);
         UUID cuenta = actor.accountId();
         UUID persona = actor.personId();
 
-        return new MiPerfil(
+        return new MyProfile(
                 personas.find(persona),
                 personas.findAccount(cuenta),
                 identidades.esSuperadministrador(cuenta),
@@ -86,7 +86,7 @@ class MeController {
      * son uno o dos y rara vez mas de cinco. Si algun dia una administradora de muchos edificios lo
      * nota, lo que toca es una consulta en bloque en {@code Condominiums}, no cachear esto.
      */
-    private List<MiPerfil.MiCondominio> misCondominios(UUID cuenta, UUID persona) {
+    private List<MyProfile.MiCondominio> misCondominios(UUID cuenta, UUID persona) {
         return membresias.ofAccount(cuenta).stream()
                 .filter(membresia -> membresia.status() == MembershipStatus.ACTIVE)
                 .map(membresia -> deLaMembresia(membresia, persona))
@@ -96,9 +96,9 @@ class MeController {
                 .toList();
     }
 
-    private MiPerfil.MiCondominio deLaMembresia(MembershipView membresia, UUID persona) {
+    private MyProfile.MiCondominio deLaMembresia(MembershipView membresia, UUID persona) {
         UUID condominio = membresia.condominiumId();
-        return new MiPerfil.MiCondominio(
+        return new MyProfile.MiCondominio(
                 condominios.find(condominio), membresia.roles(), relaciones.relatedTo(condominio, persona));
     }
 }

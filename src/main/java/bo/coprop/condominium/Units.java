@@ -26,8 +26,8 @@ public interface Units {
     /**
      * Da de alta una unidad.
      *
-     * @throws bo.coprop.shared.RecursoNoEncontrado si el condominio no existe
-     * @throws bo.coprop.shared.ReglaDeNegocioViolada si el codigo ya existe en ese condominio, o
+     * @throws bo.coprop.shared.ResourceNotFound si el condominio no existe
+     * @throws bo.coprop.shared.BusinessRuleViolated si el codigo ya existe en ese condominio, o
      *     si el bloque o el piso indicados no son de ese condominio
      */
     UnitView register(UUID condominiumId, NewUnit nueva, String actor);
@@ -39,7 +39,7 @@ public interface Units {
      * medias deja al administrador sin saber cuales entraron, y reintentarla choca con las que ya
      * estaban.
      *
-     * @throws bo.coprop.shared.ReglaDeNegocioViolada si hay codigos repetidos dentro del propio
+     * @throws bo.coprop.shared.BusinessRuleViolated si hay codigos repetidos dentro del propio
      *     lote, o si alguna unidad no pasa las validaciones de {@link #register}
      */
     List<UnitView> registerAll(UUID condominiumId, List<NewUnit> nuevas, String actor);
@@ -47,7 +47,7 @@ public interface Units {
     /**
      * Devuelve una unidad de este condominio.
      *
-     * @throws bo.coprop.shared.RecursoNoEncontrado si no existe <strong>o si es de otro
+     * @throws bo.coprop.shared.ResourceNotFound si no existe <strong>o si es de otro
      *     condominio</strong>. Las dos cosas responden igual a proposito: distinguirlas diria que
      *     esa unidad existe en algun sitio (Seguridad 7.1, y el criterio 404-no-403 del issue #17)
      */
@@ -56,16 +56,16 @@ public interface Units {
     /**
      * Crea una torre o bloque.
      *
-     * @throws bo.coprop.shared.RecursoNoEncontrado si el condominio no existe
-     * @throws bo.coprop.shared.ReglaDeNegocioViolada si ya hay un bloque con ese nombre
+     * @throws bo.coprop.shared.ResourceNotFound si el condominio no existe
+     * @throws bo.coprop.shared.BusinessRuleViolated si ya hay un bloque con ese nombre
      */
     BlockView addBlock(UUID condominiumId, String name, String actor);
 
     /**
      * Crea un piso dentro de un bloque de este condominio.
      *
-     * @throws bo.coprop.shared.RecursoNoEncontrado si el bloque no existe o es de otro condominio
-     * @throws bo.coprop.shared.ReglaDeNegocioViolada si ese bloque ya tiene ese piso
+     * @throws bo.coprop.shared.ResourceNotFound si el bloque no existe o es de otro condominio
+     * @throws bo.coprop.shared.BusinessRuleViolated si ese bloque ya tiene ese piso
      */
     FloorView addFloor(UUID condominiumId, UUID blockId, int number, String actor);
 }

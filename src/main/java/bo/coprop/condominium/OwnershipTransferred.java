@@ -1,6 +1,6 @@
 package bo.coprop.condominium;
 
-import bo.coprop.shared.EventoAuditable;
+import bo.coprop.shared.AuditableEvent;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Map;
@@ -35,7 +35,7 @@ public record OwnershipTransferred(
         int relacionesCerradas,
         String actor,
         Instant occurredAt)
-        implements EventoAuditable {
+        implements AuditableEvent {
 
     @Override
     public String action() {

@@ -27,8 +27,8 @@ public interface Memberships {
      * @param invitedBy la cuenta que invito; nulo en la del primer administrador, que no la invita
      *     nadie
      * @param actor quien la concede, para la bitacora
-     * @throws bo.coprop.shared.RecursoNoEncontrado si la cuenta no existe
-     * @throws bo.coprop.shared.ReglaDeNegocioViolada si la cuenta ya tiene membresia vigente en
+     * @throws bo.coprop.shared.ResourceNotFound si la cuenta no existe
+     * @throws bo.coprop.shared.BusinessRuleViolated si la cuenta ya tiene membresia vigente en
      *     ese condominio --el segundo criterio del issue #11-- o si no llega ningun rol
      */
     MembershipView grant(
@@ -57,10 +57,10 @@ public interface Memberships {
      * cuando y la bitacora por que.
      *
      * @param motivo por que se le da de baja. Obligatorio, lo exige el alcance del issue
-     * @throws bo.coprop.shared.RecursoNoEncontrado si la membresia no existe o no es de ese
+     * @throws bo.coprop.shared.ResourceNotFound si la membresia no existe o no es de ese
      *     condominio
-     * @throws bo.coprop.shared.ConflictoDeEstado si ya estaba dada de baja
-     * @throws bo.coprop.shared.ReglaDeNegocioViolada si quien la da de baja es su propio dueño, o si
+     * @throws bo.coprop.shared.StateConflict si ya estaba dada de baja
+     * @throws bo.coprop.shared.BusinessRuleViolated si quien la da de baja es su propio dueño, o si
      *     es la ultima membresia con {@code CONDO_ADMIN} del condominio
      */
     MembershipView revoke(UUID condominiumId, UUID membershipId, String motivo, String actor);
@@ -78,10 +78,10 @@ public interface Memberships {
      *
      * <p>Publica {@link MembershipSuspended}.
      *
-     * @throws bo.coprop.shared.RecursoNoEncontrado si la membresia no existe o no es de ese
+     * @throws bo.coprop.shared.ResourceNotFound si la membresia no existe o no es de ese
      *     condominio
-     * @throws bo.coprop.shared.ConflictoDeEstado si esta dada de baja o ya estaba suspendida
-     * @throws bo.coprop.shared.ReglaDeNegocioViolada si quien la suspende es su propio dueño, o si
+     * @throws bo.coprop.shared.StateConflict si esta dada de baja o ya estaba suspendida
+     * @throws bo.coprop.shared.BusinessRuleViolated si quien la suspende es su propio dueño, o si
      *     es la ultima membresia con {@code CONDO_ADMIN} del condominio
      */
     MembershipView suspend(UUID condominiumId, UUID membershipId, String motivo, String actor);
@@ -95,9 +95,9 @@ public interface Memberships {
      *
      * <p>Publica {@link MembershipReinstated}.
      *
-     * @throws bo.coprop.shared.RecursoNoEncontrado si la membresia no existe o no es de ese
+     * @throws bo.coprop.shared.ResourceNotFound si la membresia no existe o no es de ese
      *     condominio
-     * @throws bo.coprop.shared.ConflictoDeEstado si esta dada de baja --una baja no se deshace, se
+     * @throws bo.coprop.shared.StateConflict si esta dada de baja --una baja no se deshace, se
      *     concede una membresia nueva-- o si ya estaba activa
      */
     MembershipView reinstate(UUID condominiumId, UUID membershipId, String motivo, String actor);
@@ -130,10 +130,10 @@ public interface Memberships {
      *     operacion, {@link Identities#grantPlatformAdmin}
      * @param motivo por que se le cambian. Obligatorio, por lo mismo que en la baja: acaba en la
      *     bitacora y es lo unico que explica el cambio dentro de un año
-     * @throws bo.coprop.shared.RecursoNoEncontrado si la membresia no existe o no es de ese
+     * @throws bo.coprop.shared.ResourceNotFound si la membresia no existe o no es de ese
      *     condominio
-     * @throws bo.coprop.shared.ConflictoDeEstado si esta dada de baja
-     * @throws bo.coprop.shared.ReglaDeNegocioViolada si no llega ningun rol, si llega
+     * @throws bo.coprop.shared.StateConflict si esta dada de baja
+     * @throws bo.coprop.shared.BusinessRuleViolated si no llega ningun rol, si llega
      *     {@code PLATFORM_ADMIN}, si quien lo pide es el dueño de esa membresia, o si el cambio
      *     dejaria al condominio sin ningun {@code CONDO_ADMIN} activo
      */
@@ -184,7 +184,7 @@ public interface Memberships {
     List<MembershipView> ofAccount(UUID accountId);
 
     /**
-     * @throws bo.coprop.shared.RecursoNoEncontrado si no existe, o si no es de ese condominio
+     * @throws bo.coprop.shared.ResourceNotFound si no existe, o si no es de ese condominio
      */
     MembershipView find(UUID condominiumId, UUID membershipId);
 }

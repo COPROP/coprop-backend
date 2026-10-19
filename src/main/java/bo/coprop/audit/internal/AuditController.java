@@ -2,8 +2,8 @@ package bo.coprop.audit.internal;
 
 import bo.coprop.audit.AuditEntryView;
 import bo.coprop.audit.AuditTrail;
-import bo.coprop.shared.ControladorDeApi;
-import bo.coprop.shared.Pagina;
+import bo.coprop.shared.ApiController;
+import bo.coprop.shared.PagedResponse;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
@@ -40,11 +40,11 @@ import org.springframework.web.bind.annotation.RestController;
  * </ul>
  *
  * <p><strong>Es el primer endpoint paginado del sistema</strong>, y es la razon por la que
- * {@link Pagina} se movio de {@code api} a {@code shared}: este controlador vive en {@code audit}, y
+ * {@link PagedResponse} se movio de {@code api} a {@code shared}: este controlador vive en {@code audit}, y
  * un modulo de dominio no puede depender de {@code api} (regla 6). Estaba anotado como deuda desde
  * el issue #10.
  */
-@ControladorDeApi
+@ApiController
 @RestController
 class AuditController {
 
@@ -80,7 +80,7 @@ class AuditController {
      */
     @PreAuthorize("@autorizacion.puede(authentication, 'VIEW_AUDIT_LOG')")
     @GetMapping("/condominios/{condominiumId}/auditoria")
-    Pagina<AuditEntryView> consultar(
+    PagedResponse<AuditEntryView> consultar(
             @PathVariable UUID condominiumId,
             @RequestParam(required = false) @Nullable @Size(max = 100) String actor,
             @RequestParam(required = false) @Nullable @Size(max = 40) String entity,
@@ -104,7 +104,7 @@ class AuditController {
      */
     @PreAuthorize("@autorizacion.puede(authentication, 'VIEW_AUDIT_LOG')")
     @GetMapping("/auditoria")
-    Pagina<AuditEntryView> consultarLaDePlataforma(
+    PagedResponse<AuditEntryView> consultarLaDePlataforma(
             @RequestParam(required = false) @Nullable @Size(max = 100) String actor,
             @RequestParam(required = false) @Nullable @Size(max = 40) String entity,
             @RequestParam(required = false) @Nullable Instant desde,

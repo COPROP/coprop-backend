@@ -1,6 +1,6 @@
 package bo.coprop.condominium;
 
-import bo.coprop.shared.EventoAuditable;
+import bo.coprop.shared.AuditableEvent;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -16,7 +16,7 @@ import org.jspecify.annotations.Nullable;
  */
 public record BillingResponsibilityAssigned(
         UUID condominiumId, UUID unitId, UUID personId, @Nullable UUID conceptId, String actor, Instant occurredAt)
-        implements EventoAuditable {
+        implements AuditableEvent {
 
     @Override
     public String action() {

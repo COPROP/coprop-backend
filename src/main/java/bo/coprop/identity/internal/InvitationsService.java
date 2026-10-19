@@ -1,5 +1,6 @@
 package bo.coprop.identity.internal;
 
+import bo.coprop.identity.IdentityProvider;
 import bo.coprop.identity.InvitationAccepted;
 import bo.coprop.identity.InvitationIssued;
 import bo.coprop.identity.InvitationRevoked;
@@ -8,10 +9,9 @@ import bo.coprop.identity.Invitations;
 import bo.coprop.identity.MembershipRole;
 import bo.coprop.identity.MembershipView;
 import bo.coprop.identity.Memberships;
-import bo.coprop.identity.ProveedorDeIdentidad;
-import bo.coprop.notifications.Correo;
-import bo.coprop.shared.RecursoNoEncontrado;
-import bo.coprop.shared.ReglaDeNegocioViolada;
+import bo.coprop.notifications.Mail;
+import bo.coprop.shared.BusinessRuleViolated;
+import bo.coprop.shared.ResourceNotFound;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -36,8 +36,8 @@ class InvitationsService implements Invitations {
     private final InvitationRepository invitaciones;
     private final UserAccountRepository cuentas;
     private final Memberships membresias;
-    private final ProveedorDeIdentidad proveedor;
-    private final Correo correo;
+    private final IdentityProvider proveedor;
+    private final Mail correo;
     private final ApplicationEventPublisher eventos;
     private final Clock reloj;
     private final String urlDeLaWeb;
@@ -46,8 +46,8 @@ class InvitationsService implements Invitations {
             InvitationRepository invitaciones,
             UserAccountRepository cuentas,
             Memberships membresias,
-            ProveedorDeIdentidad proveedor,
-            Correo correo,
+            IdentityProvider proveedor,
+            Mail correo,
             ApplicationEventPublisher eventos,
             Clock reloj,
             @Value("${coprop.web.url}") String urlDeLaWeb) {
@@ -64,24 +64,23 @@ class InvitationsService implements Invitations {
     @Override
     @Transactional
     public InvitationView issue(UUID condominiumId, UUID accountId, Set<MembershipRole> roles, String actor) {
-        UserAccount cuenta =
-                cuentas.findById(accountId).orElseThrow(() -> RecursoNoEncontrado.de("la cuenta", accountId));
+        UserAccount cuenta = cuentas.findById(accountId).orElseThrow(() -> ResourceNotFound.de("la cuenta", accountId));
         exigirRolesInvitables(roles);
 
         // Ya esta dentro: no hay a que invitarla. Sin esta comprobacion la invitacion se emitiria,
         // el correo saldria, y al aceptarla reventaria el alta de membresia con un error que no
         // explica nada a quien pulso el enlace.
         if (membresias.of(condominiumId, accountId) != null) {
-            throw new ReglaDeNegocioViolada(
+            throw new BusinessRuleViolated(
                     "La cuenta %s ya tiene membresia vigente en el condominio %s.".formatted(accountId, condominiumId));
         }
         if (invitacionViva(condominiumId, accountId) != null) {
-            throw new ReglaDeNegocioViolada(
+            throw new BusinessRuleViolated(
                     "La cuenta %s ya tiene una invitacion abierta en el condominio %s; para mandar otra, reenviala."
                             .formatted(accountId, condominiumId));
         }
         if (accountId.equals(actorComoCuenta(actor))) {
-            throw new ReglaDeNegocioViolada("Nadie se invita a si mismo.");
+            throw new BusinessRuleViolated("Nadie se invita a si mismo.");
         }
 
         return emitir(condominiumId, cuenta, roles, actor, false);
@@ -104,8 +103,7 @@ class InvitationsService implements Invitations {
         invitaciones.flush();
 
         UUID cuentaId = anterior.getAccountId();
-        UserAccount cuenta =
-                cuentas.findById(cuentaId).orElseThrow(() -> RecursoNoEncontrado.de("la cuenta", cuentaId));
+        UserAccount cuenta = cuentas.findById(cuentaId).orElseThrow(() -> ResourceNotFound.de("la cuenta", cuentaId));
         return emitir(condominiumId, cuenta, anterior.getRoles(), actor, true);
     }
 
@@ -141,8 +139,7 @@ class InvitationsService implements Invitations {
     public Apertura open(String token) {
         Invitation invitacion = exigirQueElTokenSirva(token);
         UUID cuentaId = invitacion.getAccountId();
-        UserAccount cuenta =
-                cuentas.findById(cuentaId).orElseThrow(() -> RecursoNoEncontrado.de("la cuenta", cuentaId));
+        UserAccount cuenta = cuentas.findById(cuentaId).orElseThrow(() -> ResourceNotFound.de("la cuenta", cuentaId));
 
         // Los dos casos de Seguridad 6.1. Que la cuenta tenga sujeto del proveedor significa que ya
         // entro alguna vez --participa en otro condominio-- y entonces solo le toca iniciar sesion.
@@ -168,7 +165,7 @@ class InvitationsService implements Invitations {
                     "La cuenta {} intento aceptar la invitacion {}, que es de otra cuenta; se responde 404.",
                     accountId,
                     invitacion.getId());
-            throw RecursoNoEncontrado.de("la invitacion", "pedida");
+            throw ResourceNotFound.de("la invitacion", "pedida");
         }
 
         Instant ahora = reloj.instant();
@@ -201,12 +198,12 @@ class InvitationsService implements Invitations {
     private InvitationView emitir(
             UUID condominiumId, UserAccount cuenta, Set<MembershipRole> roles, String actor, boolean reenviada) {
         Instant ahora = reloj.instant();
-        String token = TokenDeInvitacion.nuevo();
+        String token = InvitationToken.nuevo();
 
         Invitation invitacion = invitaciones.save(new Invitation(
                 condominiumId,
                 cuenta.getId(),
-                TokenDeInvitacion.hashDe(token),
+                InvitationToken.hashDe(token),
                 roles,
                 actorComoCuentaObligatoria(actor),
                 ahora,
@@ -269,10 +266,10 @@ class InvitationsService implements Invitations {
      */
     private Invitation exigirQueElTokenSirva(String token) {
         Invitation invitacion = invitaciones
-                .findByTokenHash(TokenDeInvitacion.hashDe(token))
+                .findByTokenHash(InvitationToken.hashDe(token))
                 .orElseThrow(() -> {
                     log.info("Llego un token de invitacion que no existe; se responde 404.");
-                    return RecursoNoEncontrado.de("la invitacion", "pedida");
+                    return ResourceNotFound.de("la invitacion", "pedida");
                 });
         if (!invitacion.estaViva(reloj.instant())) {
             log.info(
@@ -281,7 +278,7 @@ class InvitationsService implements Invitations {
                     invitacion.getAcceptedAt(),
                     invitacion.getRevokedAt(),
                     invitacion.getExpiresAt());
-            throw RecursoNoEncontrado.de("la invitacion", "pedida");
+            throw ResourceNotFound.de("la invitacion", "pedida");
         }
         return invitacion;
     }
@@ -290,12 +287,12 @@ class InvitationsService implements Invitations {
         return invitaciones
                 .findById(invitationId)
                 .filter(invitacion -> invitacion.getCondominiumId().equals(condominiumId))
-                .orElseThrow(() -> RecursoNoEncontrado.de("la invitacion", invitationId));
+                .orElseThrow(() -> ResourceNotFound.de("la invitacion", invitationId));
     }
 
     private static void exigirQueNoEsteAceptada(Invitation invitacion) {
         if (invitacion.getAcceptedAt() != null) {
-            throw new ReglaDeNegocioViolada(
+            throw new BusinessRuleViolated(
                     "La invitacion %s ya se acepto: la membresia existe y hay que darla de baja, no revocar la invitacion."
                             .formatted(invitacion.getId()));
         }
@@ -310,10 +307,10 @@ class InvitationsService implements Invitations {
      */
     private static void exigirRolesInvitables(Set<MembershipRole> roles) {
         if (roles.isEmpty()) {
-            throw new ReglaDeNegocioViolada("Una invitacion necesita al menos un rol.");
+            throw new BusinessRuleViolated("Una invitacion necesita al menos un rol.");
         }
         if (roles.contains(MembershipRole.PLATFORM_ADMIN)) {
-            throw new ReglaDeNegocioViolada(
+            throw new BusinessRuleViolated(
                     "PLATFORM_ADMIN no se invita: su alcance es la plataforma, no un condominio.");
         }
     }

@@ -6,8 +6,8 @@ import bo.coprop.identity.NewPerson;
 import bo.coprop.identity.People;
 import bo.coprop.identity.PersonRegistered;
 import bo.coprop.identity.PersonView;
-import bo.coprop.shared.RecursoNoEncontrado;
-import bo.coprop.shared.ReglaDeNegocioViolada;
+import bo.coprop.shared.BusinessRuleViolated;
+import bo.coprop.shared.ResourceNotFound;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
@@ -76,13 +76,13 @@ class PeopleService implements People {
         // Una cuenta por persona: el titulo del issue #11. La base tambien lo impone, pero
         // comprobarlo aqui permite decir que pasa en vez de devolver un choque de integridad.
         if (cuentas.existsByPersonId(personId)) {
-            throw new ReglaDeNegocioViolada("La persona %s ya tiene cuenta.".formatted(personId));
+            throw new BusinessRuleViolated("La persona %s ya tiene cuenta.".formatted(personId));
         }
         // El correo identifica la cuenta de cara al login, asi que no puede repetirse. Esto si
         // revela que el correo esta en uso; es inevitable para no permitir dos cuentas con el
         // mismo, y el issue #18 --invitaciones-- es quien tiene que presentar bien ese caso.
         if (cuentas.existsByEmail(email)) {
-            throw new ReglaDeNegocioViolada("El correo %s ya esta en uso.".formatted(email));
+            throw new BusinessRuleViolated("El correo %s ya esta en uso.".formatted(email));
         }
 
         Instant ahora = reloj.instant();
@@ -97,12 +97,12 @@ class PeopleService implements People {
     @Transactional(readOnly = true)
     public AccountView findAccount(UUID accountId) {
         return cuentas.findById(accountId)
-                .orElseThrow(() -> RecursoNoEncontrado.de("la cuenta", accountId))
+                .orElseThrow(() -> ResourceNotFound.de("la cuenta", accountId))
                 .vista();
     }
 
     private Person buscarPersona(UUID personId) {
-        return personas.findById(personId).orElseThrow(() -> RecursoNoEncontrado.de("la persona", personId));
+        return personas.findById(personId).orElseThrow(() -> ResourceNotFound.de("la persona", personId));
     }
 
     private static PersonView vista(Person persona) {

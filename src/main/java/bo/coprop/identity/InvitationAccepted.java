@@ -1,6 +1,6 @@
 package bo.coprop.identity;
 
-import bo.coprop.shared.EventoAuditable;
+import bo.coprop.shared.AuditableEvent;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -16,7 +16,7 @@ import java.util.UUID;
  */
 public record InvitationAccepted(
         UUID condominiumId, UUID invitationId, UUID accountId, UUID membershipId, String actor, Instant occurredAt)
-        implements EventoAuditable {
+        implements AuditableEvent {
 
     @Override
     public String action() {

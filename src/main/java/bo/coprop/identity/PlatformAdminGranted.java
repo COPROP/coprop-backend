@@ -1,6 +1,6 @@
 package bo.coprop.identity;
 
-import bo.coprop.shared.EventoAuditable;
+import bo.coprop.shared.AuditableEvent;
 import java.time.Instant;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -16,7 +16,7 @@ import org.jspecify.annotations.Nullable;
  *     plataforma cuando no hay ninguno
  */
 public record PlatformAdminGranted(UUID accountId, @Nullable UUID grantedBy, Instant occurredAt)
-        implements EventoAuditable {
+        implements AuditableEvent {
 
     /** Lo que se escribe como actor cuando no lo concedio nadie: lo abrio el arranque. */
     static final String ARRANQUE = "arranque";

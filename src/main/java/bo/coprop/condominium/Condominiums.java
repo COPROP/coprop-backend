@@ -15,13 +15,13 @@ public interface Condominiums {
     /**
      * Da de alta un condominio con su configuracion minima.
      *
-     * <p>Publica {@link CondominiumRegistered}, que implementa {@code EventoAuditable} y por eso
+     * <p>Publica {@link CondominiumRegistered}, que implementa {@code AuditableEvent} y por eso
      * deja el alta en la bitacora. Lo hace desde el 16-oct-2026: el evento existia desde el primer
      * dia pero no implementaba la interfaz, asi que nadie lo escuchaba y el alta no se registraba.
      *
      * @param nuevo los datos del alta, ya validados
      * @param actor quien lo da de alta, para la bitacora
-     * @throws bo.coprop.shared.ReglaDeNegocioViolada si ya existe un condominio con ese NIT
+     * @throws bo.coprop.shared.BusinessRuleViolated si ya existe un condominio con ese NIT
      */
     CondominiumView register(NewCondominium nuevo, String actor);
 
@@ -37,7 +37,7 @@ public interface Condominiums {
      * analisis 12.2 tiene que poder decir quien lo hizo.
      *
      * @param actor quien lo cambia, para la bitacora
-     * @throws bo.coprop.shared.RecursoNoEncontrado si el condominio no existe
+     * @throws bo.coprop.shared.ResourceNotFound si el condominio no existe
      */
     CondominiumView changeConfig(UUID condominiumId, int issueDay, int dueDay, String actor);
 
@@ -60,15 +60,15 @@ public interface Condominiums {
      *
      * @param address nula se admite: el alta no la pide y hay condominios sin ella
      * @param actor quien lo corrige, para la bitacora
-     * @throws bo.coprop.shared.RecursoNoEncontrado si el condominio no existe
-     * @throws bo.coprop.shared.ReglaDeNegocioViolada si el NIT ya es de otro condominio
+     * @throws bo.coprop.shared.ResourceNotFound si el condominio no existe
+     * @throws bo.coprop.shared.BusinessRuleViolated si el NIT ya es de otro condominio
      */
     CondominiumView edit(UUID condominiumId, String name, String nit, @Nullable String address, String actor);
 
     /**
      * Devuelve un condominio con su configuracion vigente.
      *
-     * @throws bo.coprop.shared.RecursoNoEncontrado si no existe
+     * @throws bo.coprop.shared.ResourceNotFound si no existe
      */
     CondominiumView find(UUID condominiumId);
 }

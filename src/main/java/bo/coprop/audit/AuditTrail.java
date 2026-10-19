@@ -1,6 +1,6 @@
 package bo.coprop.audit;
 
-import bo.coprop.shared.Pagina;
+import bo.coprop.shared.PagedResponse;
 import java.time.Instant;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -10,7 +10,7 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>No tiene operacion de escritura, y es a proposito. <strong>Nadie escribe en la bitacora</strong>:
  * las filas aparecen porque un modulo publico un evento que implementa
- * {@link bo.coprop.shared.EventoAuditable}, y este modulo los escucha. Un metodo para registrar a
+ * {@link bo.coprop.shared.AuditableEvent}, y este modulo los escucha. Un metodo para registrar a
  * mano seria la primera forma de que una accion quedara auditada a medias --o dos veces-- segun se
  * acordara quien la escribio.
  *
@@ -38,9 +38,9 @@ public interface AuditTrail {
      * Se combinan, y cualquiera puede venir nulo; todos nulos devuelve la bitacora entera del
      * condominio.
      *
-     * <p><strong>Pagina siempre</strong>, incluso sin filtros. Un condominio de doscientas unidades
+     * <p><strong>PagedResponse siempre</strong>, incluso sin filtros. Un condominio de doscientas unidades
      * acumula miles de filas en un año, y un endpoint que las devolviera todas se cae el dia que
-     * mas falta hace. Es el primer endpoint paginado del sistema, y por el se movio {@code Pagina} a
+     * mas falta hace. Es el primer endpoint paginado del sistema, y por el se movio {@code PagedResponse} a
      * {@code shared}.
      *
      * @param actor el identificador de cuenta de quien hizo la accion; nulo para no filtrar
@@ -50,7 +50,7 @@ public interface AuditTrail {
      * @param hasta exclusive, para que dos consultas consecutivas no devuelvan la misma fila dos
      *     veces; nulo para no acotar por arriba
      */
-    Pagina<AuditEntryView> ofCondominium(
+    PagedResponse<AuditEntryView> ofCondominium(
             UUID condominiumId,
             @Nullable String actor,
             @Nullable String entity,
@@ -75,7 +75,7 @@ public interface AuditTrail {
      *
      * <p>Mismos filtros, misma paginacion y mismo orden que la del condominio.
      */
-    Pagina<AuditEntryView> ofPlatform(
+    PagedResponse<AuditEntryView> ofPlatform(
             @Nullable String actor,
             @Nullable String entity,
             @Nullable Instant desde,

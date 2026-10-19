@@ -5,7 +5,7 @@ import bo.coprop.condominium.FloorView;
 import bo.coprop.condominium.NewUnit;
 import bo.coprop.condominium.UnitView;
 import bo.coprop.condominium.Units;
-import bo.coprop.shared.ControladorDeApi;
+import bo.coprop.shared.ApiController;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -42,7 +42,7 @@ import org.springframework.web.bind.annotation.RestController;
  * la cadena completa del <strong>#15</strong>: quien administra unidades las ve todas, y quien no,
  * solo las que son suyas.
  */
-@ControladorDeApi
+@ApiController
 @RestController
 @RequestMapping("/condominios/{condominiumId}")
 class UnitController {

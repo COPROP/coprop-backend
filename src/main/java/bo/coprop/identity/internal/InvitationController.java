@@ -3,7 +3,7 @@ package bo.coprop.identity.internal;
 import bo.coprop.identity.InvitationView;
 import bo.coprop.identity.Invitations;
 import bo.coprop.identity.MembershipRole;
-import bo.coprop.shared.ControladorDeApi;
+import bo.coprop.shared.ApiController;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Invitaciones de un condominio, del lado del administrador. Issue #18.
  *
  * <p>Cuelga del condominio, como la membresia: invitar es invitar <em>a un edificio</em>. Lo que no
- * cuelga de ninguno es abrir el enlace y aceptarlo, que es {@link AccesoPorInvitacionController}:
+ * cuelga de ninguno es abrir el enlace y aceptarlo, que es {@link InvitationAccessController}:
  * quien llega con un token todavia no esta en ningun condominio, que es justamente lo que la
  * invitacion va a arreglar.
  *
@@ -39,7 +39,7 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>Ninguna respuesta de aqui lleva el token. Un administrador que pudiera leerlo podria entrar
  * como el invitado; si hace falta un enlace nuevo, se reenvia.
  */
-@ControladorDeApi
+@ApiController
 @RestController
 @RequestMapping("/condominios/{condominiumId}/invitaciones")
 class InvitationController {

@@ -3,7 +3,7 @@ package bo.coprop.identity.internal;
 import bo.coprop.identity.MembershipRole;
 import bo.coprop.identity.MembershipView;
 import bo.coprop.identity.Memberships;
-import bo.coprop.shared.ControladorDeApi;
+import bo.coprop.shared.ApiController;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -43,7 +43,7 @@ import org.springframework.web.bind.annotation.RestController;
  * llegan. El rol de plataforma no se reparte desde aqui --no cuelga de ningun condominio-- sino en
  * {@link PlatformAdminController}.
  */
-@ControladorDeApi
+@ApiController
 @RestController
 @RequestMapping("/condominios/{condominiumId}/membresias")
 class MembershipController {

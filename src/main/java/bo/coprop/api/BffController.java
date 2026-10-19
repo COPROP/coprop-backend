@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
  * servidor y le devuelve una cookie. Esta ruta existe para que la SPA tenga una direccion estable
  * que no dependa de como Spring Security nombre hoy su endpoint de autorizacion.
  *
- * <p>No lleva {@code ControladorDeApi}: no es parte del contrato de la API, no responde JSON y no
+ * <p>No lleva {@code ApiController}: no es parte del contrato de la API, no responde JSON y no
  * va bajo {@code /api/v1}. Es la puerta del navegador.
  *
  * <p>No hay un {@code /bff/logout} aqui porque el cierre de sesion lo sirve Spring Security en
@@ -27,6 +27,6 @@ class BffController {
 
     @GetMapping(LOGIN)
     void iniciarSesion(HttpServletResponse respuesta) throws IOException {
-        respuesta.sendRedirect("/oauth2/authorization/" + ConfiguracionDeSeguridad.REGISTRO_WEB);
+        respuesta.sendRedirect("/oauth2/authorization/" + SecurityConfiguration.REGISTRO_WEB);
     }
 }

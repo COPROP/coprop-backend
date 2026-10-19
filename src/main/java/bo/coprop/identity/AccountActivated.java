@@ -1,6 +1,6 @@
 package bo.coprop.identity;
 
-import bo.coprop.shared.EventoAuditable;
+import bo.coprop.shared.AuditableEvent;
 import java.time.Instant;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -15,7 +15,7 @@ import org.jspecify.annotations.Nullable;
  * <p>El actor es el sujeto que entra, asi que no viaja aparte: es {@code idpSubject}.
  */
 public record AccountActivated(UUID accountId, UUID personId, String idpSubject, Instant occurredAt)
-        implements EventoAuditable {
+        implements AuditableEvent {
 
     @Override
     public String action() {

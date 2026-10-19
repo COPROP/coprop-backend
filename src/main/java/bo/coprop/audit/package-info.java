@@ -11,7 +11,7 @@
  * reacciona a eventos" choca con que para escuchar un evento hace falta su tipo: escuchar
  * {@code MembershipGranted} obligaria a depender de {@code identity}, y despues de
  * {@code condominium}, y de cada modulo que naciera. La salida es que lo que se escucha sea una
- * <strong>interfaz de {@code shared}</strong>, {@code EventoAuditable}: los dos lados miran a
+ * <strong>interfaz de {@code shared}</strong>, {@code AuditableEvent}: los dos lados miran a
  * {@code shared} y ninguno al otro.
  *
  * <p>Con eso, <strong>implementar la interfaz es la declaracion de que un evento es auditable</strong>.
