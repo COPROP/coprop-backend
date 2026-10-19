@@ -15,7 +15,7 @@ import org.jspecify.annotations.Nullable;
  * aplicarse al otro--. Un cambio de NIT sin rastro dejaria sin explicar por que el condominio que
  * facturaba a un contribuyente ahora factura a otro.
  *
- * <p>Los tres campos viajan en {@code antes} y en {@code despues} aunque solo haya cambiado uno. Es
+ * <p>Los tres campos viajan en {@code oldValues} y en {@code newValues} aunque solo haya cambiado uno. Es
  * a proposito: una bitacora que solo guarda lo que cambio obliga a reconstruir el resto leyendo
  * hacia atras, y la pregunta que se hace un año despues no es "que cambio" sino "como estaba".
  *
@@ -44,27 +44,27 @@ public record CondominiumEdited(
     }
 
     @Override
-    public String accion() {
-        return "CONDOMINIO_EDITADO";
+    public String action() {
+        return "CONDOMINIUM_EDITED";
     }
 
     @Override
-    public String entidad() {
+    public String entity() {
         return "condominio";
     }
 
     @Override
-    public UUID entidadId() {
+    public UUID entityId() {
         return condominiumId;
     }
 
     @Override
-    public Map<String, String> antes() {
+    public Map<String, String> oldValues() {
         return fila(previousName, previousNit, previousAddress);
     }
 
     @Override
-    public Map<String, String> despues() {
+    public Map<String, String> newValues() {
         return fila(name, nit, address);
     }
 }

@@ -106,7 +106,7 @@ class MembershipsService implements Memberships {
     @Transactional
     public MembershipView suspend(UUID condominiumId, UUID membershipId, String motivo, String actor) {
         Membership membresia = vigenteParaCambiar(condominiumId, membershipId, actor);
-        if (membresia.getStatus() == MembershipStatus.SUSPENDIDA) {
+        if (membresia.getStatus() == MembershipStatus.SUSPENDED) {
             throw new ConflictoDeEstado("La membresia %s ya esta suspendida.".formatted(membershipId));
         }
         exigirQueNoSeaElUltimoAdministrador(membresia, "suspender");
@@ -134,7 +134,7 @@ class MembershipsService implements Memberships {
     public MembershipView reinstate(UUID condominiumId, UUID membershipId, String motivo, String actor) {
         Membership membresia = deEsteCondominio(condominiumId, membershipId);
         exigirVigente(membresia, "reactivar");
-        if (membresia.getStatus() == MembershipStatus.ACTIVA) {
+        if (membresia.getStatus() == MembershipStatus.ACTIVE) {
             throw new ConflictoDeEstado("La membresia %s no esta suspendida.".formatted(membershipId));
         }
 
@@ -162,8 +162,8 @@ class MembershipsService implements Memberships {
         Membership membresia = vigenteParaCambiar(condominiumId, membershipId, actor);
         exigirRolesDeMembresia(roles);
 
-        Set<MembershipRole> antes = membresia.getRoles();
-        if (antes.equals(roles)) {
+        Set<MembershipRole> oldValues = membresia.getRoles();
+        if (oldValues.equals(roles)) {
             // Un PUT es idempotente, asi que repetir los roles que ya hay no es un error. Pero
             // tampoco es un cambio: publicar el evento dejaria en la bitacora una fila que dice que
             // alguien cambio algo cuando no cambio nada, y la bitacora registra cambios, no
@@ -182,7 +182,7 @@ class MembershipsService implements Memberships {
         membresia.cambiarRoles(roles);
 
         Set<MembershipRole> retirados = EnumSet.noneOf(MembershipRole.class);
-        retirados.addAll(antes);
+        retirados.addAll(oldValues);
         retirados.removeAll(roles);
         boolean sesionesCerradas = cierre.siPierdeAlgunRolAdministrativo(membresia.getAccountId(), retirados);
         boolean concentraFunciones =
@@ -192,7 +192,7 @@ class MembershipsService implements Memberships {
                 condominiumId,
                 membresia.getId(),
                 membresia.getAccountId(),
-                antes,
+                oldValues,
                 membresia.getRoles(),
                 motivo,
                 concentraFunciones,
@@ -324,7 +324,7 @@ class MembershipsService implements Memberships {
         if (!membresias.existeOtraVigenteConRol(
                 membresia.getCondominiumId(), MembershipRole.CONDO_ADMIN, membresia.getId())) {
             throw new ReglaDeNegocioViolada(
-                    "No se puede %s la ultima membresia con CONDO_ADMIN del condominio %s: nombra antes a otro administrador."
+                    "No se puede %s la ultima membresia con CONDO_ADMIN del condominio %s: nombra oldValues a otro administrador."
                             .formatted(queSeQueriaHacer, membresia.getCondominiumId()));
         }
     }

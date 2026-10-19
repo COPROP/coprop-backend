@@ -22,8 +22,8 @@ public record PlatformAdminGranted(UUID accountId, @Nullable UUID grantedBy, Ins
     static final String ARRANQUE = "arranque";
 
     @Override
-    public String accion() {
-        return "PLATAFORMA_CONCEDIDA";
+    public String action() {
+        return "PLATFORM_GRANTED";
     }
 
     /**
@@ -51,12 +51,12 @@ public record PlatformAdminGranted(UUID accountId, @Nullable UUID grantedBy, Ins
     }
 
     @Override
-    public String entidad() {
+    public String entity() {
         return "superadministrador";
     }
 
     @Override
-    public UUID entidadId() {
+    public UUID entityId() {
         return accountId;
     }
 }

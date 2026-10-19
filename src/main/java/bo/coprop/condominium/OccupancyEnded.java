@@ -19,23 +19,23 @@ public record OccupancyEnded(
         implements EventoAuditable {
 
     @Override
-    public String accion() {
-        return "OCUPACION_TERMINADA";
+    public String action() {
+        return "OCCUPANCY_ENDED";
     }
 
     @Override
-    public String entidad() {
+    public String entity() {
         return "ocupacion";
     }
 
     /** La unidad, por lo mismo que en {@link OwnershipTransferred}: la relacion lleva vigencia. */
     @Override
-    public UUID entidadId() {
+    public UUID entityId() {
         return unitId;
     }
 
     @Override
-    public Map<String, String> antes() {
+    public Map<String, String> oldValues() {
         return Map.of("personId", personId.toString(), "role", role.name());
     }
 }

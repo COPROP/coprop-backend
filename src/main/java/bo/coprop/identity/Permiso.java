@@ -20,7 +20,7 @@ public enum Permiso {
     // --- Alcance de plataforma ---
 
     /** Crear condominios y asignar su primer administrador. Solo {@code PLATFORM_ADMIN}. */
-    CREAR_CONDOMINIOS,
+    CREATE_CONDOMINIUMS,
 
     /**
      * Acceder a los datos de un condominio para dar soporte.
@@ -31,79 +31,79 @@ public enum Permiso {
      * referencia quedo colgada. Hoy el acceso de soporte no tiene entidad ni endpoint: el permiso
      * solo vive aqui y en {@link MatrizDePermisos}, donde dice quien puede y nada mas.
      */
-    ACCEDER_PARA_SOPORTE,
+    ACCESS_FOR_SUPPORT,
 
     // --- Administracion del condominio ---
 
     /** Gestionar bloques, unidades y personas. */
-    GESTIONAR_UNIDADES,
+    MANAGE_UNITS,
 
     /**
      * Invitar usuarios y asignar roles.
      *
      * <p>{@code CONDO_ADMIN} puede asignar cualquiera, incluidos {@code CONDO_ADMIN} y
      * {@code FINANCE_ADMIN} (decision de 10.1, que queda en auditoria). {@code PLATFORM_ADMIN}
-     * solo administradores: lo acota {@link #INVITAR_SOLO_ADMINISTRADORES}.
+     * solo administradores: lo acota {@link #INVITE_ADMINS_ONLY}.
      */
-    INVITAR_USUARIOS,
+    INVITE_USERS,
 
     /**
      * Invitar, pero solo a roles administrativos.
      *
      * <p>Es el "Solo administradores" de la celda de {@code PLATFORM_ADMIN}. Existe como permiso
-     * aparte y no como matiz de {@link #INVITAR_USUARIOS} porque es una regla distinta --acota a
+     * aparte y no como matiz de {@link #INVITE_USERS} porque es una regla distinta --acota a
      * quien, no si-- y mezclarlas obligaria a que cada comprobacion supiera cual de las dos es.
      */
-    INVITAR_SOLO_ADMINISTRADORES,
+    INVITE_ADMINS_ONLY,
 
     /** Gestionar areas comunes y sus reglas de reserva. */
-    GESTIONAR_AREAS_COMUNES,
+    MANAGE_AMENITIES,
 
     /** Ver las reservas del dia y bloquear areas por mantenimiento. */
-    OPERAR_AREAS_COMUNES,
+    OPERATE_AMENITIES,
 
     /** Registrar lecturas de medidores. */
-    REGISTRAR_LECTURAS,
+    RECORD_METER_READINGS,
 
     // --- Dinero ---
 
     /** Configurar el proveedor de pagos y las credenciales bancarias. Pide segundo factor. */
-    CONFIGURAR_PROVEEDOR_DE_PAGOS,
+    CONFIGURE_PAYMENT_PROVIDER,
 
     /** Configurar conceptos, tarifas de agua y politica de mora. */
-    CONFIGURAR_COBROS,
+    CONFIGURE_CHARGES,
 
     /** Emitir las expensas y el cobro de agua del periodo. */
-    EMITIR_EXPENSAS,
+    ISSUE_DUES,
 
     /** Anular una obligacion. Pide segundo factor. */
-    ANULAR_OBLIGACION,
+    CANCEL_OBLIGATION,
 
     /** Validar un pago manual. */
-    VALIDAR_PAGO_MANUAL,
+    VALIDATE_MANUAL_PAYMENT,
 
     /** Trabajar la bandeja de excepciones y la conciliacion. */
-    CONCILIAR,
+    RECONCILE,
 
     /** Registrar la devolucion de un saldo a favor. Pide segundo factor. */
-    DEVOLVER_SALDO_A_FAVOR,
+    REFUND_CREDIT_BALANCE,
 
     // --- Lo que cada uno ve de lo suyo ---
 
     /** Ver el estado de cuenta. */
-    VER_ESTADO_DE_CUENTA,
+    VIEW_ACCOUNT_STATEMENT,
 
     /** Ver los saldos a favor. */
-    VER_SALDOS_A_FAVOR,
+    VIEW_CREDIT_BALANCES,
 
     /** Generar el QR de pago. */
-    GENERAR_QR,
+    GENERATE_QR,
 
     /** Subir el comprobante de un pago manual. */
-    SUBIR_COMPROBANTE,
+    UPLOAD_RECEIPT,
 
     /** Crear o cancelar reservas. */
-    RESERVAR,
+    RESERVE,
 
     // --- Reportes ---
 
@@ -112,19 +112,19 @@ public enum Permiso {
      *
      * <p>Esto es lo que ve la directiva. El detalle por unidad es otro permiso, y no lo tiene.
      */
-    VER_REPORTES,
+    VIEW_REPORTS,
 
     /**
      * Ver la morosidad <strong>unidad por unidad</strong>.
      *
-     * <p>Es una fila aparte y no un matiz de {@link #VER_REPORTES} porque es justo la linea que el
+     * <p>Es una fila aparte y no un matiz de {@link #VIEW_REPORTS} porque es justo la linea que el
      * criterio del issue #16 exige que no se cruce: <em>un usuario BOARD no puede obtener morosidad
      * por unidad con la configuracion por defecto</em>. Expone datos financieros de un vecino a
      * otro, y 10.1 lo deja fuera salvo que el administrador lo habilite explicitamente --esa
      * habilitacion por condominio es M2, cuando exista el reporte--.
      */
-    VER_MOROSIDAD_POR_UNIDAD,
+    VIEW_DELINQUENCY_BY_UNIT,
 
     /** Consultar la auditoria del condominio. */
-    CONSULTAR_AUDITORIA
+    VIEW_AUDIT_LOG
 }

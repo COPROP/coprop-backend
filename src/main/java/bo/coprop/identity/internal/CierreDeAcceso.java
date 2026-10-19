@@ -92,7 +92,7 @@ class CierreDeAcceso {
             return false;
         }
         boolean leQuedaAlguna = membresias.findByAccountIdAndValidToIsNull(accountId).stream()
-                .anyMatch(membresia -> membresia.getStatus() == MembershipStatus.ACTIVA);
+                .anyMatch(membresia -> membresia.getStatus() == MembershipStatus.ACTIVE);
         if (leQuedaAlguna) {
             return false;
         }

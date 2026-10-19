@@ -8,14 +8,14 @@ package bo.coprop.condominium;
  */
 public enum CondominiumStatus {
     /** Operativo: se emiten obligaciones y se aceptan pagos. */
-    ACTIVO,
+    ACTIVE,
     /**
      * Sigue consultable, pero no se emite ni se cobra.
      *
-     * <p><strong>Hoy nadie lo pone y no tiene ticket.</strong> El alta escribe siempre ACTIVO y la
+     * <p><strong>Hoy nadie lo pone y no tiene ticket.</strong> El alta escribe siempre ACTIVE y la
      * edicion del #90 deja el estado fuera a proposito: suspender es una accion de negocio con
      * efectos sobre los QR vivos y sobre la mora en curso que estan sin decidir, no el cambio de un
      * campo. Lo de aqui arriba es lo que tendra que cumplir cuando se decida, no lo que pasa ahora.
      */
-    SUSPENDIDO
+    SUSPENDED
 }

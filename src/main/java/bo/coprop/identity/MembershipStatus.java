@@ -13,6 +13,6 @@ package bo.coprop.identity;
  * conserva como estaba cuando se la dio de baja.
  */
 public enum MembershipStatus {
-    ACTIVA,
-    SUSPENDIDA
+    ACTIVE,
+    SUSPENDED
 }

@@ -188,7 +188,7 @@ class BajaDeAccesoTests {
                         new NewCondominium(
                                 "Baja " + UUID.randomUUID(),
                                 nitNuevo(),
-                                CondominiumType.EDIFICIO,
+                                CondominiumType.BUILDING,
                                 "America/La_Paz",
                                 5,
                                 10),
@@ -204,7 +204,7 @@ class BajaDeAccesoTests {
     private UUID altaDeUnidad(UUID condominio, String codigo) {
         return unidades.register(
                         condominio,
-                        new NewUnit(codigo, UnitType.DEPARTAMENTO, new BigDecimal("1.000000"), null, null, null),
+                        new NewUnit(codigo, UnitType.APARTMENT, new BigDecimal("1.000000"), null, null, null),
                         "admin")
                 .id();
     }

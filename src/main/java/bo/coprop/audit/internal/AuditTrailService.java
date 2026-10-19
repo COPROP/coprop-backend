@@ -104,21 +104,21 @@ class AuditTrailService implements AuditTrail {
         try {
             bitacora.save(new AuditLog(
                     evento.actor(),
-                    evento.accion(),
-                    evento.entidad(),
-                    evento.entidadId(),
+                    evento.action(),
+                    evento.entity(),
+                    evento.entityId(),
                     evento.condominiumId(),
-                    aJson(evento.antes(), evento),
-                    aJson(evento.despues(), evento),
+                    aJson(evento.oldValues(), evento),
+                    aJson(evento.newValues(), evento),
                     delContexto(ClavesDeLog.IP),
                     delContexto(ClavesDeLog.TRAZA),
                     evento.occurredAt()));
         } catch (RuntimeException fallo) {
             log.error(
-                    "No se pudo registrar en la bitacora: accion={}, entidad={}, entidadId={}, actor={}, condominio={}, fecha={}.",
-                    evento.accion(),
-                    evento.entidad(),
-                    evento.entidadId(),
+                    "No se pudo registrar en la bitacora: action={}, entity={}, entityId={}, actor={}, condominio={}, fecha={}.",
+                    evento.action(),
+                    evento.entity(),
+                    evento.entityId(),
                     evento.actor(),
                     evento.condominiumId(),
                     evento.occurredAt(),
@@ -141,9 +141,9 @@ class AuditTrailService implements AuditTrail {
         if (escrito.length() > LARGO_MAXIMO) {
             log.warn(
                     "Los valores de {} sobre {} {} ocupan {} caracteres y no caben en la bitacora; la fila se guarda sin ellos.",
-                    evento.accion(),
-                    evento.entidad(),
-                    evento.entidadId(),
+                    evento.action(),
+                    evento.entity(),
+                    evento.entityId(),
                     escrito.length());
             return null;
         }
@@ -159,7 +159,7 @@ class AuditTrailService implements AuditTrail {
     public Pagina<AuditEntryView> ofCondominium(
             UUID condominiumId,
             @Nullable String actor,
-            @Nullable String entidad,
+            @Nullable String entity,
             @Nullable Instant desde,
             @Nullable Instant hasta,
             int pagina,
@@ -168,7 +168,7 @@ class AuditTrailService implements AuditTrail {
                 bitacora.buscar(
                         condominiumId,
                         actor,
-                        entidad,
+                        entity,
                         desde == null ? PRINCIPIO_DE_LOS_TIEMPOS : desde,
                         hasta == null ? FIN_DE_LOS_TIEMPOS : hasta,
                         PageRequest.of(pagina, tamano, loUltimoPrimero())),
@@ -179,7 +179,7 @@ class AuditTrailService implements AuditTrail {
     @Transactional(readOnly = true)
     public Pagina<AuditEntryView> ofPlatform(
             @Nullable String actor,
-            @Nullable String entidad,
+            @Nullable String entity,
             @Nullable Instant desde,
             @Nullable Instant hasta,
             int pagina,
@@ -187,7 +187,7 @@ class AuditTrailService implements AuditTrail {
         return Pagina.de(
                 bitacora.buscarDePlataforma(
                         actor,
-                        entidad,
+                        entity,
                         desde == null ? PRINCIPIO_DE_LOS_TIEMPOS : desde,
                         hasta == null ? FIN_DE_LOS_TIEMPOS : hasta,
                         PageRequest.of(pagina, tamano, loUltimoPrimero())),
@@ -215,7 +215,7 @@ class AuditTrailService implements AuditTrail {
     @Transactional
     public long purgar(Instant hasta) {
         Object borradas = entidades
-                .createNativeQuery("select audit_log_purgar(cast(:hasta as timestamptz))")
+                .createNativeQuery("select audit_log_purge(cast(:hasta as timestamptz))")
                 .setParameter("hasta", hasta.toString())
                 .getSingleResult();
         long cuantas = borradas instanceof Number numero ? numero.longValue() : 0L;

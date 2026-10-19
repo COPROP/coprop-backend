@@ -36,7 +36,7 @@ class CondominiumControllerTests {
 
     private static final String ALTA_VALIDA =
             """
-            {"name":"Las Palmas","nit":"9876543210","type":"EDIFICIO",
+            {"name":"Las Palmas","nit":"9876543210","type":"BUILDING",
              "timeZone":"America/La_Paz","issueDay":1,"dueDay":15}
             """;
 
@@ -56,7 +56,7 @@ class CondominiumControllerTests {
                 .andExpect(jsonPath("$.id").exists())
                 .andExpect(jsonPath("$.name").value("Las Palmas"))
                 .andExpect(jsonPath("$.currency").value("BOB"))
-                .andExpect(jsonPath("$.status").value("ACTIVO"));
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
     }
 
     @Test
@@ -97,7 +97,7 @@ class CondominiumControllerTests {
 
     @Test
     @WithMockUser(username = "emma", roles = "PLATFORM_ADMIN")
-    @DisplayName("una zona horaria que no existe se rechaza en el alta, no meses despues")
+    @DisplayName("una zona horaria que no existe se rechaza en el alta, no meses newValues")
     void laZonaHorariaInventadaDa422() throws Exception {
         // Sin la barra baja no es una zona IANA. El analisis 12.2 calcula los vencimientos y la
         // mora en la zona del condominio, asi que esto se tiene que parar aqui.

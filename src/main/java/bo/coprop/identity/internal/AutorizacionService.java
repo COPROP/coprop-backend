@@ -39,7 +39,7 @@ class AutorizacionService implements Autorizacion {
 
     @Override
     public boolean puede(Authentication quien, String permiso) {
-        return alcanceDe(quien, permiso) != Alcance.NINGUNO;
+        return alcanceDe(quien, permiso) != Alcance.NONE;
     }
 
     @Override
@@ -49,7 +49,7 @@ class AutorizacionService implements Autorizacion {
 
         // El superadministrador no necesita membresia: su rol es de plataforma y viaja en las
         // autoridades de cualquier peticion, tenga condominio o no.
-        if (MatrizDePermisos.alcanceDe(rolesDe(quien), permiso) != Alcance.NINGUNO) {
+        if (MatrizDePermisos.alcanceDe(rolesDe(quien), permiso) != Alcance.NONE) {
             return true;
         }
 
@@ -58,7 +58,7 @@ class AutorizacionService implements Autorizacion {
         // asi la base responde con un EXISTS en vez de devolver filas.
         Set<MembershipRole> queLoDan = EnumSet.noneOf(MembershipRole.class);
         for (MembershipRole rol : MembershipRole.values()) {
-            if (MatrizDePermisos.alcanceDe(rol, permiso) != Alcance.NINGUNO) {
+            if (MatrizDePermisos.alcanceDe(rol, permiso) != Alcance.NONE) {
                 queLoDan.add(rol);
             }
         }
@@ -71,10 +71,10 @@ class AutorizacionService implements Autorizacion {
             return false;
         }
         Set<MembershipRole> suyos = rolesDe(quien);
-        if (MatrizDePermisos.alcanceDe(suyos, Permiso.INVITAR_USUARIOS) != Alcance.NINGUNO) {
+        if (MatrizDePermisos.alcanceDe(suyos, Permiso.INVITE_USERS) != Alcance.NONE) {
             return true;
         }
-        if (MatrizDePermisos.alcanceDe(suyos, Permiso.INVITAR_SOLO_ADMINISTRADORES) == Alcance.NINGUNO) {
+        if (MatrizDePermisos.alcanceDe(suyos, Permiso.INVITE_ADMINS_ONLY) == Alcance.NONE) {
             return false;
         }
         return roles.stream().allMatch(MatrizDePermisos::esAdministrativo);

@@ -38,23 +38,23 @@ public record InvitationIssued(
      * insistirle", y eso con una bandera dentro del JSON no se filtra.
      */
     @Override
-    public String accion() {
-        return reenviada ? "INVITACION_REENVIADA" : "INVITACION_EMITIDA";
+    public String action() {
+        return reenviada ? "INVITATION_RESENT" : "INVITATION_ISSUED";
     }
 
     @Override
-    public String entidad() {
+    public String entity() {
         return "invitacion";
     }
 
     @Override
-    public UUID entidadId() {
+    public UUID entityId() {
         return invitationId;
     }
 
     /** Sin el token ni su hash: el evento no los lleva, y la bitacora tampoco tiene por que. */
     @Override
-    public java.util.Map<String, String> despues() {
+    public java.util.Map<String, String> newValues() {
         return java.util.Map.of(
                 "accountId",
                 accountId.toString(),

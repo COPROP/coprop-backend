@@ -10,7 +10,7 @@ package bo.coprop.condominium;
  */
 public enum OccupancyRole {
     /** Vive ahi y es propietario o familiar del propietario. */
-    RESIDENTE,
+    RESIDENT,
     /** Vive ahi con un contrato de alquiler. */
-    INQUILINO
+    TENANT
 }

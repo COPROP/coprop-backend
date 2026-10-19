@@ -8,11 +8,11 @@ package bo.coprop.condominium;
  * porque suelen tener alicuota propia y a veces dueño distinto.
  */
 public enum UnitType {
-    DEPARTAMENTO,
-    CASA,
+    APARTMENT,
+    HOUSE,
     /** Local comercial. */
-    LOCAL,
-    PARQUEO,
+    COMMERCIAL,
+    PARKING,
     /** Baulera o deposito. */
-    DEPOSITO
+    STORAGE
 }

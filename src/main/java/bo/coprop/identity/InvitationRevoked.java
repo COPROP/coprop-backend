@@ -23,17 +23,17 @@ public record InvitationRevoked(
      * revocaciones de reenvio la enterrarian.
      */
     @Override
-    public String accion() {
-        return porReenvio ? "INVITACION_REVOCADA_POR_REENVIO" : "INVITACION_REVOCADA";
+    public String action() {
+        return porReenvio ? "INVITATION_REVOKED_BY_RESEND" : "INVITATION_REVOKED";
     }
 
     @Override
-    public String entidad() {
+    public String entity() {
         return "invitacion";
     }
 
     @Override
-    public UUID entidadId() {
+    public UUID entityId() {
         return invitationId;
     }
 
@@ -44,7 +44,7 @@ public record InvitationRevoked(
      * bitacora se ordena y se filtra.
      */
     @Override
-    public java.util.Map<String, String> antes() {
+    public java.util.Map<String, String> oldValues() {
         return java.util.Map.of("accountId", accountId.toString());
     }
 }

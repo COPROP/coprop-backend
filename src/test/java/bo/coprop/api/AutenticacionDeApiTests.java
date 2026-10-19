@@ -185,7 +185,7 @@ class AutenticacionDeApiTests {
                                                 ProveedorDeTokensDePrueba.sujetoNuevo(), correo)))
                 .andExpect(status().isOk())
                 // Entro invitada y el primer login la deja activa, sin que nadie mas intervenga.
-                .andExpect(jsonPath("$.status").value("ACTIVO"))
+                .andExpect(jsonPath("$.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.email").value(correo));
     }
 

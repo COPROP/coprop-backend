@@ -41,28 +41,28 @@ public record MembershipRolesChanged(
         implements EventoAuditable {
 
     @Override
-    public String accion() {
-        return "MEMBRESIA_ROLES_CAMBIADOS";
+    public String action() {
+        return "MEMBERSHIP_ROLES_CHANGED";
     }
 
     @Override
-    public String entidad() {
+    public String entity() {
         return "membresia";
     }
 
     @Override
-    public UUID entidadId() {
+    public UUID entityId() {
         return membershipId;
     }
 
     /** Lo que habia. La cuenta va en las dos mitades: la fila se lee sin consultar nada mas. */
     @Override
-    public Map<String, String> antes() {
+    public Map<String, String> oldValues() {
         return Map.of("accountId", accountId.toString(), "roles", escritos(antesDeLosRoles));
     }
 
     @Override
-    public Map<String, String> despues() {
+    public Map<String, String> newValues() {
         return Map.of(
                 "roles",
                 escritos(roles),

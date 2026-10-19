@@ -18,7 +18,7 @@
 CREATE TABLE invitation (
     id             UUID NOT NULL DEFAULT gen_random_uuid(),
     condominium_id UUID NOT NULL,
-    -- La cuenta invitada. Nace en INVITADO (V5) y pasa a ACTIVO en su primer login, que es del #13.
+    -- La cuenta invitada. Nace en INVITED (V5) y pasa a ACTIVE en su primer login, que es del #13.
     user_id        UUID NOT NULL,
     -- SOLO el hash del token, nunca el token. Lo exige 6.1 y el motivo es que esta base guarda
     -- tambien el registro de eventos: un token en claro aqui seria un acceso reutilizable por
@@ -60,7 +60,7 @@ COMMENT ON TABLE invitation IS 'Invitacion a un condominio: de un solo uso, siet
 -- error de programacion que reutilice un token.
 CREATE UNIQUE INDEX invitation_token_uq ON invitation (token_hash);
 
--- Una sola invitacion VIVA por cuenta y condominio. Parcial, como membership_vigente_uq y por lo
+-- Una sola invitacion VIVA por cuenta y condominio. Parcial, como membership_current_uq y por lo
 -- mismo: para PostgreSQL dos nulos no son iguales, asi que un UNIQUE normal sobre las dos columnas
 -- de cierre dejaria acumular invitaciones abiertas y habria varias sirviendo a la vez.
 --

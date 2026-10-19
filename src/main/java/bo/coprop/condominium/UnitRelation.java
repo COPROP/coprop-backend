@@ -8,11 +8,11 @@ package bo.coprop.condominium;
  * pinta con esta unidad no hace falta la fila entera de cada relacion, solo cual de las tres es.
  *
  * <p>No es un estado ni son excluyentes: en un alquiler normal el propietario tiene
- * {@link #PROPIETARIO} y {@link #RESPONSABLE_DE_PAGO}, y el inquilino {@link #OCUPANTE}. De ahi
+ * {@link #OWNER} y {@link #BILLING_RESPONSIBLE}, y el inquilino {@link #OCCUPANT}. De ahi
  * que {@link RelatedUnitView} lleve un conjunto y no un valor.
  */
 public enum UnitRelation {
-    PROPIETARIO,
-    OCUPANTE,
-    RESPONSABLE_DE_PAGO
+    OWNER,
+    OCCUPANT,
+    BILLING_RESPONSIBLE
 }

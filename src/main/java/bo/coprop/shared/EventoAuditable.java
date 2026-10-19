@@ -29,15 +29,21 @@ public interface EventoAuditable {
 
     /**
      * El nombre de la accion en la bitacora. En mayusculas y con guion bajo, como
-     * {@code MEMBRESIA_CONCEDIDA}.
+     * {@code MEMBERSHIP_GRANTED}.
      *
      * <p><strong>Una vez elegido no se cambia nunca.</strong> La bitacora de ayer lo lleva escrito
      * en sus filas, y renombrarlo partiria en dos la historia de una misma accion sin que nada
      * falle. Por eso es una cadena explicita en cada evento y no se deriva del nombre de la clase:
      * un refactor que renombre el record no puede cambiar en silencio lo que dicen doce meses de
      * auditoria.
+     *
+     * <p><strong>Se cambiaron una sola vez, el 18-oct-2026</strong>, al pasar los identificadores
+     * del proyecto a ingles: los 23 nombres estaban en español. Fue inofensivo porque entonces no
+     * habia ninguna fila que partir --ningun entorno desplegado, y la base local se rehizo con las
+     * migraciones-- y era la ultima ocasion de hacerlo asi. La regla de arriba vuelve a aplicar
+     * desde ese dia.
      */
-    String accion();
+    String action();
 
     /**
      * En que condominio paso. <strong>Nulo</strong> cuando la accion es de plataforma y no cuelga de
@@ -56,10 +62,10 @@ public interface EventoAuditable {
     String actor();
 
     /** Sobre que tipo de cosa, en singular y en minusculas: {@code membresia}, {@code invitacion}. */
-    String entidad();
+    String entity();
 
     /** Cual, para poder reconstruir la historia de un recurso concreto. */
-    UUID entidadId();
+    UUID entityId();
 
     /**
      * Los valores de antes, cuando la accion cambia algo que ya existia.
@@ -68,7 +74,7 @@ public interface EventoAuditable {
      * diria "existia y no tenia valores", y eso no es lo mismo.
      */
     @Nullable
-    default Map<String, String> antes() {
+    default Map<String, String> oldValues() {
         return null;
     }
 
@@ -83,7 +89,7 @@ public interface EventoAuditable {
      * porque alguien añada un campo.
      */
     @Nullable
-    default Map<String, String> despues() {
+    default Map<String, String> newValues() {
         return null;
     }
 

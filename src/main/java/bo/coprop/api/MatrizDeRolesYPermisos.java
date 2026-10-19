@@ -16,7 +16,7 @@ import java.util.Map;
  * fuente, y el dia que una celda cambie la pantalla cambia con ella.
  *
  * <p><strong>Cada fila declara los siete roles, incluidos los que no pueden.</strong> Omitir los
- * {@link Alcance#NINGUNO} daria una respuesta mas corta y obligaria al cliente a decidir que
+ * {@link Alcance#NONE} daria una respuesta mas corta y obligaria al cliente a decidir que
  * significa una ausencia --no puede, o no se declaro--. Es la misma leccion del issue #16: la mitad
  * del valor de una matriz esta en los "--".
  *

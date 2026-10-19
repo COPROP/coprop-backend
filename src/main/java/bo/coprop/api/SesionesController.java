@@ -140,7 +140,7 @@ class SesionesController {
                     sesion.creada(),
                     sesion.ultimoAcceso(),
                     sesion.expira(),
-                    sesion.origen() == OrigenDeSesion.NAVEGADOR && sesion.id().equals(sesionActual));
+                    sesion.origen() == OrigenDeSesion.BROWSER && sesion.id().equals(sesionActual));
         }
     }
 }

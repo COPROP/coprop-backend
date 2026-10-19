@@ -32,7 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
  * <p><strong>Emitir pide poder conceder esos roles</strong>, la misma regla que el alta directa de
  * membresia, porque es lo mismo diferido: el administrador del condominio puede cualquiera y el
  * superadministrador solo los administrativos, que es como invita al primer administrador de un
- * condominio recien creado. El resto --listar, reenviar, revocar-- pide {@code INVITAR_USUARIOS},
+ * condominio recien creado. El resto --listar, reenviar, revocar-- pide {@code INVITE_USERS},
  * que en la matriz es del administrador del condominio: son operaciones sobre el padron del
  * edificio y el superadministrador no lo opera (Seguridad 10.1).
  *
@@ -65,13 +65,13 @@ class InvitationController {
     }
 
     /** Las vivas y las cerradas: quien administra necesita ver que ya invito a alguien y no entro. */
-    @PreAuthorize("@autorizacion.puede(authentication, 'INVITAR_USUARIOS')")
+    @PreAuthorize("@autorizacion.puede(authentication, 'INVITE_USERS')")
     @GetMapping
     List<InvitationView> listar(@PathVariable UUID condominiumId) {
         return invitaciones.ofCondominium(condominiumId);
     }
 
-    @PreAuthorize("@autorizacion.puede(authentication, 'INVITAR_USUARIOS')")
+    @PreAuthorize("@autorizacion.puede(authentication, 'INVITE_USERS')")
     @GetMapping("/{invitationId}")
     InvitationView consultar(@PathVariable UUID condominiumId, @PathVariable UUID invitationId) {
         return invitaciones.find(condominiumId, invitationId);
@@ -84,7 +84,7 @@ class InvitationController {
      * pasa de verdad: el recurso que se devuelve no es el de la ruta. Un 200 daria a entender que la
      * invitacion de la URL sigue viva, y lo que queda vivo es su sustituta.
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'INVITAR_USUARIOS')")
+    @PreAuthorize("@autorizacion.puede(authentication, 'INVITE_USERS')")
     @PostMapping("/{invitationId}/reenvio")
     ResponseEntity<InvitationView> reenviar(
             @PathVariable UUID condominiumId, @PathVariable UUID invitationId, Principal quien) {
@@ -102,7 +102,7 @@ class InvitationController {
      * emitido se cierra, no se actualiza en sitio-- y lo que el issue #21 querra en la bitacora es
      * precisamente la fila cerrada, no su ausencia.
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'INVITAR_USUARIOS')")
+    @PreAuthorize("@autorizacion.puede(authentication, 'INVITE_USERS')")
     @PostMapping("/{invitationId}/revocacion")
     InvitationView revocar(@PathVariable UUID condominiumId, @PathVariable UUID invitationId, Principal quien) {
         return invitaciones.revoke(condominiumId, invitationId, quien.getName());

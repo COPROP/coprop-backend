@@ -53,7 +53,7 @@ public interface AuditTrail {
     Pagina<AuditEntryView> ofCondominium(
             UUID condominiumId,
             @Nullable String actor,
-            @Nullable String entidad,
+            @Nullable String entity,
             @Nullable Instant desde,
             @Nullable Instant hasta,
             int pagina,
@@ -77,7 +77,7 @@ public interface AuditTrail {
      */
     Pagina<AuditEntryView> ofPlatform(
             @Nullable String actor,
-            @Nullable String entidad,
+            @Nullable String entity,
             @Nullable Instant desde,
             @Nullable Instant hasta,
             int pagina,

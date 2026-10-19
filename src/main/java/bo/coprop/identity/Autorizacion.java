@@ -22,8 +22,8 @@ public interface Autorizacion {
      * Hasta donde le llega ese permiso a quien hace esta peticion, en el condominio de la ruta.
      *
      * <p>Existe porque {@link #puede} aplasta tres valores en dos: para la cadena del issue
-     * <strong>#15</strong> no es lo mismo un {@link Alcance#NINGUNO} --el rol no hace esto, y la
-     * respuesta es 403-- que un {@link Alcance#PROPIO}, donde falta comprobar si el recurso es
+     * <strong>#15</strong> no es lo mismo un {@link Alcance#NONE} --el rol no hace esto, y la
+     * respuesta es 403-- que un {@link Alcance#OWN}, donde falta comprobar si el recurso es
      * suyo y la respuesta, si no lo es, tiene que ser 404. Quien compone las dos cosas vive en
      * {@code api}, que es el unico modulo que ve a la vez la matriz y las relaciones de la unidad.
      *
@@ -40,7 +40,7 @@ public interface Autorizacion {
      * la membresia en ese condominio y de ningun otro, y eso lo garantiza el filtro, que ya
      * respondio 404 si no habia membresia activa.
      *
-     * <p>Un permiso de alcance {@link Alcance#PROPIO} cuenta como permitido aqui, porque lo
+     * <p>Un permiso de alcance {@link Alcance#OWN} cuenta como permitido aqui, porque lo
      * contrario dejaria al propietario sin su propio estado de cuenta. <strong>Por eso este metodo
      * no basta para un endpoint que recibe un recurso en la ruta</strong>: ahi hay que preguntar
      * por el recurso, con {@link #alcanceDe} y las relaciones de la unidad. Vale tal cual para las

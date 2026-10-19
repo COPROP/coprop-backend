@@ -58,12 +58,12 @@ class IdentidadesTests {
     @DisplayName("el primer login vincula la cuenta al sujeto del token y la activa")
     void elPrimerLoginVincula(PublishedEvents eventos) {
         AccountView invitada = cuentaDe("emma@coprop.bo");
-        assertThat(invitada.status()).isEqualTo(AccountStatus.INVITADO);
+        assertThat(invitada.status()).isEqualTo(AccountStatus.INVITED);
 
         AccountView entrada = requireNonNull(identidades.signIn(SUJETO, "emma@coprop.bo", true), "tenia que entrar");
 
         assertThat(entrada.id()).isEqualTo(invitada.id());
-        assertThat(entrada.status()).isEqualTo(AccountStatus.ACTIVO);
+        assertThat(entrada.status()).isEqualTo(AccountStatus.ACTIVE);
         assertThat(eventos.ofType(AccountActivated.class))
                 .containsExactly(new AccountActivated(invitada.id(), invitada.personId(), SUJETO, AHORA));
     }
@@ -88,10 +88,10 @@ class IdentidadesTests {
 
         // El correo se cambia en el proveedor de identidad y el token empieza a traer otro. Sigue
         // siendo la misma persona: el sujeto no cambia nunca.
-        AccountView despues =
+        AccountView newValues =
                 requireNonNull(identidades.signIn(SUJETO, "emma.tola@coprop.bo", true), "tenia que entrar");
 
-        assertThat(despues.id()).isEqualTo(cuenta.id());
+        assertThat(newValues.id()).isEqualTo(cuenta.id());
     }
 
     @Test
@@ -104,7 +104,7 @@ class IdentidadesTests {
         // cuenta ajena.
         assertThat(identidades.signIn(SUJETO, "emma@coprop.bo", false)).isNull();
 
-        assertThat(personas.findAccount(cuenta.id()).status()).isEqualTo(AccountStatus.INVITADO);
+        assertThat(personas.findAccount(cuenta.id()).status()).isEqualTo(AccountStatus.INVITED);
         assertThat(eventos.ofType(AccountActivated.class)).isEmpty();
     }
 
@@ -126,7 +126,7 @@ class IdentidadesTests {
         // despues, o Hibernate devolveria la instancia que ya tiene en memoria --con el estado
         // viejo-- y el test pasaria sin comprobar nada.
         entityManager.flush();
-        new JdbcTemplate(dataSource).update("update user_account set status = 'BLOQUEADO' where id = ?", cuenta.id());
+        new JdbcTemplate(dataSource).update("update user_account set status = 'BLOCKED' where id = ?", cuenta.id());
         entityManager.clear();
 
         assertThat(identidades.signIn(SUJETO, "emma@coprop.bo", true)).isNull();

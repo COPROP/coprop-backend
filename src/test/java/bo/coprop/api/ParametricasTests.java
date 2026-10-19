@@ -61,15 +61,15 @@ class ParametricasTests {
         mockMvc.perform(get(PARAMETRICAS).header(HttpHeaders.AUTHORIZATION, token()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.enumeraciones.CondominiumType.length()").value(3))
-                .andExpect(jsonPath("$.enumeraciones.CondominiumType[0]").value("EDIFICIO"))
+                .andExpect(jsonPath("$.enumeraciones.CondominiumType[0]").value("BUILDING"))
                 .andExpect(
                         jsonPath("$.enumeraciones.CondominiumStatus.length()").value(2))
                 .andExpect(jsonPath("$.enumeraciones.UnitType.length()").value(5))
                 .andExpect(jsonPath("$.enumeraciones.AccountStatus.length()").value(4))
                 // El orden de los valores es el de la declaracion y no el alfabetico: un
-                // desplegable que ofrece INVITADO antes que ACTIVO sigue el ciclo de vida de la
+                // desplegable que ofrece INVITED antes que ACTIVE sigue el ciclo de vida de la
                 // cuenta, y ordenarlo alfabeticamente lo romperia.
-                .andExpect(jsonPath("$.enumeraciones.AccountStatus[0]").value("INVITADO"))
+                .andExpect(jsonPath("$.enumeraciones.AccountStatus[0]").value("INVITED"))
                 .andExpect(jsonPath("$.enumeraciones.MembershipRole.length()").value(7))
                 .andExpect(jsonPath("$.enumeraciones.MembershipRole[0]").value("PLATFORM_ADMIN"))
                 .andExpect(jsonPath("$.enumeraciones.Permiso.length()").value(23))
@@ -118,16 +118,16 @@ class ParametricasTests {
     }
 
     @Test
-    @DisplayName("Las celdas que nadie tiene se declaran como NINGUNO, no se omiten")
+    @DisplayName("Las celdas que nadie tiene se declaran como NONE, no se omiten")
     void lasCeldasVaciasSeDeclaran() throws Exception {
         mockMvc.perform(get(MATRIZ).header(HttpHeaders.AUTHORIZATION, token()))
                 .andExpect(status().isOk())
-                // CREAR_CONDOMINIOS es la primera fila y solo la tiene el superadministrador: los
-                // otros seis roles tienen que aparecer igual, con NINGUNO.
-                .andExpect(jsonPath("$.permisos[0].permiso").value("CREAR_CONDOMINIOS"))
-                .andExpect(jsonPath("$.permisos[0].alcances.PLATFORM_ADMIN").value("TODO"))
-                .andExpect(jsonPath("$.permisos[0].alcances.CONDO_ADMIN").value("NINGUNO"))
-                .andExpect(jsonPath("$.permisos[0].alcances.BOARD").value("NINGUNO"));
+                // CREATE_CONDOMINIUMS es la primera fila y solo la tiene el superadministrador: los
+                // otros seis roles tienen que aparecer igual, con NONE.
+                .andExpect(jsonPath("$.permisos[0].permiso").value("CREATE_CONDOMINIUMS"))
+                .andExpect(jsonPath("$.permisos[0].alcances.PLATFORM_ADMIN").value("ALL"))
+                .andExpect(jsonPath("$.permisos[0].alcances.CONDO_ADMIN").value("NONE"))
+                .andExpect(jsonPath("$.permisos[0].alcances.BOARD").value("NONE"));
     }
 
     @Test

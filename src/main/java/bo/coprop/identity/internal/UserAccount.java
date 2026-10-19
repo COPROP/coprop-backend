@@ -65,7 +65,7 @@ class UserAccount {
         this.email = email;
         this.phone = phone;
         // Tiene cuenta y no ha entrado nunca. El envio de la invitacion es el #18.
-        this.status = AccountStatus.INVITADO;
+        this.status = AccountStatus.INVITED;
         this.mfaEnabled = false;
         this.createdAt = createdAt;
     }
@@ -85,7 +85,7 @@ class UserAccount {
      */
     void vincular(String idpSubject, Instant cuando) {
         this.idpSubject = idpSubject;
-        this.status = AccountStatus.ACTIVO;
+        this.status = AccountStatus.ACTIVE;
         this.lastAccessAt = cuando;
     }
 
@@ -107,11 +107,11 @@ class UserAccount {
     /**
      * Si esta cuenta puede entrar hoy.
      *
-     * <p>{@code INVITADO} si puede: es justo quien no ha entrado nunca. Lo que no puede es una
+     * <p>{@code INVITED} si puede: es justo quien no ha entrado nunca. Lo que no puede es una
      * cuenta bloqueada --por seguridad, se desbloquea-- ni una dada de baja, que no vuelve.
      */
     boolean puedeEntrar() {
-        return status == AccountStatus.INVITADO || status == AccountStatus.ACTIVO;
+        return status == AccountStatus.INVITED || status == AccountStatus.ACTIVE;
     }
 
     UUID getId() {

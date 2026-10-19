@@ -46,7 +46,7 @@ public interface Condominiums {
      *
      * <p>Los tres datos descriptivos del condominio, y solo esos. El <strong>tipo</strong> queda
      * fuera porque cambiarlo exige validarlo contra la estructura ya registrada --un
-     * {@code EDIFICIO} con bloques y pisos no cabe en {@code CASAS}-- y el <strong>estado</strong>
+     * {@code BUILDING} con bloques y pisos no cabe en {@code HOUSES}-- y el <strong>estado</strong>
      * tambien, porque suspender un condominio no es editar un campo: es una accion de negocio cuyo
      * efecto sobre los QR vivos y sobre la mora en curso esta sin decidir.
      *

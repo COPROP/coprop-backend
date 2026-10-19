@@ -9,10 +9,10 @@ package bo.coprop.identity;
  */
 public enum AccountStatus {
     /** Tiene cuenta pero nunca ha entrado. El {@code idpSubject} todavia no existe. */
-    INVITADO,
-    ACTIVO,
+    INVITED,
+    ACTIVE,
     /** Bloqueada por seguridad; se puede desbloquear. */
-    BLOQUEADO,
+    BLOCKED,
     /** Dada de baja. No vuelve. */
-    DESACTIVADO
+    DEACTIVATED
 }

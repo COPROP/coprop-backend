@@ -29,30 +29,30 @@ public record MembershipSuspended(
         implements EventoAuditable {
 
     @Override
-    public String accion() {
-        return "MEMBRESIA_SUSPENDIDA";
+    public String action() {
+        return "MEMBERSHIP_SUSPENDED";
     }
 
     @Override
-    public String entidad() {
+    public String entity() {
         return "membresia";
     }
 
     @Override
-    public UUID entidadId() {
+    public UUID entityId() {
         return membershipId;
     }
 
     @Override
-    public Map<String, String> antes() {
-        return Map.of("status", MembershipStatus.ACTIVA.name());
+    public Map<String, String> oldValues() {
+        return Map.of("status", MembershipStatus.ACTIVE.name());
     }
 
     @Override
-    public Map<String, String> despues() {
+    public Map<String, String> newValues() {
         return Map.of(
                 "status",
-                MembershipStatus.SUSPENDIDA.name(),
+                MembershipStatus.SUSPENDED.name(),
                 "motivo",
                 motivo,
                 "sesionesCerradas",

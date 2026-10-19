@@ -139,7 +139,7 @@ class MeTests {
         // prueba no es como se suspende, sino que una suspendida no se ofrezca en el selector: el
         // filtro de aislamiento le responderia 404 a todo lo de ese condominio.
         new JdbcTemplate(dataSource)
-                .update("update membership set status = ? where id = ?", MembershipStatus.SUSPENDIDA.name(), membresia);
+                .update("update membership set status = ? where id = ?", MembershipStatus.SUSPENDED.name(), membresia);
 
         mockMvc.perform(get(ME).header(HttpHeaders.AUTHORIZATION, emma.token()))
                 .andExpect(status().isOk())
@@ -175,7 +175,7 @@ class MeTests {
         // otra solo la ocupa.
         relaciones.grantOwnership(condominio, suya, emma.persona(), new BigDecimal("100.00"), "admin");
         relaciones.assignBilling(condominio, suya, emma.persona(), null, "admin");
-        relaciones.grantOccupancy(condominio, queOcupa, emma.persona(), OccupancyRole.INQUILINO, "admin");
+        relaciones.grantOccupancy(condominio, queOcupa, emma.persona(), OccupancyRole.TENANT, "admin");
 
         mockMvc.perform(get(ME).header(HttpHeaders.AUTHORIZATION, emma.token()))
                 .andExpect(status().isOk())
@@ -184,7 +184,7 @@ class MeTests {
                 .andExpect(jsonPath("$.condominios[0].unidades[0].relations.length()")
                         .value(2))
                 .andExpect(jsonPath("$.condominios[0].unidades[1].code").value("B-2"))
-                .andExpect(jsonPath("$.condominios[0].unidades[1].relations").value("OCUPANTE"));
+                .andExpect(jsonPath("$.condominios[0].unidades[1].relations").value("OCCUPANT"));
     }
 
     @Test
@@ -259,7 +259,7 @@ class MeTests {
     private UUID condominioLlamado(String nombre) {
         return condominios
                 .register(
-                        new NewCondominium(nombre, nitNuevo(), CondominiumType.EDIFICIO, "America/La_Paz", 5, 10),
+                        new NewCondominium(nombre, nitNuevo(), CondominiumType.BUILDING, "America/La_Paz", 5, 10),
                         "admin")
                 .id();
     }
@@ -267,7 +267,7 @@ class MeTests {
     private UUID unidad(UUID condominio, String codigo) {
         return unidades.register(
                         condominio,
-                        new NewUnit(codigo, UnitType.DEPARTAMENTO, new BigDecimal("1.000000"), null, null, null),
+                        new NewUnit(codigo, UnitType.APARTMENT, new BigDecimal("1.000000"), null, null, null),
                         "admin")
                 .id();
     }

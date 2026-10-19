@@ -26,8 +26,8 @@ public record PlatformAdminRevoked(
         implements EventoAuditable {
 
     @Override
-    public String accion() {
-        return "PLATAFORMA_REVOCADA";
+    public String action() {
+        return "PLATFORM_REVOKED";
     }
 
     /** Nulo: el alcance de este rol es la plataforma y no cuelga de ningun condominio. */
@@ -37,23 +37,23 @@ public record PlatformAdminRevoked(
     }
 
     @Override
-    public String entidad() {
+    public String entity() {
         return "superadministrador";
     }
 
     @Override
-    public UUID entidadId() {
+    public UUID entityId() {
         return accountId;
     }
 
     /** Lo que habia: el rol. No hay mas valores que mirar, porque esta tabla no tiene mas. */
     @Override
-    public Map<String, String> antes() {
+    public Map<String, String> oldValues() {
         return Map.of("rol", MembershipRole.PLATFORM_ADMIN.name());
     }
 
     @Override
-    public Map<String, String> despues() {
+    public Map<String, String> newValues() {
         return Map.of("motivo", motivo, "sesionesCerradas", String.valueOf(sesionesCerradas));
     }
 }

@@ -1,8 +1,8 @@
 package bo.coprop.identity;
 
-import static bo.coprop.identity.Alcance.NINGUNO;
-import static bo.coprop.identity.Alcance.PROPIO;
-import static bo.coprop.identity.Alcance.TODO;
+import static bo.coprop.identity.Alcance.ALL;
+import static bo.coprop.identity.Alcance.NONE;
+import static bo.coprop.identity.Alcance.OWN;
 import static bo.coprop.identity.MembershipRole.BOARD;
 import static bo.coprop.identity.MembershipRole.CONDO_ADMIN;
 import static bo.coprop.identity.MembershipRole.FINANCE_ADMIN;
@@ -36,7 +36,7 @@ class MatrizDePermisosTests {
      * del analisis.
      */
     private record Fila(
-            String accion,
+            String action,
             Permiso permiso,
             Alcance plataforma,
             Alcance condominio,
@@ -51,234 +51,189 @@ class MatrizDePermisosTests {
         return List.of(
                 new Fila(
                         "Crear condominios y asignar su primer administrador",
-                        Permiso.CREAR_CONDOMINIOS,
-                        TODO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO),
+                        Permiso.CREATE_CONDOMINIUMS,
+                        ALL,
+                        NONE,
+                        NONE,
+                        NONE,
+                        NONE,
+                        NONE,
+                        NONE),
                 new Fila(
                         "Configurar proveedor de pagos y credenciales bancarias",
-                        Permiso.CONFIGURAR_PROVEEDOR_DE_PAGOS,
-                        TODO,
-                        NINGUNO,
-                        TODO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO),
+                        Permiso.CONFIGURE_PAYMENT_PROVIDER,
+                        ALL,
+                        NONE,
+                        ALL,
+                        NONE,
+                        NONE,
+                        NONE,
+                        NONE),
                 new Fila(
                         "Gestionar bloques, unidades y personas",
-                        Permiso.GESTIONAR_UNIDADES,
-                        NINGUNO,
-                        TODO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO),
+                        Permiso.MANAGE_UNITS,
+                        NONE,
+                        ALL,
+                        NONE,
+                        NONE,
+                        NONE,
+                        NONE,
+                        NONE),
                 new Fila(
                         "Invitar usuarios y asignar roles",
-                        Permiso.INVITAR_USUARIOS,
-                        NINGUNO,
-                        TODO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO),
+                        Permiso.INVITE_USERS,
+                        NONE,
+                        ALL,
+                        NONE,
+                        NONE,
+                        NONE,
+                        NONE,
+                        NONE),
                 new Fila(
                         "Invitar, pero solo a administradores",
-                        Permiso.INVITAR_SOLO_ADMINISTRADORES,
-                        TODO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO),
+                        Permiso.INVITE_ADMINS_ONLY,
+                        ALL,
+                        NONE,
+                        NONE,
+                        NONE,
+                        NONE,
+                        NONE,
+                        NONE),
                 new Fila(
                         "Configurar conceptos, tarifas de agua y politica de mora",
-                        Permiso.CONFIGURAR_COBROS,
-                        NINGUNO,
-                        NINGUNO,
-                        TODO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO),
+                        Permiso.CONFIGURE_CHARGES,
+                        NONE,
+                        NONE,
+                        ALL,
+                        NONE,
+                        NONE,
+                        NONE,
+                        NONE),
                 new Fila(
                         "Emitir expensas y cobro de agua del periodo",
-                        Permiso.EMITIR_EXPENSAS,
-                        NINGUNO,
-                        NINGUNO,
-                        TODO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO),
+                        Permiso.ISSUE_DUES,
+                        NONE,
+                        NONE,
+                        ALL,
+                        NONE,
+                        NONE,
+                        NONE,
+                        NONE),
                 new Fila(
                         "Registrar lecturas de medidores",
-                        Permiso.REGISTRAR_LECTURAS,
-                        NINGUNO,
-                        TODO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        TODO,
-                        NINGUNO),
-                new Fila(
-                        "Anular una obligacion",
-                        Permiso.ANULAR_OBLIGACION,
-                        NINGUNO,
-                        NINGUNO,
-                        TODO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO),
-                new Fila(
-                        "Ver estado de cuenta",
-                        Permiso.VER_ESTADO_DE_CUENTA,
-                        NINGUNO,
-                        TODO,
-                        TODO,
-                        PROPIO,
-                        PROPIO,
-                        NINGUNO,
-                        NINGUNO),
-                new Fila(
-                        "Generar QR de pago",
-                        Permiso.GENERAR_QR,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        PROPIO,
-                        PROPIO,
-                        NINGUNO,
-                        NINGUNO),
+                        Permiso.RECORD_METER_READINGS,
+                        NONE,
+                        ALL,
+                        NONE,
+                        NONE,
+                        NONE,
+                        ALL,
+                        NONE),
+                new Fila("Anular una obligacion", Permiso.CANCEL_OBLIGATION, NONE, NONE, ALL, NONE, NONE, NONE, NONE),
+                new Fila("Ver estado de cuenta", Permiso.VIEW_ACCOUNT_STATEMENT, NONE, ALL, ALL, OWN, OWN, NONE, NONE),
+                new Fila("Generar QR de pago", Permiso.GENERATE_QR, NONE, NONE, NONE, OWN, OWN, NONE, NONE),
                 new Fila(
                         "Subir comprobante de pago manual",
-                        Permiso.SUBIR_COMPROBANTE,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        PROPIO,
-                        PROPIO,
-                        NINGUNO,
-                        NINGUNO),
+                        Permiso.UPLOAD_RECEIPT,
+                        NONE,
+                        NONE,
+                        NONE,
+                        OWN,
+                        OWN,
+                        NONE,
+                        NONE),
                 new Fila(
                         "Validar pago manual",
-                        Permiso.VALIDAR_PAGO_MANUAL,
-                        NINGUNO,
-                        NINGUNO,
-                        TODO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO),
+                        Permiso.VALIDATE_MANUAL_PAYMENT,
+                        NONE,
+                        NONE,
+                        ALL,
+                        NONE,
+                        NONE,
+                        NONE,
+                        NONE),
                 new Fila(
                         "Bandeja de excepciones y conciliacion",
-                        Permiso.CONCILIAR,
-                        NINGUNO,
-                        NINGUNO,
-                        TODO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO),
-                new Fila(
-                        "Ver saldos a favor",
-                        Permiso.VER_SALDOS_A_FAVOR,
-                        NINGUNO,
-                        TODO,
-                        TODO,
-                        PROPIO,
-                        PROPIO,
-                        NINGUNO,
-                        NINGUNO),
+                        Permiso.RECONCILE,
+                        NONE,
+                        NONE,
+                        ALL,
+                        NONE,
+                        NONE,
+                        NONE,
+                        NONE),
+                new Fila("Ver saldos a favor", Permiso.VIEW_CREDIT_BALANCES, NONE, ALL, ALL, OWN, OWN, NONE, NONE),
                 new Fila(
                         "Registrar devolucion de saldo a favor",
-                        Permiso.DEVOLVER_SALDO_A_FAVOR,
-                        NINGUNO,
-                        NINGUNO,
-                        TODO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO),
+                        Permiso.REFUND_CREDIT_BALANCE,
+                        NONE,
+                        NONE,
+                        ALL,
+                        NONE,
+                        NONE,
+                        NONE,
+                        NONE),
                 new Fila(
                         "Gestionar areas comunes y reglas de reserva",
-                        Permiso.GESTIONAR_AREAS_COMUNES,
-                        NINGUNO,
-                        TODO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO),
-                new Fila(
-                        "Crear o cancelar reservas",
-                        Permiso.RESERVAR,
-                        NINGUNO,
-                        TODO,
-                        NINGUNO,
-                        PROPIO,
-                        PROPIO,
-                        NINGUNO,
-                        NINGUNO),
+                        Permiso.MANAGE_AMENITIES,
+                        NONE,
+                        ALL,
+                        NONE,
+                        NONE,
+                        NONE,
+                        NONE,
+                        NONE),
+                new Fila("Crear o cancelar reservas", Permiso.RESERVE, NONE, ALL, NONE, OWN, OWN, NONE, NONE),
                 new Fila(
                         "Ver reservas del dia y bloquear areas por mantenimiento",
-                        Permiso.OPERAR_AREAS_COMUNES,
-                        NINGUNO,
-                        TODO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        TODO,
-                        NINGUNO),
+                        Permiso.OPERATE_AMENITIES,
+                        NONE,
+                        ALL,
+                        NONE,
+                        NONE,
+                        NONE,
+                        ALL,
+                        NONE),
                 new Fila(
                         "Reportes de recaudacion y morosidad (agregados)",
-                        Permiso.VER_REPORTES,
-                        NINGUNO,
-                        TODO,
-                        TODO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        TODO),
+                        Permiso.VIEW_REPORTS,
+                        NONE,
+                        ALL,
+                        ALL,
+                        NONE,
+                        NONE,
+                        NONE,
+                        ALL),
                 new Fila(
                         "Morosidad unidad por unidad",
-                        Permiso.VER_MOROSIDAD_POR_UNIDAD,
-                        NINGUNO,
-                        TODO,
-                        TODO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO),
+                        Permiso.VIEW_DELINQUENCY_BY_UNIT,
+                        NONE,
+                        ALL,
+                        ALL,
+                        NONE,
+                        NONE,
+                        NONE,
+                        NONE),
                 new Fila(
                         "Consultar auditoria del condominio",
-                        Permiso.CONSULTAR_AUDITORIA,
-                        TODO,
-                        TODO,
-                        TODO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO),
+                        Permiso.VIEW_AUDIT_LOG,
+                        ALL,
+                        ALL,
+                        ALL,
+                        NONE,
+                        NONE,
+                        NONE,
+                        NONE),
                 new Fila(
                         "Acceder a datos de un condominio para soporte",
-                        Permiso.ACCEDER_PARA_SOPORTE,
-                        TODO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO,
-                        NINGUNO));
+                        Permiso.ACCESS_FOR_SUPPORT,
+                        ALL,
+                        NONE,
+                        NONE,
+                        NONE,
+                        NONE,
+                        NONE,
+                        NONE));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -310,9 +265,9 @@ class MatrizDePermisosTests {
         // El segundo criterio de aceptacion del issue #16. Esta aparte de la fila porque es la linea
         // que no se cruza: expone lo que debe un vecino a otro vecino, y 10.1 lo deja fuera salvo
         // que el administrador lo habilite --y esa habilitacion es M2, cuando exista el reporte--.
-        assertThat(MatrizDePermisos.alcanceDe(BOARD, Permiso.VER_REPORTES)).isEqualTo(TODO);
-        assertThat(MatrizDePermisos.alcanceDe(BOARD, Permiso.VER_MOROSIDAD_POR_UNIDAD))
-                .isEqualTo(NINGUNO);
+        assertThat(MatrizDePermisos.alcanceDe(BOARD, Permiso.VIEW_REPORTS)).isEqualTo(ALL);
+        assertThat(MatrizDePermisos.alcanceDe(BOARD, Permiso.VIEW_DELINQUENCY_BY_UNIT))
+                .isEqualTo(NONE);
     }
 
     @Test
@@ -320,14 +275,13 @@ class MatrizDePermisosTests {
     void laSeparacionDeFuncionesSeSostiene() {
         // Seguridad 3. Son las dos mitades de la misma regla, y romper cualquiera deja a una sola
         // persona pudiendo darse a si misma el control del dinero.
-        assertThat(MatrizDePermisos.alcanceDe(CONDO_ADMIN, Permiso.EMITIR_EXPENSAS))
-                .isEqualTo(NINGUNO);
-        assertThat(MatrizDePermisos.alcanceDe(CONDO_ADMIN, Permiso.VALIDAR_PAGO_MANUAL))
-                .isEqualTo(NINGUNO);
-        assertThat(MatrizDePermisos.alcanceDe(FINANCE_ADMIN, Permiso.INVITAR_USUARIOS))
-                .isEqualTo(NINGUNO);
-        assertThat(MatrizDePermisos.alcanceDe(FINANCE_ADMIN, Permiso.GESTIONAR_UNIDADES))
-                .isEqualTo(NINGUNO);
+        assertThat(MatrizDePermisos.alcanceDe(CONDO_ADMIN, Permiso.ISSUE_DUES)).isEqualTo(NONE);
+        assertThat(MatrizDePermisos.alcanceDe(CONDO_ADMIN, Permiso.VALIDATE_MANUAL_PAYMENT))
+                .isEqualTo(NONE);
+        assertThat(MatrizDePermisos.alcanceDe(FINANCE_ADMIN, Permiso.INVITE_USERS))
+                .isEqualTo(NONE);
+        assertThat(MatrizDePermisos.alcanceDe(FINANCE_ADMIN, Permiso.MANAGE_UNITS))
+                .isEqualTo(NONE);
     }
 
     @Test
@@ -337,9 +291,8 @@ class MatrizDePermisosTests {
         // cosas. Lo que no puede es pasar desapercibido, y de eso se encarga la auditoria.
         var ambos = Set.of(CONDO_ADMIN, FINANCE_ADMIN);
 
-        assertThat(MatrizDePermisos.alcanceDe(ambos, Permiso.GESTIONAR_UNIDADES))
-                .isEqualTo(TODO);
-        assertThat(MatrizDePermisos.alcanceDe(ambos, Permiso.EMITIR_EXPENSAS)).isEqualTo(TODO);
+        assertThat(MatrizDePermisos.alcanceDe(ambos, Permiso.MANAGE_UNITS)).isEqualTo(ALL);
+        assertThat(MatrizDePermisos.alcanceDe(ambos, Permiso.ISSUE_DUES)).isEqualTo(ALL);
     }
 
     @Test
@@ -347,14 +300,14 @@ class MatrizDePermisosTests {
     void elSuperadministradorNoOperaCondominios() {
         // 10.1: no ve deudas ni pagos por defecto. Crea condominios, pone administradores, lee
         // auditoria y abre soporte. Nada de lo que mueve plata del condominio.
-        assertThat(MatrizDePermisos.alcanceDe(PLATFORM_ADMIN, Permiso.VER_ESTADO_DE_CUENTA))
-                .isEqualTo(NINGUNO);
-        assertThat(MatrizDePermisos.alcanceDe(PLATFORM_ADMIN, Permiso.VER_REPORTES))
-                .isEqualTo(NINGUNO);
-        assertThat(MatrizDePermisos.alcanceDe(PLATFORM_ADMIN, Permiso.EMITIR_EXPENSAS))
-                .isEqualTo(NINGUNO);
-        assertThat(MatrizDePermisos.alcanceDe(PLATFORM_ADMIN, Permiso.GESTIONAR_UNIDADES))
-                .isEqualTo(NINGUNO);
+        assertThat(MatrizDePermisos.alcanceDe(PLATFORM_ADMIN, Permiso.VIEW_ACCOUNT_STATEMENT))
+                .isEqualTo(NONE);
+        assertThat(MatrizDePermisos.alcanceDe(PLATFORM_ADMIN, Permiso.VIEW_REPORTS))
+                .isEqualTo(NONE);
+        assertThat(MatrizDePermisos.alcanceDe(PLATFORM_ADMIN, Permiso.ISSUE_DUES))
+                .isEqualTo(NONE);
+        assertThat(MatrizDePermisos.alcanceDe(PLATFORM_ADMIN, Permiso.MANAGE_UNITS))
+                .isEqualTo(NONE);
     }
 
     @Test
@@ -363,8 +316,6 @@ class MatrizDePermisosTests {
         assertThat(Permiso.values())
                 .filteredOn(MatrizDePermisos::pideSegundoFactor)
                 .containsExactlyInAnyOrder(
-                        Permiso.CONFIGURAR_PROVEEDOR_DE_PAGOS,
-                        Permiso.ANULAR_OBLIGACION,
-                        Permiso.DEVOLVER_SALDO_A_FAVOR);
+                        Permiso.CONFIGURE_PAYMENT_PROVIDER, Permiso.CANCEL_OBLIGATION, Permiso.REFUND_CREDIT_BALANCE);
     }
 }

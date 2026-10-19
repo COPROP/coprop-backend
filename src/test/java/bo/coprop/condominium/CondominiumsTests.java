@@ -41,7 +41,7 @@ class CondominiumsTests {
     private Condominiums condominios;
 
     private static NewCondominium lasPalmas() {
-        return new NewCondominium("Las Palmas", "1234567890", CondominiumType.EDIFICIO, "America/La_Paz", 1, 15);
+        return new NewCondominium("Las Palmas", "1234567890", CondominiumType.BUILDING, "America/La_Paz", 1, 15);
     }
 
     @Test
@@ -51,7 +51,7 @@ class CondominiumsTests {
 
         assertThat(creado.id()).isNotNull();
         assertThat(creado.name()).isEqualTo("Las Palmas");
-        assertThat(creado.status()).isEqualTo(CondominiumStatus.ACTIVO);
+        assertThat(creado.status()).isEqualTo(CondominiumStatus.ACTIVE);
         assertThat(creado.currency()).isEqualTo("BOB");
         assertThat(creado.issueDay()).isEqualTo(1);
         assertThat(creado.dueDay()).isEqualTo(15);
@@ -153,7 +153,7 @@ class CondominiumsTests {
     }
 
     @Test
-    @DisplayName("la edicion publica el evento con los tres campos de antes y los tres de despues")
+    @DisplayName("la edicion publica el evento con los tres campos de oldValues y los tres de newValues")
     void laEdicionQuedaAuditada(PublishedEvents eventos) {
         CondominiumView creado = condominios.register(lasPalmas(), "emma");
 
@@ -165,11 +165,11 @@ class CondominiumsTests {
             assertThat(evento.occurredAt()).isEqualTo(AHORA);
             // Antes lleva los tres campos aunque solo interese el NIT: la pregunta que se hace un
             // año despues no es que cambio, sino como estaba.
-            assertThat(evento.antes())
+            assertThat(evento.oldValues())
                     .containsEntry("name", "Las Palmas")
                     .containsEntry("nit", "1234567890")
                     .containsEntry("address", "");
-            assertThat(evento.despues())
+            assertThat(evento.newValues())
                     .containsEntry("name", "Las Palmas II")
                     .containsEntry("nit", "9876543210")
                     .containsEntry("address", "Av. Ballivian 123");
@@ -192,7 +192,7 @@ class CondominiumsTests {
     void elNitDeOtroSeRechaza() {
         CondominiumView primero = condominios.register(lasPalmas(), "emma");
         CondominiumView segundo = condominios.register(
-                new NewCondominium("Bolivar", "5555555555", CondominiumType.CASAS, "America/La_Paz", 3, 18), "emma");
+                new NewCondominium("Bolivar", "5555555555", CondominiumType.HOUSES, "America/La_Paz", 3, 18), "emma");
 
         assertThatThrownBy(() -> condominios.edit(segundo.id(), "Bolivar", primero.nit(), null, "emma"))
                 .isInstanceOf(ReglaDeNegocioViolada.class);

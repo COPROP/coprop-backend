@@ -91,7 +91,7 @@ class InvitacionesTests {
                         new NewCondominium(
                                 "Invitaciones " + UUID.randomUUID(),
                                 nitNuevo(),
-                                CondominiumType.EDIFICIO,
+                                CondominiumType.BUILDING,
                                 "America/La_Paz",
                                 5,
                                 10),
@@ -182,7 +182,7 @@ class InvitacionesTests {
 
         MembershipView nacida = java.util.Objects.requireNonNull(
                 membresias.of(condominio, invitada.id()), "Aceptar la invitacion no dejo ninguna membresia.");
-        assertThat(nacida.status()).isEqualTo(MembershipStatus.ACTIVA);
+        assertThat(nacida.status()).isEqualTo(MembershipStatus.ACTIVE);
         // Los roles son los que llevaba la invitacion, no unos por defecto.
         assertThat(nacida.roles()).containsExactlyInAnyOrder(MembershipRole.OWNER, MembershipRole.BOARD);
         // Y queda registrado quien invito, que es lo que la bitacora del #21 necesita para
@@ -200,9 +200,9 @@ class InvitacionesTests {
 
         mockMvc.perform(aceptacion(token, invitada.id())).andExpect(status().isOk());
 
-        AccountView despues = personas.findAccount(invitada.id());
-        assertThat(despues.personId()).isEqualTo(personaAntes);
-        assertThat(despues.email()).isEqualTo(invitada.email());
+        AccountView newValues = personas.findAccount(invitada.id());
+        assertThat(newValues.personId()).isEqualTo(personaAntes);
+        assertThat(newValues.email()).isEqualTo(invitada.email());
     }
 
     @Test
@@ -448,7 +448,7 @@ class InvitacionesTests {
                 .update(
                         "update user_account set idp_subject = ?, status = ? where id = ?",
                         UUID.randomUUID().toString(),
-                        AccountStatus.ACTIVO.name(),
+                        AccountStatus.ACTIVE.name(),
                         cuenta);
     }
 

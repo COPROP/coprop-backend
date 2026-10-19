@@ -112,7 +112,7 @@ class ProveedorDeIdentidadKeycloak implements ProveedorDeIdentidad {
             usuario = buscar(email, token);
             if (usuario == null) {
                 throw new FalloDelProveedorDeIdentidad(
-                        "Keycloak acepto crear el usuario pero despues no lo encuentra; revisar el realm.");
+                        "Keycloak acepto crear el usuario pero newValues no lo encuentra; revisar el realm.");
             }
             log.info("Usuario creado en el proveedor de identidad para correo={}", email);
         }

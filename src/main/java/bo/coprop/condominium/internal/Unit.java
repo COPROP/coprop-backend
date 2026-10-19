@@ -79,7 +79,7 @@ class Unit {
         this.areaM2 = areaM2;
         this.blockId = blockId;
         this.floorId = floorId;
-        this.status = UnitStatus.ACTIVA;
+        this.status = UnitStatus.ACTIVE;
     }
 
     UUID getId() {

@@ -37,10 +37,10 @@ import org.springframework.stereotype.Component;
  * Las dos negativas de esta clase responden distinto, y la diferencia es el criterio del issue:
  *
  * <ul>
- *   <li><strong>El rol no hace esto</strong> ({@link Alcance#NINGUNO}): se devuelve {@code false} y
+ *   <li><strong>El rol no hace esto</strong> ({@link Alcance#NONE}): se devuelve {@code false} y
  *       la cadena responde <strong>403</strong>. No filtra nada, porque la respuesta depende solo
  *       de los roles de quien pregunta y no de que recurso pidio.
- *   <li><strong>El recurso no es suyo</strong> ({@link Alcance#PROPIO} sin relacion vigente): se
+ *   <li><strong>El recurso no es suyo</strong> ({@link Alcance#OWN} sin relacion vigente): se
  *       lanza {@link RecursoNoEncontrado} y responde <strong>404</strong>. Aqui la respuesta si
  *       depende del recurso, asi que un 403 confirmaria que esa unidad existe y con eso un vecino
  *       puede enumerar el edificio probando identificadores. Es el mismo criterio con el que el
@@ -62,7 +62,7 @@ class ControlDeAcceso {
      * El permiso con el que la matriz nombra la administracion de unidades y personas: la fila
      * "Gestionar bloques, unidades y personas" de Seguridad 3.
      */
-    private static final String GESTIONAR_UNIDADES = "GESTIONAR_UNIDADES";
+    private static final String MANAGE_UNITS = "MANAGE_UNITS";
 
     private final Autorizacion autorizacion;
     private final UnitRelations relaciones;
@@ -89,9 +89,9 @@ class ControlDeAcceso {
      */
     public boolean puedeSobreLaUnidad(Authentication quien, String permiso, UUID condominiumId, UUID unitId) {
         return switch (autorizacion.alcanceDe(quien, permiso)) {
-            case TODO -> true;
-            case PROPIO -> exigirQueSeaSuya(quien, condominiumId, unitId, permiso);
-            case NINGUNO -> false;
+            case ALL -> true;
+            case OWN -> exigirQueSeaSuya(quien, condominiumId, unitId, permiso);
+            case NONE -> false;
         };
     }
 
@@ -112,7 +112,7 @@ class ControlDeAcceso {
      * @throws RecursoNoEncontrado si no administra unidades y esta no es suya
      */
     public boolean puedeVerLaUnidad(Authentication quien, UUID condominiumId, UUID unitId) {
-        if (autorizacion.alcanceDe(quien, GESTIONAR_UNIDADES) == Alcance.TODO) {
+        if (autorizacion.alcanceDe(quien, MANAGE_UNITS) == Alcance.ALL) {
             return true;
         }
         return exigirQueSeaSuya(quien, condominiumId, unitId, "ver la unidad");
@@ -124,7 +124,7 @@ class ControlDeAcceso {
      *
      * <p>La persona es global (Seguridad 2), asi que esta ruta no cuelga de un condominio y no hay
      * autoridades de condominio que leer; la pregunta es la misma que ya decide el alta,
-     * {@code GESTIONAR_UNIDADES} en alguno. Lo que se añade es lo propio: sin eso, quien no
+     * {@code MANAGE_UNITS} en alguno. Lo que se añade es lo propio: sin eso, quien no
      * administra nada no podria ver ni sus propios datos.
      *
      * <p><strong>Niega con 403 y no con 404</strong>, al contrario que la unidad. Aqui la respuesta
@@ -133,7 +133,7 @@ class ControlDeAcceso {
      * la respuesta cambia con el recurso.
      */
     public boolean puedeVerLaPersona(Authentication quien, UUID personId) {
-        return esSuPersona(quien, personId) || autorizacion.puedeEnAlgunCondominio(quien, GESTIONAR_UNIDADES);
+        return esSuPersona(quien, personId) || autorizacion.puedeEnAlgunCondominio(quien, MANAGE_UNITS);
     }
 
     /**
@@ -145,7 +145,7 @@ class ControlDeAcceso {
      * {@code GET /api/v1/me} y no pide ningun identificador.
      */
     public boolean puedeVerLaCuenta(Authentication quien, UUID accountId) {
-        return esSuCuenta(quien, accountId) || autorizacion.puedeEnAlgunCondominio(quien, GESTIONAR_UNIDADES);
+        return esSuCuenta(quien, accountId) || autorizacion.puedeEnAlgunCondominio(quien, MANAGE_UNITS);
     }
 
     /**

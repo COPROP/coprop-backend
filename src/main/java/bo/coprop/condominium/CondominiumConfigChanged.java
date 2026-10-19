@@ -31,12 +31,12 @@ public record CondominiumConfigChanged(
         implements EventoAuditable {
 
     @Override
-    public String accion() {
-        return "CONFIGURACION_CAMBIADA";
+    public String action() {
+        return "CONFIGURATION_CHANGED";
     }
 
     @Override
-    public String entidad() {
+    public String entity() {
         return "configuracion";
     }
 
@@ -48,7 +48,7 @@ public record CondominiumConfigChanged(
      * audita es la configuracion <em>de este condominio</em>, y por eso la entidad es el condominio.
      */
     @Override
-    public UUID entidadId() {
+    public UUID entityId() {
         return condominiumId;
     }
 
@@ -57,12 +57,12 @@ public record CondominiumConfigChanged(
      * existia, asi que las dos mitades estan.
      */
     @Override
-    public java.util.Map<String, String> antes() {
+    public java.util.Map<String, String> oldValues() {
         return java.util.Map.of("issueDay", String.valueOf(previousIssueDay), "dueDay", String.valueOf(previousDueDay));
     }
 
     @Override
-    public java.util.Map<String, String> despues() {
+    public java.util.Map<String, String> newValues() {
         return java.util.Map.of("issueDay", String.valueOf(issueDay), "dueDay", String.valueOf(dueDay));
     }
 }

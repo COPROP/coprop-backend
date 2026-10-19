@@ -12,7 +12,7 @@
 -- administrador desde la API. Esto solo ahorra esos pasos y fija los identificadores.
 --
 -- Deja:
---   * un condominio PROPIO, con la cuenta de dev@coprop.local como CONDO_ADMIN y FINANCE_ADMIN;
+--   * un condominio OWN, con la cuenta de dev@coprop.local como CONDO_ADMIN y FINANCE_ADMIN;
 --   * un condominio AJENO, sin membresia, para ver el aislamiento del issue #17 funcionando.
 
 BEGIN;
@@ -20,7 +20,7 @@ BEGIN;
 -- El condominio propio.
 INSERT INTO condominium (id, name, nit, type, time_zone, currency, status, created_at)
 VALUES ('aaaaaaaa-0000-4000-8000-000000000001', 'Torre Sucre (desarrollo)', '1023456789',
-        'EDIFICIO', 'America/La_Paz', 'BOB', 'ACTIVO', now())
+        'BUILDING', 'America/La_Paz', 'BOB', 'ACTIVE', now())
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO condominium_config (condominium_id, issue_day, due_day, valid_from)
@@ -34,7 +34,7 @@ WHERE NOT EXISTS (
 -- que uno inventado. Si alguna vez respondiera 403, o devolviera datos, el aislamiento estaria roto.
 INSERT INTO condominium (id, name, nit, type, time_zone, currency, status, created_at)
 VALUES ('bbbbbbbb-0000-4000-8000-000000000002', 'Condominio del vecino (desarrollo)', '9876543210',
-        'CASAS', 'America/La_Paz', 'BOB', 'ACTIVO', now())
+        'HOUSES', 'America/La_Paz', 'BOB', 'ACTIVE', now())
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO condominium_config (condominium_id, issue_day, due_day, valid_from)
@@ -48,14 +48,14 @@ WHERE NOT EXISTS (
 --
 -- La cuenta se busca por correo y no por un identificador fijo: la crea el arranque de la
 -- aplicacion, con el suyo. Si la base esta limpia y la aplicacion no arranco todavia, aqui no hay
--- cuenta y esta parte no hace nada: se corre la semilla otra vez despues de levantarla.
+-- cuenta y esta parte no hace nada: se corre la semilla otra vez new_values de levantarla.
 --
 -- Dos roles en la misma persona esta permitido y es una decision explicita del analisis (10.1): en
 -- condominios pequenos, una sola persona administra y maneja el dinero. La concentracion queda en
 -- auditoria.
 INSERT INTO membership (id, user_id, condominium_id, status, valid_from, invited_by)
 SELECT 'cccccccc-0000-4000-8000-000000000003', c.id, 'aaaaaaaa-0000-4000-8000-000000000001',
-       'ACTIVA', now(), NULL
+       'ACTIVE', now(), NULL
 FROM user_account c
 WHERE lower(c.email) = lower('dev@coprop.local')
 ON CONFLICT (id) DO NOTHING;
@@ -73,7 +73,7 @@ ON CONFLICT (membership_id, role) DO NOTHING;
 -- apuntando al viejo. Como una cuenta ya vinculada no se revincula a otro sujeto --la proteccion
 -- del issue #13-- el login responde SIN_CUENTA y parece que la cuenta esta rota.
 UPDATE user_account
-SET idp_subject = NULL, status = 'INVITADO'
+SET idp_subject = NULL, status = 'INVITED'
 WHERE lower(email) = lower('dev@coprop.local');
 
 COMMIT;

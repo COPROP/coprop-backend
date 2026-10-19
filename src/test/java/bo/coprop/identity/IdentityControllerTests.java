@@ -129,7 +129,7 @@ class IdentityControllerTests {
         // vacio. Se sigue la cabecera de verdad en vez de confiar en que este bien formada.
         mockMvc.perform(get("/api/v1/cuentas/" + cuentaId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("INVITADO"))
+                .andExpect(jsonPath("$.status").value("INVITED"))
                 .andExpect(jsonPath("$.mfaEnabled").value(false));
     }
 

@@ -281,9 +281,9 @@ class UnitRelationsService implements UnitRelations {
     @Transactional(readOnly = true)
     public List<RelatedUnitView> relatedTo(UUID condominiumId, UUID personId) {
         Map<UUID, EnumSet<UnitRelation>> relaciones = new LinkedHashMap<>();
-        anotar(relaciones, unitsOwnedBy(condominiumId, personId), UnitRelation.PROPIETARIO);
-        anotar(relaciones, unitsOccupiedBy(condominiumId, personId), UnitRelation.OCUPANTE);
-        anotar(relaciones, unitsBilledTo(condominiumId, personId), UnitRelation.RESPONSABLE_DE_PAGO);
+        anotar(relaciones, unitsOwnedBy(condominiumId, personId), UnitRelation.OWNER);
+        anotar(relaciones, unitsOccupiedBy(condominiumId, personId), UnitRelation.OCCUPANT);
+        anotar(relaciones, unitsBilledTo(condominiumId, personId), UnitRelation.BILLING_RESPONSIBLE);
         if (relaciones.isEmpty()) {
             return List.of();
         }

@@ -22,17 +22,17 @@ public record MembershipGranted(
         implements EventoAuditable {
 
     @Override
-    public String accion() {
-        return "MEMBRESIA_CONCEDIDA";
+    public String action() {
+        return "MEMBERSHIP_GRANTED";
     }
 
     @Override
-    public String entidad() {
+    public String entity() {
         return "membresia";
     }
 
     @Override
-    public UUID entidadId() {
+    public UUID entityId() {
         return membershipId;
     }
 
@@ -45,7 +45,7 @@ public record MembershipGranted(
      * se vean iguales.
      */
     @Override
-    public java.util.Map<String, String> despues() {
+    public java.util.Map<String, String> newValues() {
         return java.util.Map.of(
                 "accountId", accountId.toString(),
                 "roles", roles.stream().map(Enum::name).sorted().collect(java.util.stream.Collectors.joining(",")));

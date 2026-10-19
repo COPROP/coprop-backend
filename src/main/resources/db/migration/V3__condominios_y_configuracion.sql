@@ -20,8 +20,8 @@ CREATE TABLE condominium (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
     CONSTRAINT condominium_pk PRIMARY KEY (id),
     CONSTRAINT condominium_nit_uq UNIQUE (nit),
-    CONSTRAINT condominium_type_ck CHECK (type IN ('EDIFICIO', 'CASAS', 'MIXTO')),
-    CONSTRAINT condominium_status_ck CHECK (status IN ('ACTIVO', 'SUSPENDIDO'))
+    CONSTRAINT condominium_type_ck CHECK (type IN ('BUILDING', 'HOUSES', 'MIXED')),
+    CONSTRAINT condominium_status_ck CHECK (status IN ('ACTIVE', 'SUSPENDED'))
 );
 
 COMMENT ON TABLE condominium IS 'Raiz del modelo multi-tenant (analisis 5.2).';
@@ -54,7 +54,7 @@ CREATE TABLE condominium_config (
 -- Una sola configuracion vigente por condominio. Es un indice parcial y no una restriccion UNIQUE
 -- normal porque UNIQUE en PostgreSQL no considera iguales dos nulos: sin el WHERE, un condominio
 -- podria acumular varias filas abiertas sin que nada lo impidiera.
-CREATE UNIQUE INDEX condominium_config_vigente_uq
+CREATE UNIQUE INDEX condominium_config_current_uq
     ON condominium_config (condominium_id)
     WHERE valid_to IS NULL;
 

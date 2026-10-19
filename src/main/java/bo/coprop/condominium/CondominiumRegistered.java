@@ -30,35 +30,35 @@ public record CondominiumRegistered(UUID condominiumId, String name, String acto
         implements EventoAuditable {
 
     @Override
-    public String accion() {
-        return "CONDOMINIO_REGISTRADO";
+    public String action() {
+        return "CONDOMINIUM_REGISTERED";
     }
 
     @Override
-    public String entidad() {
+    public String entity() {
         return "condominio";
     }
 
     @Override
-    public UUID entidadId() {
+    public UUID entityId() {
         return condominiumId;
     }
 
     /**
      * Solo el nombre, y no el NIT ni el tipo.
      *
-     * <p>El alta es la unica accion cuyo {@code condominiumId} y {@code entidadId} son el mismo, y
+     * <p>El alta es la unica accion cuyo {@code condominiumId} y {@code entityId} son el mismo, y
      * la fila del condominio sigue existiendo con todos sus datos: lo que la bitacora tiene que
      * poder decir de un alta es quien y cuando, no repetir la ficha. El nombre va porque es lo que
      * identifica el condominio para quien lee la bitacora, y porque puede haber cambiado despues
      * --{@link CondominiumEdited} lo permite-- y entonces el nombre de hoy ya no diria cual se dio
      * de alta.
      *
-     * <p>{@code antes()} se queda en el nulo por defecto: no habia nada antes, que es el caso de
+     * <p>{@code oldValues()} se queda en el nulo por defecto: no habia nada antes, que es el caso de
      * todo alta.
      */
     @Override
-    public Map<String, String> despues() {
+    public Map<String, String> newValues() {
         return Map.of("name", name);
     }
 }

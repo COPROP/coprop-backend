@@ -74,7 +74,7 @@ class Condominium {
         this.type = type;
         this.timeZone = timeZone;
         this.currency = currency;
-        this.status = CondominiumStatus.ACTIVO;
+        this.status = CondominiumStatus.ACTIVE;
         this.createdAt = createdAt;
     }
 
@@ -83,9 +83,9 @@ class Condominium {
      *
      * <p>Los tres juntos y en un solo metodo para que no haya un camino que cambie el NIT sin pasar
      * por aqui. Lo que NO se toca desde el modelo es el tipo ni el estado: el tipo habria que
-     * validarlo contra la estructura ya registrada --un EDIFICIO con bloques no cabe en CASAS-- y
+     * validarlo contra la estructura ya registrada --un BUILDING con bloques no cabe en HOUSES-- y
      * suspender un condominio es una accion de negocio con efectos sobre los QR vivos y la mora que
-     * todavia no estan decididos. Mientras no lo esten, {@code CondominiumStatus.SUSPENDIDO} sigue
+     * todavia no estan decididos. Mientras no lo esten, {@code CondominiumStatus.SUSPENDED} sigue
      * siendo un valor que nadie pone.
      *
      * @param address nula se admite y significa que no se sabe, no que se borre un dato correcto;

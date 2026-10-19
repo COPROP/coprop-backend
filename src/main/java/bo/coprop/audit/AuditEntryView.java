@@ -22,12 +22,12 @@ import org.jspecify.annotations.Nullable;
 public record AuditEntryView(
         UUID id,
         String actor,
-        String accion,
-        String entidad,
-        UUID entidadId,
+        String action,
+        String entity,
+        UUID entityId,
         @Nullable UUID condominio,
-        @Nullable Map<String, String> antes,
-        @Nullable Map<String, String> despues,
+        @Nullable Map<String, String> oldValues,
+        @Nullable Map<String, String> newValues,
         @Nullable String ip,
         @Nullable String traceId,
         Instant occurredAt) {}

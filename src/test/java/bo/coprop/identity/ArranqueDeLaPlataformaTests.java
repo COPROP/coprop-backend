@@ -58,7 +58,7 @@ class ArranqueDeLaPlataformaTests {
         String estado = jdbc.queryForObject(
                 "select status from user_account where lower(email) = lower(?)", String.class, CORREO);
 
-        assertThat(estado).isEqualTo(AccountStatus.INVITADO.name());
+        assertThat(estado).isEqualTo(AccountStatus.INVITED.name());
     }
 
     @Test

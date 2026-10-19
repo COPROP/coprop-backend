@@ -41,14 +41,14 @@ interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
             select a from AuditLog a
             where a.condominiumId = :condominio
               and a.actor = coalesce(:actor, a.actor)
-              and a.entidad = coalesce(:entidad, a.entidad)
+              and a.entity = coalesce(:entity, a.entity)
               and a.occurredAt >= :desde
               and a.occurredAt < :hasta
             """)
     Page<AuditLog> buscar(
             @Param("condominio") UUID condominio,
             @Param("actor") @Nullable String actor,
-            @Param("entidad") @Nullable String entidad,
+            @Param("entity") @Nullable String entity,
             @Param("desde") Instant desde,
             @Param("hasta") Instant hasta,
             Pageable pagina);
@@ -66,13 +66,13 @@ interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
             select a from AuditLog a
             where a.condominiumId is null
               and a.actor = coalesce(:actor, a.actor)
-              and a.entidad = coalesce(:entidad, a.entidad)
+              and a.entity = coalesce(:entity, a.entity)
               and a.occurredAt >= :desde
               and a.occurredAt < :hasta
             """)
     Page<AuditLog> buscarDePlataforma(
             @Param("actor") @Nullable String actor,
-            @Param("entidad") @Nullable String entidad,
+            @Param("entity") @Nullable String entity,
             @Param("desde") Instant desde,
             @Param("hasta") Instant hasta,
             Pageable pagina);

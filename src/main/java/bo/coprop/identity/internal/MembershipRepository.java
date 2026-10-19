@@ -32,7 +32,7 @@ interface MembershipRepository extends JpaRepository<Membership, UUID> {
             """
             select case when count(m) > 0 then true else false end
             from Membership m join m.roles r
-            where m.accountId = :cuenta and m.validTo is null and m.status = bo.coprop.identity.MembershipStatus.ACTIVA
+            where m.accountId = :cuenta and m.validTo is null and m.status = bo.coprop.identity.MembershipStatus.ACTIVE
               and r in :roles
             """)
     boolean existeVigenteConAlgunRol(@Param("cuenta") UUID cuenta, @Param("roles") Collection<MembershipRole> roles);
@@ -56,7 +56,7 @@ interface MembershipRepository extends JpaRepository<Membership, UUID> {
      * nadie puede invitar a nadie, y recuperarlo exige al superadministrador. Es mas facil impedirlo
      * que arreglarlo.
      *
-     * <p>Exige {@code ACTIVA} ademas de vigente: una membresia suspendida no administra nada
+     * <p>Exige {@code ACTIVE} ademas de vigente: una membresia suspendida no administra nada
      * mientras lo este, asi que contarla dejaria pasar justo el caso que esto evita.
      */
     @Query(
@@ -64,7 +64,7 @@ interface MembershipRepository extends JpaRepository<Membership, UUID> {
             select case when count(m) > 0 then true else false end
             from Membership m join m.roles r
             where m.condominiumId = :condominio and m.validTo is null
-              and m.status = bo.coprop.identity.MembershipStatus.ACTIVA
+              and m.status = bo.coprop.identity.MembershipStatus.ACTIVE
               and r = :rol and m.id <> :salvo
             """)
     boolean existeOtraVigenteConRol(

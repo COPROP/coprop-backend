@@ -128,9 +128,9 @@ class UnitRelationsControllerTests {
         mockMvc.perform(post(ruta(condominio, unidad) + "/ocupantes")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"personId\":\"%s\",\"role\":\"INQUILINO\"}".formatted(inquilino)))
+                        .content("{\"personId\":\"%s\",\"role\":\"TENANT\"}".formatted(inquilino)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.role").value("INQUILINO"));
+                .andExpect(jsonPath("$.role").value("TENANT"));
 
         mockMvc.perform(post(ruta(condominio, unidad) + "/responsables-de-pago")
                         .with(csrf())
@@ -183,7 +183,7 @@ class UnitRelationsControllerTests {
     private UUID condominio(String nit) {
         return condominios
                 .register(
-                        new NewCondominium("Condominio", nit, CondominiumType.EDIFICIO, "America/La_Paz", 1, 15),
+                        new NewCondominium("Condominio", nit, CondominiumType.BUILDING, "America/La_Paz", 1, 15),
                         "admin")
                 .id();
     }
@@ -191,7 +191,7 @@ class UnitRelationsControllerTests {
     private UUID unidad(UUID condominiumId, String code) {
         return unidades.register(
                         condominiumId,
-                        new NewUnit(code, UnitType.DEPARTAMENTO, new BigDecimal("1.000000"), null, null, null),
+                        new NewUnit(code, UnitType.APARTMENT, new BigDecimal("1.000000"), null, null, null),
                         "admin")
                 .id();
     }

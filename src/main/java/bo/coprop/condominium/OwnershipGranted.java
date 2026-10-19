@@ -22,23 +22,23 @@ public record OwnershipGranted(
         implements EventoAuditable {
 
     @Override
-    public String accion() {
-        return "TITULARIDAD_CONCEDIDA";
+    public String action() {
+        return "OWNERSHIP_GRANTED";
     }
 
     @Override
-    public String entidad() {
+    public String entity() {
         return "titularidad";
     }
 
     /** La unidad, por lo mismo que en {@link OwnershipTransferred}: la relacion lleva vigencia. */
     @Override
-    public UUID entidadId() {
+    public UUID entityId() {
         return unitId;
     }
 
     @Override
-    public Map<String, String> despues() {
+    public Map<String, String> newValues() {
         return Map.of("personId", personId.toString(), "share", share.toPlainString());
     }
 }
