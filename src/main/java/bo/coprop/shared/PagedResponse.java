@@ -23,7 +23,7 @@ import org.springframework.data.domain.Page;
  * @param total elementos que hay en total
  * @param totalPaginas paginas que hay en total
  */
-public record PagedResponse<T>(List<T> contenido, int page, int tamano, long total, int totalPages) {
+public record PagedResponse<T>(List<T> content, int page, int size, long total, int totalPages) {
 
     /** Envuelve una pagina de Spring Data convirtiendo cada elemento a su representacion de API. */
     public static <E, T> PagedResponse<T> de(Page<E> page, Function<E, T> aDto) {

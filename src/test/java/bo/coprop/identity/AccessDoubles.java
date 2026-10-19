@@ -47,47 +47,47 @@ public class AccessDoubles {
     /** Anota a quien se le preparo credencial y a quien se le cerraron sesiones. */
     public static class ProveedorDeIdentidadDePrueba implements IdentityProvider {
 
-        private final List<String> preparados = new ArrayList<>();
-        private final List<String> cerrados = new ArrayList<>();
+        private final List<String> prepared = new ArrayList<>();
+        private final List<String> closed = new ArrayList<>();
         private final Map<String, List<ProviderSession>> abiertas = new HashMap<>();
         private volatile boolean falla;
 
         @Override
         public synchronized void prepararCredencial(String email) {
-            preparados.add(email);
+            prepared.add(email);
         }
 
         @Override
         public synchronized void closeSessions(String email) {
             if (falla) {
-                throw new FalloDelProveedorDeIdentidad("Keycloak no contesta (simulado).");
+                throw new IdentityProviderFailure("Keycloak no contesta (simulado).");
             }
-            cerrados.add(email);
+            closed.add(email);
         }
 
         @Override
         public synchronized List<ProviderSession> sessionsOf(String email) {
             if (falla) {
-                throw new FalloDelProveedorDeIdentidad("Keycloak no contesta (simulado).");
+                throw new IdentityProviderFailure("Keycloak no contesta (simulado).");
             }
             return List.copyOf(abiertas.getOrDefault(email, List.of()));
         }
 
         /** Deja a ese correo con una sesion abierta en el proveedor. */
         public synchronized void conSesionAbierta(String email, ProviderSession session) {
-            abiertas.computeIfAbsent(email, cualquiera -> new ArrayList<>()).add(session);
+            abiertas.computeIfAbsent(email, any -> new ArrayList<>()).add(session);
         }
 
-        public synchronized List<String> preparados() {
-            return List.copyOf(preparados);
+        public synchronized List<String> prepared() {
+            return List.copyOf(prepared);
         }
 
         public synchronized long vecesQueSePreparo(String email) {
-            return preparados.stream().filter(email::equals).count();
+            return prepared.stream().filter(email::equals).count();
         }
 
         public synchronized List<String> aQuienSeLeCerraronSesiones() {
-            return List.copyOf(cerrados);
+            return List.copyOf(closed);
         }
 
         /**
@@ -108,8 +108,8 @@ public class AccessDoubles {
          * acumulando.
          */
         public synchronized void reiniciar() {
-            preparados.clear();
-            cerrados.clear();
+            prepared.clear();
+            closed.clear();
             abiertas.clear();
             falla = false;
         }
@@ -118,12 +118,12 @@ public class AccessDoubles {
     /** Cuenta a quien se le pidio cerrar sesiones, en vez de borrar filas de Spring Session. */
     public static class SesionesDePrueba implements Sessions {
 
-        private final List<Set<String>> cerradas = new ArrayList<>();
+        private final List<Set<String>> closed = new ArrayList<>();
         private final Map<String, List<BffSession>> abiertas = new HashMap<>();
 
         @Override
         public synchronized int closeThoseOf(Set<String> names) {
-            cerradas.add(Set.copyOf(names));
+            closed.add(Set.copyOf(names));
             int habia = (int) names.stream()
                     .flatMap(name -> abiertas.getOrDefault(name, List.of()).stream())
                     .map(BffSession::id)
@@ -146,17 +146,17 @@ public class AccessDoubles {
 
         /** Deja una sesion abierta a nombre de ese principal. */
         public synchronized void conSesionAbierta(String name, BffSession session) {
-            abiertas.computeIfAbsent(name, cualquiera -> new ArrayList<>()).add(session);
+            abiertas.computeIfAbsent(name, any -> new ArrayList<>()).add(session);
         }
 
         /** Los conjuntos de nombres con los que se pidio cerrar, en orden. */
-        public synchronized List<Set<String>> cerradas() {
-            return List.copyOf(cerradas);
+        public synchronized List<Set<String>> closed() {
+            return List.copyOf(closed);
         }
 
         /** Por lo mismo que en el otro doble: el bean es del contexto y el contexto se comparte. */
         public synchronized void reiniciar() {
-            cerradas.clear();
+            closed.clear();
             abiertas.clear();
         }
     }

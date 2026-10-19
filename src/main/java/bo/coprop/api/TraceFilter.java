@@ -41,11 +41,11 @@ class TraceFilter extends OncePerRequestFilter {
     static final String CABECERA = "X-Trace-Id";
 
     @Override
-    protected void doFilterInternal(HttpServletRequest peticion, HttpServletResponse response, FilterChain cadena)
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain cadena)
             throws ServletException, IOException {
-        String recibido = peticion.getHeader(CABECERA);
+        String received = request.getHeader(CABECERA);
         String trace =
-                StringUtils.hasText(recibido) ? recibido : UUID.randomUUID().toString();
+                StringUtils.hasText(received) ? received : UUID.randomUUID().toString();
         MDC.put(LogKeys.TRAZA, trace);
         response.setHeader(CABECERA, trace);
 
@@ -57,12 +57,12 @@ class TraceFilter extends OncePerRequestFilter {
         // No se mira X-Forwarded-For a mano: detras de un proxy lo resuelve
         // server.forward-headers-strategy, y hacerlo aqui ademas significaria confiar en una
         // cabecera que cualquiera puede escribir.
-        String desde = peticion.getRemoteAddr();
-        if (StringUtils.hasText(desde)) {
-            MDC.put(LogKeys.IP, desde);
+        String from = request.getRemoteAddr();
+        if (StringUtils.hasText(from)) {
+            MDC.put(LogKeys.IP, from);
         }
         try {
-            cadena.doFilter(peticion, response);
+            cadena.doFilter(request, response);
         } finally {
             MDC.remove(LogKeys.TRAZA);
             MDC.remove(LogKeys.IP);

@@ -45,44 +45,43 @@ class RequestTraceTests {
     @Autowired
     private MockMvc mockMvc;
 
-    private final ListAppender<ILoggingEvent> capturados = new ListAppender<>();
+    private final ListAppender<ILoggingEvent> captured = new ListAppender<>();
     private Logger registroDelControlador;
 
     @BeforeEach
     void captureLogs() {
         registroDelControlador = (Logger) LoggerFactory.getLogger(ControladorQueRegistra.Endpoints.class);
-        capturados.start();
-        registroDelControlador.addAppender(capturados);
+        captured.start();
+        registroDelControlador.addAppender(captured);
         registroDelControlador.setLevel(Level.INFO);
     }
 
     @AfterEach
     void releaseLogs() {
-        registroDelControlador.detachAppender(capturados);
-        capturados.stop();
+        registroDelControlador.detachAppender(captured);
+        captured.stop();
     }
 
     @Test
     @WithMockUser
     @DisplayName("las tres lineas de una request comparten traceId, y es el de la cabecera")
     void allLinesShareTheTrace() throws Exception {
-        MvcResult resultado =
-                mockMvc.perform(get("/api/v1/trazas/varias-lineas")).andReturn();
+        MvcResult result = mockMvc.perform(get("/api/v1/trazas/varias-lineas")).andReturn();
 
-        String deLaCabecera = resultado.getResponse().getHeader("X-Trace-Id");
-        assertThat(deLaCabecera).isNotBlank();
+        String ofTheHeader = result.getResponse().getHeader("X-Trace-Id");
+        assertThat(ofTheHeader).isNotBlank();
 
-        List<ILoggingEvent> eventos = List.copyOf(capturados.list);
+        List<ILoggingEvent> eventos = List.copyOf(captured.list);
         assertThat(eventos).hasSize(3);
-        assertThat(eventos).allSatisfy(evento -> assertThat(evento.getMDCPropertyMap())
-                .containsEntry(LogKeys.TRAZA, deLaCabecera));
+        assertThat(eventos)
+                .allSatisfy(evento -> assertThat(evento.getMDCPropertyMap()).containsEntry(LogKeys.TRAZA, ofTheHeader));
     }
 
     @Test
     @WithMockUser
     @DisplayName("dos requests distintas no comparten traceId")
     void twoRequestsDoNotShareATrace() throws Exception {
-        String primera = mockMvc.perform(get("/api/v1/trazas/varias-lineas"))
+        String first = mockMvc.perform(get("/api/v1/trazas/varias-lineas"))
                 .andReturn()
                 .getResponse()
                 .getHeader("X-Trace-Id");
@@ -91,12 +90,12 @@ class RequestTraceTests {
                 .getResponse()
                 .getHeader("X-Trace-Id");
 
-        assertThat(primera).isNotEqualTo(segunda);
+        assertThat(first).isNotEqualTo(segunda);
 
-        Set<String> traces = capturados.list.stream()
+        Set<String> traces = captured.list.stream()
                 .map(evento -> evento.getMDCPropertyMap().get(LogKeys.TRAZA))
                 .collect(java.util.stream.Collectors.toSet());
-        assertThat(traces).containsExactlyInAnyOrder(primera, segunda);
+        assertThat(traces).containsExactlyInAnyOrder(first, segunda);
     }
 
     /** Controlador de mentira que escribe varias lineas durante una misma peticion. */

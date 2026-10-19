@@ -71,7 +71,7 @@ class ApiAuthenticationTests {
     @Test
     @DisplayName("un token expirado devuelve 401 en problem+json")
     void anExpiredTokenReturns401() throws Exception {
-        String expirado = TestTokenProvider.token(
+        String expired = TestTokenProvider.token(
                 TestTokenProvider.sujetoNuevo(),
                 TestTokenProvider.correoNuevo(),
                 true,
@@ -79,11 +79,11 @@ class ApiAuthenticationTests {
                 TestTokenProvider.AUDIENCIA,
                 TestTokenProvider.CLAVE);
 
-        mockMvc.perform(get("/api/v1/cuentas/" + UUID.randomUUID())
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + expirado))
+        mockMvc.perform(get("/api/v1/accounts/" + UUID.randomUUID())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + expired))
                 .andExpect(status().isUnauthorized())
                 .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
-                .andExpect(jsonPath("$.codigo").value("NO_AUTENTICADO"));
+                .andExpect(jsonPath("$.code").value("NOT_AUTHENTICATED"));
     }
 
     @Test
@@ -91,7 +91,7 @@ class ApiAuthenticationTests {
     void aTokenWithAnInvalidSignatureReturns401() throws Exception {
         // Mismo contenido, otra firma: es el token que trae quien se lo fabrico el solo.
         RSAKey otraClave = new RSAKeyGenerator(2048).keyID("intrusa").generate();
-        String falsificado = TestTokenProvider.token(
+        String forged = TestTokenProvider.token(
                 TestTokenProvider.sujetoNuevo(),
                 TestTokenProvider.correoNuevo(),
                 true,
@@ -99,10 +99,10 @@ class ApiAuthenticationTests {
                 TestTokenProvider.AUDIENCIA,
                 otraClave);
 
-        mockMvc.perform(get("/api/v1/cuentas/" + UUID.randomUUID())
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + falsificado))
+        mockMvc.perform(get("/api/v1/accounts/" + UUID.randomUUID())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + forged))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.codigo").value("NO_AUTENTICADO"));
+                .andExpect(jsonPath("$.code").value("NOT_AUTHENTICATED"));
     }
 
     @Test
@@ -118,7 +118,7 @@ class ApiAuthenticationTests {
                 "account-console",
                 TestTokenProvider.CLAVE);
 
-        mockMvc.perform(get("/api/v1/cuentas/" + UUID.randomUUID())
+        mockMvc.perform(get("/api/v1/accounts/" + UUID.randomUUID())
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + ajeno))
                 .andExpect(status().isUnauthorized());
     }
@@ -126,9 +126,9 @@ class ApiAuthenticationTests {
     @Test
     @DisplayName("sin token no se entra, y la respuesta es la del contrato")
     void withoutATokenThereIsNoEntry() throws Exception {
-        mockMvc.perform(get("/api/v1/cuentas/" + UUID.randomUUID()))
+        mockMvc.perform(get("/api/v1/accounts/" + UUID.randomUUID()))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.codigo").value("NO_AUTENTICADO"));
+                .andExpect(jsonPath("$.code").value("NOT_AUTHENTICATED"));
     }
 
     @Test
@@ -136,15 +136,15 @@ class ApiAuthenticationTests {
     void aTokenWithoutAnAccountSeesNothing() throws Exception {
         // El criterio del issue: autenticarse no es tener acceso. Es exactamente lo que pasara
         // cuando se encienda el login con Google y entre alguien a quien nadie invito.
-        mockMvc.perform(get("/api/v1/cuentas/" + UUID.randomUUID())
+        mockMvc.perform(get("/api/v1/accounts/" + UUID.randomUUID())
                         .header(
                                 HttpHeaders.AUTHORIZATION,
                                 "Bearer "
-                                        + TestTokenProvider.valido(
+                                        + TestTokenProvider.valid(
                                                 TestTokenProvider.sujetoNuevo(), TestTokenProvider.correoNuevo())))
                 .andExpect(status().isForbidden())
                 .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
-                .andExpect(jsonPath("$.codigo").value("SIN_CUENTA"));
+                .andExpect(jsonPath("$.code").value("NO_ACCOUNT"));
     }
 
     @Test
@@ -161,10 +161,10 @@ class ApiAuthenticationTests {
                 TestTokenProvider.AUDIENCIA,
                 TestTokenProvider.CLAVE);
 
-        mockMvc.perform(get("/api/v1/cuentas/" + UUID.randomUUID())
+        mockMvc.perform(get("/api/v1/accounts/" + UUID.randomUUID())
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + sinVerificar))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.codigo").value("SIN_CUENTA"));
+                .andExpect(jsonPath("$.code").value("NO_ACCOUNT"));
     }
 
     @Test
@@ -173,10 +173,10 @@ class ApiAuthenticationTests {
         String email = TestTokenProvider.correoNuevo();
         AccountView account = openAccount(email);
 
-        mockMvc.perform(get("/api/v1/cuentas/" + account.id())
+        mockMvc.perform(get("/api/v1/accounts/" + account.id())
                         .header(
                                 HttpHeaders.AUTHORIZATION,
-                                "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), email)))
+                                "Bearer " + TestTokenProvider.valid(TestTokenProvider.sujetoNuevo(), email)))
                 .andExpect(status().isOk())
                 // Entro invitada y el primer login la deja activa, sin que nadie mas intervenga.
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
@@ -190,20 +190,20 @@ class ApiAuthenticationTests {
         AccountView account = openAccount(email);
 
         // El primero entra y la cuenta queda vinculada a su sujeto.
-        mockMvc.perform(get("/api/v1/cuentas/" + account.id())
+        mockMvc.perform(get("/api/v1/accounts/" + account.id())
                         .header(
                                 HttpHeaders.AUTHORIZATION,
-                                "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), email)))
+                                "Bearer " + TestTokenProvider.valid(TestTokenProvider.sujetoNuevo(), email)))
                 .andExpect(status().isOk());
 
         // El segundo llega con otro sujeto y el mismo correo. El realm no deberia permitir dos
         // identidades con el mismo correo; si alguna vez pasara, la cuenta no cambia de dueño.
-        mockMvc.perform(get("/api/v1/cuentas/" + account.id())
+        mockMvc.perform(get("/api/v1/accounts/" + account.id())
                         .header(
                                 HttpHeaders.AUTHORIZATION,
-                                "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), email)))
+                                "Bearer " + TestTokenProvider.valid(TestTokenProvider.sujetoNuevo(), email)))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.codigo").value("SIN_CUENTA"));
+                .andExpect(jsonPath("$.code").value("NO_ACCOUNT"));
     }
 
     @Test
@@ -212,27 +212,27 @@ class ApiAuthenticationTests {
         String email = TestTokenProvider.correoNuevo();
         AccountView account = openAccount(email);
 
-        var capturados = new ListAppender<ILoggingEvent>();
+        var captured = new ListAppender<ILoggingEvent>();
         var registro = (Logger) LoggerFactory.getLogger(ControladorQueRegistra.Endpoints.class);
-        capturados.start();
-        registro.addAppender(capturados);
+        captured.start();
+        registro.addAppender(captured);
         registro.setLevel(Level.INFO);
         try {
             mockMvc.perform(get("/api/v1/identidad/una-linea")
                             .header(
                                     HttpHeaders.AUTHORIZATION,
-                                    "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), email)))
+                                    "Bearer " + TestTokenProvider.valid(TestTokenProvider.sujetoNuevo(), email)))
                     .andExpect(status().isOk());
 
             // La clave es la que el issue #6 dejo declarada y sin rellenar. Lo que se guarda es la
             // cuenta, que es lo que autentica, y es el mismo valor que acaba como actor en los
             // eventos del dominio.
-            assertThat(capturados.list).singleElement().satisfies(evento -> assertThat(evento.getMDCPropertyMap())
+            assertThat(captured.list).singleElement().satisfies(evento -> assertThat(evento.getMDCPropertyMap())
                     .containsEntry(LogKeys.ACTOR, account.id().toString())
                     .containsKey(LogKeys.TRAZA));
         } finally {
-            registro.detachAppender(capturados);
-            capturados.stop();
+            registro.detachAppender(captured);
+            captured.stop();
         }
     }
 
@@ -254,10 +254,10 @@ class ApiAuthenticationTests {
                         .header(
                                 HttpHeaders.AUTHORIZATION,
                                 "Bearer "
-                                        + TestTokenProvider.valido(
+                                        + TestTokenProvider.valid(
                                                 TestTokenProvider.sujetoNuevo(), TestTokenProvider.correoNuevo())))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.codigo").value("NO_AUTENTICADO"));
+                .andExpect(jsonPath("$.code").value("NOT_AUTHENTICATED"));
     }
 
     /** Controlador de mentira que escribe una linea durante la peticion, para mirarle el MDC. */

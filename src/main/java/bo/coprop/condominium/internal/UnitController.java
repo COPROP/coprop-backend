@@ -30,7 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>El condominio va en la ruta, nunca en el cuerpo: asi no puede haber discrepancia entre uno y
  * otro, que es como se acaba creando una unidad en el condominio equivocado. La forma de la ruta
- * es la que fija Seguridad 5.4, {@code /api/v1/condominios/{condominioId}/...}, y es la misma
+ * es la que fija Seguridad 5.4, {@code /api/v1/condominiums/{condominioId}/...}, y es la misma
  * sobre la que el issue #17 montara el filtro de aislamiento.
  *
  * <p><strong>El condominio de la ruta se comprueba contra el recurso</strong>, no solo se recibe:
@@ -44,7 +44,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @ApiController
 @RestController
-@RequestMapping("/condominios/{condominiumId}")
+@RequestMapping("/condominiums/{condominiumId}")
 class UnitController {
 
     private final Units units;
@@ -54,11 +54,11 @@ class UnitController {
     }
 
     @PreAuthorize("@authorization.can(authentication, 'MANAGE_UNITS')")
-    @PostMapping("/unidades")
+    @PostMapping("/units")
     ResponseEntity<UnitView> alta(
             @PathVariable UUID condominiumId, @Valid @RequestBody NewUnit body, Principal principal) {
         UnitView created = units.register(condominiumId, body, principal.getName());
-        return ResponseEntity.created(URI.create("/api/v1/condominios/" + condominiumId + "/unidades/" + created.id()))
+        return ResponseEntity.created(URI.create("/api/v1/condominiums/" + condominiumId + "/units/" + created.id()))
                 .body(created);
     }
 
@@ -70,22 +70,22 @@ class UnitController {
      * hacerla dos veces.
      */
     @PreAuthorize("@authorization.can(authentication, 'MANAGE_UNITS')")
-    @PostMapping("/unidades/lote")
+    @PostMapping("/units/batch")
     ResponseEntity<List<UnitView>> altaMasiva(
             @PathVariable UUID condominiumId, @Valid @RequestBody UnitBatch batch, Principal principal) {
         return ResponseEntity.status(201).body(units.registerAll(condominiumId, batch.units(), principal.getName()));
     }
 
     @PreAuthorize("@authorization.can(authentication, 'MANAGE_UNITS')")
-    @PostMapping("/bloques")
+    @PostMapping("/blocks")
     ResponseEntity<BlockView> registerBlock(
             @PathVariable UUID condominiumId, @Valid @RequestBody NewBlock body, Principal principal) {
-        BlockView creado = units.addBlock(condominiumId, body.name(), principal.getName());
-        return ResponseEntity.status(201).body(creado);
+        BlockView created = units.addBlock(condominiumId, body.name(), principal.getName());
+        return ResponseEntity.status(201).body(created);
     }
 
     @PreAuthorize("@authorization.can(authentication, 'MANAGE_UNITS')")
-    @PostMapping("/bloques/{blockId}/pisos")
+    @PostMapping("/blocks/{blockId}/floors")
     ResponseEntity<FloorView> registerFloor(
             @PathVariable UUID condominiumId,
             @PathVariable UUID blockId,
@@ -106,7 +106,7 @@ class UnitController {
      * probando identificadores.
      */
     @PreAuthorize("@access.canViewUnit(authentication, #condominiumId, #unitId)")
-    @GetMapping("/unidades/{unitId}")
+    @GetMapping("/units/{unitId}")
     UnitView consultar(@PathVariable UUID condominiumId, @PathVariable UUID unitId) {
         return units.find(condominiumId, unitId);
     }

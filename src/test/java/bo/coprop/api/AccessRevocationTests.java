@@ -72,7 +72,7 @@ class AccessRevocationTests {
     private Memberships memberships;
 
     @Autowired
-    private UnitRelations relaciones;
+    private UnitRelations relations;
 
     @Test
     @DisplayName("tras la baja, el usuario autentica pero no ve el condominio")
@@ -84,7 +84,7 @@ class AccessRevocationTests {
         String token = tokenDe(account);
 
         // Antes: el condominio existe para esta persona y sale en su perfil.
-        mockMvc.perform(get("/api/v1/condominios/{id}", condominium).header(HttpHeaders.AUTHORIZATION, token))
+        mockMvc.perform(get("/api/v1/condominiums/{id}", condominium).header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(status().isOk());
         mockMvc.perform(get("/api/v1/me").header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(status().isOk())
@@ -100,9 +100,9 @@ class AccessRevocationTests {
                 .andExpect(jsonPath("$.condominiums.length()").value(0));
 
         // Pero el condominio ya no existe para ella. 404 y no 403: un 403 confirmaria que esta ahi.
-        mockMvc.perform(get("/api/v1/condominios/{id}", condominium).header(HttpHeaders.AUTHORIZATION, token))
+        mockMvc.perform(get("/api/v1/condominiums/{id}", condominium).header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 
     @Test
@@ -116,7 +116,7 @@ class AccessRevocationTests {
 
         memberships.suspend(condominium, membership.id(), "cuota impaga", "admin");
 
-        mockMvc.perform(get("/api/v1/condominios/{id}", condominium).header(HttpHeaders.AUTHORIZATION, token))
+        mockMvc.perform(get("/api/v1/condominiums/{id}", condominium).header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(status().isNotFound());
         // El perfil no lo lista: ofrecerlo en el selector seria ofrecer una puerta cerrada.
         mockMvc.perform(get("/api/v1/me").header(HttpHeaders.AUTHORIZATION, token))
@@ -127,7 +127,7 @@ class AccessRevocationTests {
 
         // Y vuelve en la siguiente peticion, sin tener que iniciar sesion de nuevo: los roles nunca
         // estuvieron en el token.
-        mockMvc.perform(get("/api/v1/condominios/{id}", condominium).header(HttpHeaders.AUTHORIZATION, token))
+        mockMvc.perform(get("/api/v1/condominiums/{id}", condominium).header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(status().isOk());
         mockMvc.perform(get("/api/v1/me").header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(jsonPath("$.condominiums.length()").value(1));
@@ -137,7 +137,7 @@ class AccessRevocationTests {
     @DisplayName("tras la baja, el administrador sigue viendo la membresia cerrada y a quien vendio")
     void theAdminStillSeesTheHistory() throws Exception {
         UUID condominium = altaDeCondominio();
-        UUID unit = altaDeUnidad(condominium, "BAJA-101");
+        UUID unit = unitRegistration(condominium, "BAJA-101");
 
         AccountView admin = cuentaNueva();
         memberships.grant(condominium, admin.id(), Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
@@ -147,27 +147,27 @@ class AccessRevocationTests {
         PersonView vendedor = people.find(quienSeVa.personId());
         MembershipView suya =
                 memberships.grant(condominium, quienSeVa.id(), Set.of(MembershipRole.OWNER), null, "admin");
-        relaciones.grantOwnership(condominium, unit, vendedor.id(), new BigDecimal("100.000000"), "admin");
+        relations.grantOwnership(condominium, unit, vendedor.id(), new BigDecimal("100.000000"), "admin");
 
         PersonView comprador = people.register(new NewPerson("Quien", "Compra", null), "admin");
-        relaciones.transferOwnership(condominium, unit, vendedor.id(), comprador.id(), "admin");
+        relations.transferOwnership(condominium, unit, vendedor.id(), comprador.id(), "admin");
         memberships.revoke(condominium, suya.id(), "vendio su departamento", "admin");
 
         // El padron de hoy ya no la trae...
-        mockMvc.perform(get("/api/v1/condominios/{id}/membresias", condominium)
+        mockMvc.perform(get("/api/v1/condominiums/{id}/memberships", condominium)
                         .header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.id=='" + suya.id() + "')]").isEmpty());
 
         // ...pero el padron completo si, con su fecha de cierre.
-        mockMvc.perform(get("/api/v1/condominios/{id}/membresias?cerradas=true", condominium)
+        mockMvc.perform(get("/api/v1/condominiums/{id}/memberships?closed=true", condominium)
                         .header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.id=='" + suya.id() + "')].validTo").isNotEmpty());
 
         // Y el historico de la unidad conserva al vendedor, que es con lo que el administrador le da
         // el comprobante de su epoca que pide Seguridad 6.2.
-        mockMvc.perform(get("/api/v1/condominios/{id}/unidades/{unidad}/propietarios/historico", condominium, unit)
+        mockMvc.perform(get("/api/v1/condominiums/{id}/units/{unidad}/owners/history", condominium, unit)
                         .header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
@@ -177,7 +177,7 @@ class AccessRevocationTests {
                         .isEmpty());
 
         // El listado de hoy trae solo al comprador.
-        mockMvc.perform(get("/api/v1/condominios/{id}/unidades/{unidad}/propietarios", condominium, unit)
+        mockMvc.perform(get("/api/v1/condominiums/{id}/units/{unidad}/owners", condominium, unit)
                         .header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
@@ -203,7 +203,7 @@ class AccessRevocationTests {
         return String.valueOf(Math.abs(UUID.randomUUID().getMostSignificantBits() % 1_000_000_0000L));
     }
 
-    private UUID altaDeUnidad(UUID condominium, String code) {
+    private UUID unitRegistration(UUID condominium, String code) {
         return units.register(
                         condominium,
                         new NewUnit(code, UnitType.APARTMENT, new BigDecimal("1.000000"), null, null, null),
@@ -217,6 +217,6 @@ class AccessRevocationTests {
     }
 
     private static String tokenDe(AccountView account) {
-        return "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), account.email());
+        return "Bearer " + TestTokenProvider.valid(TestTokenProvider.sujetoNuevo(), account.email());
     }
 }

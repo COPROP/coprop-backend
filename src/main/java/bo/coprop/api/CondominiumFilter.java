@@ -67,7 +67,7 @@ class CondominiumFilter extends OncePerRequestFilter {
      * el controlador la rechazara como corresponde.
      */
     private static final Pattern RUTA_DE_CONDOMINIO =
-            Pattern.compile(Pattern.quote(RoutesConfiguration.PREFIJO_DE_VERSION + "/condominios/")
+            Pattern.compile(Pattern.quote(RoutesConfiguration.VERSION_PREFIX + "/condominiums/")
                     + "([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})(/.*)?");
 
     private final Memberships memberships;
@@ -79,26 +79,26 @@ class CondominiumFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest peticion, HttpServletResponse response, FilterChain cadena)
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain cadena)
             throws ServletException, IOException {
-        UUID condominium = condominiumOf(peticion.getRequestURI());
+        UUID condominium = condominiumOf(request.getRequestURI());
         if (condominium == null) {
             // Rutas globales: personas, cuentas, el alta de un condominio. Aqui no hay condominio
             // que comprobar. Que el alta de condominios quede sin restriccion es del issue #16.
-            cadena.doFilter(peticion, response);
+            cadena.doFilter(request, response);
             return;
         }
 
         var identity = currentIdentity();
         if (identity == null) {
             // Sin identidad todavia. No es cosa de este filtro: la cadena respondera 401.
-            cadena.doFilter(peticion, response);
+            cadena.doFilter(request, response);
             return;
         }
 
         var actor = (AuthenticatedIdentity.Actor) identity.getPrincipal();
 
-        MembresiaVigente membership = current(condominium, actor.accountId());
+        CurrentMembership membership = current(condominium, actor.accountId());
 
         // El superadministrador no necesita membresia para entrar --su alcance es la plataforma, y
         // sin esto un condominio recien creado no tendria forma de tener a nadie dentro--. Lo que
@@ -110,7 +110,7 @@ class CondominiumFilter extends OncePerRequestFilter {
                     "La cuenta {} pidio el condominio {} sin membresia activa; se responde 404.",
                     actor.accountId(),
                     condominium);
-            problemas.escribir(peticion, response, ErrorCode.NO_ENCONTRADO, "No se encontro el recurso.");
+            problemas.escribir(request, response, ErrorCode.NOT_FOUND, "No se encontro el recurso.");
             return;
         }
 
@@ -125,16 +125,16 @@ class CondominiumFilter extends OncePerRequestFilter {
         // entrar a un condominio, y perderla aqui dejaria sin segundo factor a toda operacion
         // sensible que cuelgue de uno --que son todas las del #22 menos el rol de plataforma--.
         SecurityContextHolder.getContext()
-                .setAuthentication(new AuthenticatedIdentity(actor, identity.autenticacion(), authorities));
-        withCondominiumInTheLog(condominium, peticion, response, cadena);
+                .setAuthentication(new AuthenticatedIdentity(actor, identity.authentication(), authorities));
+        withCondominiumInTheLog(condominium, request, response, cadena);
     }
 
     private static void withCondominiumInTheLog(
-            UUID condominium, HttpServletRequest peticion, HttpServletResponse response, FilterChain cadena)
+            UUID condominium, HttpServletRequest request, HttpServletResponse response, FilterChain cadena)
             throws ServletException, IOException {
         MDC.put(LogKeys.CONDOMINIO, condominium.toString());
         try {
-            cadena.doFilter(peticion, response);
+            cadena.doFilter(request, response);
         } finally {
             MDC.remove(LogKeys.CONDOMINIO);
         }
@@ -146,35 +146,35 @@ class CondominiumFilter extends OncePerRequestFilter {
      * <p>Existe para no tener que preguntar dos veces si hay y si esta activa, que es justo donde se
      * cuela un {@code null} cuando alguien toca esto despues.
      */
-    private record MembresiaVigente(@Nullable MembershipView encontrada) {
+    private record CurrentMembership(@Nullable MembershipView found) {
 
         boolean activa() {
-            return encontrada != null && encontrada.status() == MembershipStatus.ACTIVE;
+            return found != null && found.status() == MembershipStatus.ACTIVE;
         }
 
         MembershipView view() {
-            return java.util.Objects.requireNonNull(encontrada);
+            return java.util.Objects.requireNonNull(found);
         }
     }
 
-    private MembresiaVigente current(UUID condominium, UUID account) {
-        return new MembresiaVigente(memberships.of(condominium, account));
+    private CurrentMembership current(UUID condominium, UUID account) {
+        return new CurrentMembership(memberships.of(condominium, account));
     }
 
     private static boolean esSuperadministrador(AuthenticatedIdentity identity) {
         String deLaPlataforma = "ROLE_" + MembershipRole.PLATFORM_ADMIN.name();
         return identity.getAuthorities().stream()
-                .anyMatch(autoridad -> deLaPlataforma.equals(autoridad.getAuthority()));
+                .anyMatch(authority -> deLaPlataforma.equals(authority.getAuthority()));
     }
 
-    private static @Nullable UUID condominiumOf(String ruta) {
-        var encontrado = RUTA_DE_CONDOMINIO.matcher(ruta);
-        return encontrado.matches() ? UUID.fromString(encontrado.group(1)) : null;
+    private static @Nullable UUID condominiumOf(String path) {
+        var found = RUTA_DE_CONDOMINIO.matcher(path);
+        return found.matches() ? UUID.fromString(found.group(1)) : null;
     }
 
     private static @Nullable AuthenticatedIdentity currentIdentity() {
-        var autenticacion = SecurityContextHolder.getContext().getAuthentication();
-        return autenticacion instanceof AuthenticatedIdentity identity ? identity : null;
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication instanceof AuthenticatedIdentity identity ? identity : null;
     }
 
     /** Con el prefijo {@code ROLE_}, que es el que Spring quita al comparar con {@code hasRole}. */

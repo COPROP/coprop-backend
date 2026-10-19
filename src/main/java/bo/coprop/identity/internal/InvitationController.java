@@ -41,7 +41,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @ApiController
 @RestController
-@RequestMapping("/condominios/{condominiumId}/invitaciones")
+@RequestMapping("/condominiums/{condominiumId}/invitations")
 class InvitationController {
 
     private final Invitations invitations;
@@ -60,7 +60,7 @@ class InvitationController {
             @PathVariable UUID condominiumId, @Valid @RequestBody NewInvitation body, Principal principal) {
         InvitationView issued = invitations.issue(condominiumId, body.accountId(), body.roles(), principal.getName());
         return ResponseEntity.created(
-                        URI.create("/api/v1/condominios/" + condominiumId + "/invitaciones/" + issued.id()))
+                        URI.create("/api/v1/condominiums/" + condominiumId + "/invitations/" + issued.id()))
                 .body(issued);
     }
 
@@ -85,24 +85,24 @@ class InvitationController {
      * invitacion de la URL sigue viva, y lo que queda vivo es su sustituta.
      */
     @PreAuthorize("@authorization.can(authentication, 'INVITE_USERS')")
-    @PostMapping("/{invitationId}/reenvio")
+    @PostMapping("/{invitationId}/resend")
     ResponseEntity<InvitationView> resend(
             @PathVariable UUID condominiumId, @PathVariable UUID invitationId, Principal principal) {
         InvitationView body = invitations.resend(condominiumId, invitationId, principal.getName());
-        return ResponseEntity.created(URI.create("/api/v1/condominios/" + condominiumId + "/invitaciones/" + body.id()))
+        return ResponseEntity.created(URI.create("/api/v1/condominiums/" + condominiumId + "/invitations/" + body.id()))
                 .body(body);
     }
 
     /**
      * Revoca.
      *
-     * <p>{@code POST .../revocacion} y no {@code DELETE}: la fila no se borra, se cierra con una
+     * <p>{@code POST .../revocation} y no {@code DELETE}: la fila no se borra, se cierra con una
      * fecha. Es la misma convencion que la vigencia de todo lo demas --lo que afecta a algo ya
      * emitido se cierra, no se actualiza en sitio-- y lo que el issue #21 querra en la bitacora es
      * precisamente la fila cerrada, no su ausencia.
      */
     @PreAuthorize("@authorization.can(authentication, 'INVITE_USERS')")
-    @PostMapping("/{invitationId}/revocacion")
+    @PostMapping("/{invitationId}/revocation")
     InvitationView revoke(@PathVariable UUID condominiumId, @PathVariable UUID invitationId, Principal principal) {
         return invitations.revoke(condominiumId, invitationId, principal.getName());
     }

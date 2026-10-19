@@ -9,6 +9,6 @@ package bo.coprop.shared;
 public class BusinessRuleViolated extends DomainError {
 
     public BusinessRuleViolated(String message) {
-        super(ErrorCode.REGLA_DE_NEGOCIO, message);
+        super(ErrorCode.BUSINESS_RULE, message);
     }
 }

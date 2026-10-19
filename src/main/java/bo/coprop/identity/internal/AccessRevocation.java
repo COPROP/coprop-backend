@@ -124,14 +124,14 @@ class AccessRevocation {
      * @return si se cerraron. Falso tanto cuando no hacia falta como cuando se intento y fallo, por
      *     lo mismo que en la otra entrada
      */
-    boolean siPierdeAlgunRolAdministrativo(UUID accountId, Set<MembershipRole> retirados) {
-        if (retirados.stream().noneMatch(PermissionMatrix::esAdministrativo)) {
+    boolean siPierdeAlgunRolAdministrativo(UUID accountId, Set<MembershipRole> removed) {
+        if (removed.stream().noneMatch(PermissionMatrix::esAdministrativo)) {
             return false;
         }
         log.info(
                 "A la cuenta {} se le retiraron los roles administrativos {}; se le cierran las sesiones (Seguridad 8).",
                 accountId,
-                retirados);
+                removed);
         return close(accountId).enElProveedor();
     }
 
@@ -154,7 +154,7 @@ class AccessRevocation {
      * que Seguridad 5.3 pone en la tabla--. Por eso no hay nada que condicionar, como en
      * {@link #deTodasFormas}, y por eso devuelve el detalle: lo que se audita es cuantas habia.
      */
-    Cerradas byOwnRequest(UUID accountId) {
+    Closed byOwnRequest(UUID accountId) {
         return close(accountId);
     }
 
@@ -165,7 +165,7 @@ class AccessRevocation {
      * @param enElProveedor si el proveedor tambien cerro las suyas. Falso cuando no contesto, y
      *     entonces la app movil sigue renovando su refresh token
      */
-    record Cerradas(int delBff, boolean enElProveedor) {}
+    record Closed(int delBff, boolean enElProveedor) {}
 
     /**
      * Los dos cierres, y ninguno impide al otro.
@@ -173,13 +173,13 @@ class AccessRevocation {
      * <p>El del BFF primero porque no sale a la red: si el de Keycloak falla, al menos la cookie ya
      * no vale. Al reves, un Keycloak caido dejaria las dos puertas abiertas.
      */
-    private Cerradas close(UUID accountId) {
+    private Closed close(UUID accountId) {
         UserAccount account = accounts.findById(accountId).orElse(null);
         if (account == null) {
             // No puede pasar: la membresia tiene clave foranea a la cuenta. Si pasara, no hay nada
             // que cerrar y tampoco hay nada que reparar aqui.
             log.warn("Se pidio cerrar las sesiones de la cuenta {}, que no existe.", accountId);
-            return new Cerradas(0, false);
+            return new Closed(0, false);
         }
 
         Set<String> names = new HashSet<>();
@@ -192,15 +192,15 @@ class AccessRevocation {
         int delBff = bffSessions.closeThoseOf(names);
         try {
             proveedor.closeSessions(account.getEmail());
-        } catch (IdentityProvider.FalloDelProveedorDeIdentidad fallo) {
+        } catch (IdentityProvider.IdentityProviderFailure failure) {
             log.error(
                     "No se pudieron cerrar las sesiones de la cuenta {} en el proveedor de identidad; se cerraron {} del BFF. La baja NO se deshace: el filtro de condominio ya le niega el acceso en la siguiente peticion. Si tiene la app movil instalada, su refresh token sigue sirviendo hasta que caduque.",
                     accountId,
                     delBff,
-                    fallo);
-            return new Cerradas(delBff, false);
+                    failure);
+            return new Closed(delBff, false);
         }
         log.info("Cerrado el acceso de la cuenta {}: {} sesiones del BFF y las del proveedor.", accountId, delBff);
-        return new Cerradas(delBff, true);
+        return new Closed(delBff, true);
     }
 }

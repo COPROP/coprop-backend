@@ -41,7 +41,7 @@ public interface Identities {
      * @param emailVerificado el {@code email_verified} del token
      */
     @Nullable
-    AccountView signIn(String idpSubject, String email, boolean emailVerificado);
+    AccountView signIn(String idpSubject, String email, boolean emailVerified);
 
     /**
      * Si esa cuenta administra la plataforma (Seguridad 3).

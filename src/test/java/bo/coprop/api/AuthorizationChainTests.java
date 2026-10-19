@@ -1,8 +1,8 @@
 package bo.coprop.api;
 
-import static bo.coprop.api.AuthorizationChainTests.Resultado.NO_ENCONTRADO;
-import static bo.coprop.api.AuthorizationChainTests.Resultado.PERMITIDO;
-import static bo.coprop.api.AuthorizationChainTests.Resultado.PROHIBIDO;
+import static bo.coprop.api.AuthorizationChainTests.Result.NOT_FOUND;
+import static bo.coprop.api.AuthorizationChainTests.Result.PERMITIDO;
+import static bo.coprop.api.AuthorizationChainTests.Result.PROHIBIDO;
 import static bo.coprop.identity.MembershipRole.BOARD;
 import static bo.coprop.identity.MembershipRole.CONDO_ADMIN;
 import static bo.coprop.identity.MembershipRole.FINANCE_ADMIN;
@@ -89,7 +89,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 class AuthorizationChainTests {
 
     /** Lo que la cadena tiene que contestar, que son tres cosas y no dos. */
-    enum Resultado {
+    enum Result {
 
         /**
          * Pasa la autorizacion. No se mira que estado concreto devuelve: que un alta repetida acabe
@@ -106,7 +106,7 @@ class AuthorizationChainTests {
          * indistinguible de uno que no existe, porque si no, quien pregunta puede enumerar el
          * edificio probando identificadores.
          */
-        NO_ENCONTRADO
+        NOT_FOUND
     }
 
     @Autowired
@@ -119,7 +119,7 @@ class AuthorizationChainTests {
     private Units units;
 
     @Autowired
-    private UnitRelations relaciones;
+    private UnitRelations relations;
 
     @Autowired
     private People people;
@@ -200,14 +200,14 @@ class AuthorizationChainTests {
     /** Un token por rol, y la persona y la cuenta detras de el, para preguntar por lo propio. */
     private final Map<MembershipRole, Quien> porRol = new EnumMap<>(MembershipRole.class);
 
-    private record Quien(UUID account, UUID person, String autorizacion) {}
+    private record Quien(UUID account, UUID person, String authorizationHeader) {}
 
     @BeforeAll
     void prepareTheBuildingAndOneAccountPerRole() {
         condominium = altaDeCondominio();
         block = units.addBlock(condominium, "Bloque A", "admin").id();
-        unidadPropia = altaDeUnidad("CAD-PROPIA");
-        unidadAjena = altaDeUnidad("CAD-AJENA");
+        unidadPropia = unitRegistration("CAD-PROPIA");
+        unidadAjena = unitRegistration("CAD-AJENA");
 
         for (MembershipRole rol : MembershipRole.values()) {
             porRol.put(rol, conElRol(rol));
@@ -216,8 +216,8 @@ class AuthorizationChainTests {
         // El propietario y el inquilino de la rejilla tienen relacion vigente con la unidad propia:
         // sin eso, las celdas "Propias" darian 404 y la rejilla no distinguiria un OWN
         // resuelto de un NONE. Son dos de las tres relaciones; la tercera tiene su propio caso.
-        relaciones.grantOwnership(condominium, unidadPropia, person(OWNER), new BigDecimal("50.000000"), "admin");
-        relaciones.grantOccupancy(condominium, unidadPropia, person(TENANT), OccupancyRole.TENANT, "admin");
+        relations.grantOwnership(condominium, unidadPropia, person(OWNER), new BigDecimal("50.000000"), "admin");
+        relations.grantOccupancy(condominium, unidadPropia, person(TENANT), OccupancyRole.TENANT, "admin");
 
         // La membresia que se pide por identificador en la rejilla, de alguien que no es ninguno de
         // los siete: pedir la propia es otra pregunta y la contesta GET /me.
@@ -281,9 +281,9 @@ class AuthorizationChainTests {
                 people.register(new NewPerson("Ocupa", "Ajena", null), "admin").id();
         responsableDeLaAjena =
                 people.register(new NewPerson("Paga", "Ajena", null), "admin").id();
-        relaciones.grantOwnership(condominium, unidadAjena, vendedorDeLaAjena, new BigDecimal("100.000000"), "admin");
-        relaciones.grantOccupancy(condominium, unidadAjena, ocupanteDeLaAjena, OccupancyRole.TENANT, "admin");
-        relaciones.assignBilling(condominium, unidadAjena, responsableDeLaAjena, null, "admin");
+        relations.grantOwnership(condominium, unidadAjena, vendedorDeLaAjena, new BigDecimal("100.000000"), "admin");
+        relations.grantOccupancy(condominium, unidadAjena, ocupanteDeLaAjena, OccupancyRole.TENANT, "admin");
+        relations.assignBilling(condominium, unidadAjena, responsableDeLaAjena, null, "admin");
     }
 
     private UUID altaDeCondominio() {
@@ -305,7 +305,7 @@ class AuthorizationChainTests {
         return String.valueOf(Math.abs(UUID.randomUUID().getMostSignificantBits() % 1_000_000_0000L));
     }
 
-    private UUID altaDeUnidad(String code) {
+    private UUID unitRegistration(String code) {
         return units.register(
                         condominium,
                         new NewUnit(code, UnitType.APARTMENT, new BigDecimal("1.000000"), null, null, null),
@@ -335,7 +335,7 @@ class AuthorizationChainTests {
         } else {
             memberships.grant(condominium, account.id(), Set.of(rol), null, "admin");
         }
-        String token = TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), account.email());
+        String token = TestTokenProvider.valid(TestTokenProvider.sujetoNuevo(), account.email());
         return new Quien(account.id(), person.id(), "Bearer " + token);
     }
 
@@ -358,22 +358,22 @@ class AuthorizationChainTests {
     private record Endpoint(
             String name,
             HttpMethod metodo,
-            String ruta,
+            String path,
             @Nullable String cuerpo,
-            Map<MembershipRole, Resultado> esperado) {}
+            Map<MembershipRole, Result> expected) {}
 
     /**
      * La tabla, una fila por endpoint.
      *
      * <p>Lo que no se declara es {@link Resultado#PROHIBIDO}: es el "--" de la matriz, y escribirlo
      * siete veces por fila taparia lo que cada endpoint si permite. Lo que no se puede omitir son
-     * los {@link Resultado#NO_ENCONTRADO}, porque son los que distinguen un permiso de alcance
+     * los {@link Resultado#NOT_FOUND}, porque son los que distinguen un permiso de alcance
      * propio de uno que no existe.
      */
     private List<Endpoint> endpoints() {
-        String enElCondominio = "/api/v1/condominios/" + condominium;
-        String laUnidad = enElCondominio + "/unidades/" + unidadPropia;
-        String laUnidadAjena = enElCondominio + "/unidades/" + unidadAjena;
+        String enElCondominio = "/api/v1/condominiums/" + condominium;
+        String theUnit = enElCondominio + "/units/" + unidadPropia;
+        String laUnidadAjena = enElCondominio + "/units/" + unidadAjena;
         return List.of(
                 // Verlo solo pide pertenecer, y eso ya lo exigio el filtro del #17. Los siete.
                 new Endpoint("consultar el condominio", HttpMethod.GET, enElCondominio, null, todos()),
@@ -381,18 +381,19 @@ class AuthorizationChainTests {
                 // Las propias sesiones y su cierre: lo que devuelven lo decide la autenticacion, no
                 // un rol, asi que los siete. Van en la rejilla igual que /me --y no porque haya una
                 // celda que discutir-- para que un @PreAuthorize puesto aqui por error salga aqui.
-                new Endpoint("mis sesiones", HttpMethod.GET, "/api/v1/me/sesiones", null, todos()),
-                new Endpoint("cerrar todas mis sesiones", HttpMethod.POST, "/api/v1/me/sesiones/cierre", null, todos()),
+                new Endpoint("mis sesiones", HttpMethod.GET, "/api/v1/me/sessions", null, todos()),
+                new Endpoint(
+                        "cerrar todas mis sesiones", HttpMethod.POST, "/api/v1/me/sessions/closure", null, todos()),
 
                 // Las parametricas y la matriz expuesta: lo que devuelven es la forma de la API y no
                 // datos de nadie, asi que los siete. Entran en la rejilla igual que /me --y no
                 // porque haya una celda que discutir-- para que un @PreAuthorize puesto aqui por
                 // error salga en esta tabla y no en produccion.
-                new Endpoint("el catalogo de parametricas", HttpMethod.GET, "/api/v1/parametricas", null, todos()),
+                new Endpoint("el catalogo de parametricas", HttpMethod.GET, "/api/v1/catalogs", null, todos()),
                 new Endpoint(
                         "la matriz de permisos expuesta",
                         HttpMethod.GET,
-                        "/api/v1/parametricas/matriz-de-permisos",
+                        "/api/v1/catalogs/permission-matrix",
                         null,
                         todos()),
 
@@ -400,67 +401,67 @@ class AuthorizationChainTests {
                 new Endpoint(
                         "dar de alta una unidad",
                         HttpMethod.POST,
-                        enElCondominio + "/unidades",
+                        enElCondominio + "/units",
                         unidadConCodigo(),
                         soloPara(CONDO_ADMIN)),
                 new Endpoint(
                         "alta masiva de unidades",
                         HttpMethod.POST,
-                        enElCondominio + "/unidades/lote",
+                        enElCondominio + "/units/batch",
                         "{\"units\":[" + unidadConCodigo() + "]}",
                         soloPara(CONDO_ADMIN)),
                 new Endpoint(
                         "dar de alta un bloque",
                         HttpMethod.POST,
-                        enElCondominio + "/bloques",
+                        enElCondominio + "/blocks",
                         "{\"name\":\"Bloque " + UUID.randomUUID() + "\"}",
                         soloPara(CONDO_ADMIN)),
                 new Endpoint(
                         "dar de alta un piso",
                         HttpMethod.POST,
-                        enElCondominio + "/bloques/" + block + "/pisos",
+                        enElCondominio + "/blocks/" + block + "/floors",
                         "{\"number\":3}",
                         soloPara(CONDO_ADMIN)),
                 new Endpoint(
                         "registrar un propietario",
                         HttpMethod.POST,
-                        laUnidad + "/propietarios",
+                        theUnit + "/owners",
                         "{\"personId\":\"" + personaSuelta + "\",\"share\":10.0}",
                         soloPara(CONDO_ADMIN)),
                 new Endpoint(
                         "registrar un ocupante",
                         HttpMethod.POST,
-                        laUnidad + "/ocupantes",
+                        theUnit + "/occupants",
                         "{\"personId\":\"" + personaSuelta + "\",\"role\":\"TENANT\"}",
                         soloPara(CONDO_ADMIN)),
                 new Endpoint(
                         "registrar un responsable de pago",
                         HttpMethod.POST,
-                        laUnidad + "/responsables-de-pago",
+                        theUnit + "/billing-responsibles",
                         "{\"personId\":\"" + personaSuelta + "\"}",
                         soloPara(CONDO_ADMIN)),
                 new Endpoint(
                         "dar de alta una persona",
                         HttpMethod.POST,
-                        "/api/v1/personas",
+                        "/api/v1/people",
                         "{\"firstNames\":\"Nueva\",\"lastNames\":\"Persona\"}",
                         soloPara(CONDO_ADMIN)),
                 new Endpoint(
                         "abrir una cuenta",
                         HttpMethod.POST,
-                        "/api/v1/personas/" + personaSinCuenta + "/cuenta",
+                        "/api/v1/people/" + personaSinCuenta + "/account",
                         "{\"email\":\"" + TestTokenProvider.correoNuevo() + "\"}",
                         soloPara(CONDO_ADMIN)),
                 new Endpoint(
                         "consultar una persona ajena",
                         HttpMethod.GET,
-                        "/api/v1/personas/" + personaSuelta,
+                        "/api/v1/people/" + personaSuelta,
                         null,
                         soloPara(CONDO_ADMIN)),
                 new Endpoint(
                         "consultar una cuenta ajena",
                         HttpMethod.GET,
-                        "/api/v1/cuentas/" + cuentaSuelta,
+                        "/api/v1/accounts/" + cuentaSuelta,
                         null,
                         soloPara(CONDO_ADMIN)),
 
@@ -468,13 +469,13 @@ class AuthorizationChainTests {
                 new Endpoint(
                         "listar las membresias",
                         HttpMethod.GET,
-                        enElCondominio + "/membresias",
+                        enElCondominio + "/memberships",
                         null,
                         soloPara(CONDO_ADMIN)),
                 new Endpoint(
                         "consultar una membresia",
                         HttpMethod.GET,
-                        enElCondominio + "/membresias/" + membresiaDelCondominio,
+                        enElCondominio + "/memberships/" + membresiaDelCondominio,
                         null,
                         soloPara(CONDO_ADMIN)),
 
@@ -484,31 +485,31 @@ class AuthorizationChainTests {
                 new Endpoint(
                         "emitir una invitacion",
                         HttpMethod.POST,
-                        enElCondominio + "/invitaciones",
+                        enElCondominio + "/invitations",
                         "{\"accountId\":\"" + cuentaParaInvitar + "\",\"roles\":[\"OWNER\"]}",
                         soloPara(CONDO_ADMIN)),
                 new Endpoint(
                         "listar las invitaciones",
                         HttpMethod.GET,
-                        enElCondominio + "/invitaciones",
+                        enElCondominio + "/invitations",
                         null,
                         soloPara(CONDO_ADMIN)),
                 new Endpoint(
                         "consultar una invitacion",
                         HttpMethod.GET,
-                        enElCondominio + "/invitaciones/" + invitacionAbierta,
+                        enElCondominio + "/invitations/" + invitacionAbierta,
                         null,
                         soloPara(CONDO_ADMIN)),
                 new Endpoint(
                         "reenviar una invitacion",
                         HttpMethod.POST,
-                        enElCondominio + "/invitaciones/" + invitacionAbierta + "/reenvio",
+                        enElCondominio + "/invitations/" + invitacionAbierta + "/resend",
                         null,
                         soloPara(CONDO_ADMIN)),
                 new Endpoint(
                         "revocar una invitacion",
                         HttpMethod.POST,
-                        enElCondominio + "/invitaciones/" + invitacionAbierta + "/revocacion",
+                        enElCondominio + "/invitations/" + invitacionAbierta + "/revocation",
                         null,
                         soloPara(CONDO_ADMIN)),
 
@@ -517,7 +518,7 @@ class AuthorizationChainTests {
                 new Endpoint(
                         "conceder una membresia",
                         HttpMethod.POST,
-                        enElCondominio + "/membresias",
+                        enElCondominio + "/memberships",
                         "{\"accountId\":\"" + cuentaSuelta + "\",\"roles\":[\"OWNER\"]}",
                         soloPara(CONDO_ADMIN)),
 
@@ -527,7 +528,7 @@ class AuthorizationChainTests {
                 new Endpoint(
                         "consultar la auditoria",
                         HttpMethod.GET,
-                        enElCondominio + "/auditoria",
+                        enElCondominio + "/audit-log",
                         null,
                         tabla(Map.of(
                                 PLATFORM_ADMIN, PERMITIDO,
@@ -547,7 +548,7 @@ class AuthorizationChainTests {
                 new Endpoint(
                         "cambiar la configuracion",
                         HttpMethod.PUT,
-                        enElCondominio + "/configuracion",
+                        enElCondominio + "/configuration",
                         "{\"issueDay\":5,\"dueDay\":10}",
                         soloPara(FINANCE_ADMIN)),
 
@@ -555,7 +556,7 @@ class AuthorizationChainTests {
                 new Endpoint(
                         "dar de alta un condominio",
                         HttpMethod.POST,
-                        "/api/v1/condominios",
+                        "/api/v1/condominiums",
                         altaDeCondominioJson(),
                         soloPara(PLATFORM_ADMIN)),
 
@@ -565,16 +566,16 @@ class AuthorizationChainTests {
                 new Endpoint(
                         "consultar la unidad propia",
                         HttpMethod.GET,
-                        laUnidad,
+                        theUnit,
                         null,
                         tabla(Map.of(
                                 CONDO_ADMIN, PERMITIDO,
                                 OWNER, PERMITIDO,
                                 TENANT, PERMITIDO,
-                                PLATFORM_ADMIN, NO_ENCONTRADO,
-                                FINANCE_ADMIN, NO_ENCONTRADO,
-                                MAINTENANCE, NO_ENCONTRADO,
-                                BOARD, NO_ENCONTRADO))),
+                                PLATFORM_ADMIN, NOT_FOUND,
+                                FINANCE_ADMIN, NOT_FOUND,
+                                MAINTENANCE, NOT_FOUND,
+                                BOARD, NOT_FOUND))),
 
                 // Los propietarios de una unidad van por VIEW_ACCOUNT_STATEMENT, que la matriz da
                 // entera a los dos administradores y "Propias" al propietario y al inquilino. Aqui
@@ -582,7 +583,7 @@ class AuthorizationChainTests {
                 new Endpoint(
                         "listar los propietarios de la unidad propia",
                         HttpMethod.GET,
-                        laUnidad + "/propietarios",
+                        theUnit + "/owners",
                         null,
                         tabla(Map.of(
                                 CONDO_ADMIN, PERMITIDO,
@@ -597,19 +598,19 @@ class AuthorizationChainTests {
                 new Endpoint(
                         "dar de baja una membresia",
                         HttpMethod.POST,
-                        enElCondominio + "/membresias/" + membresiaParaDarDeBaja + "/baja",
+                        enElCondominio + "/memberships/" + membresiaParaDarDeBaja + "/termination",
                         reason(),
                         soloPara(CONDO_ADMIN)),
                 new Endpoint(
                         "suspender una membresia",
                         HttpMethod.POST,
-                        enElCondominio + "/membresias/" + membresiaParaSuspender + "/suspension",
+                        enElCondominio + "/memberships/" + membresiaParaSuspender + "/suspension",
                         reason(),
                         soloPara(CONDO_ADMIN)),
                 new Endpoint(
                         "reactivar una membresia",
                         HttpMethod.POST,
-                        enElCondominio + "/membresias/" + membresiaParaReactivar + "/reactivacion",
+                        enElCondominio + "/memberships/" + membresiaParaReactivar + "/reactivation",
                         reason(),
                         soloPara(CONDO_ADMIN)),
 
@@ -620,8 +621,8 @@ class AuthorizationChainTests {
                 new Endpoint(
                         "cambiar los roles de una membresia",
                         HttpMethod.PUT,
-                        enElCondominio + "/membresias/" + membresiaParaCambiarRoles + "/roles",
-                        "{\"roles\":[\"TENANT\"],\"reason\":\"lo decide la rejilla de autorizacion\"}",
+                        enElCondominio + "/memberships/" + membresiaParaCambiarRoles + "/roles",
+                        "{\"roles\":[\"TENANT\"],\"reason\":\"lo decide la rejilla de authorizationHeader\"}",
                         soloPara(CONDO_ADMIN)),
 
                 // El rol de plataforma y la bitacora de plataforma (issue #20). Las tres rutas son
@@ -631,25 +632,25 @@ class AuthorizationChainTests {
                 new Endpoint(
                         "listar los superadministradores",
                         HttpMethod.GET,
-                        "/api/v1/superadministradores",
+                        "/api/v1/platform-admins",
                         null,
                         soloPara(PLATFORM_ADMIN)),
                 new Endpoint(
                         "conceder el rol de plataforma",
                         HttpMethod.POST,
-                        "/api/v1/superadministradores",
+                        "/api/v1/platform-admins",
                         "{\"accountId\":\"" + cuentaParaLaPlataforma + "\"}",
                         soloPara(PLATFORM_ADMIN)),
                 new Endpoint(
                         "revocar el rol de plataforma",
                         HttpMethod.POST,
-                        "/api/v1/superadministradores/" + cuentaConLaPlataformaPuesta + "/revocacion",
+                        "/api/v1/platform-admins/" + cuentaConLaPlataformaPuesta + "/revocation",
                         reason(),
                         soloPara(PLATFORM_ADMIN)),
                 new Endpoint(
                         "consultar la auditoria de plataforma",
                         HttpMethod.GET,
-                        "/api/v1/auditoria",
+                        "/api/v1/audit-log",
                         null,
                         soloPara(PLATFORM_ADMIN)),
 
@@ -660,33 +661,33 @@ class AuthorizationChainTests {
                 new Endpoint(
                         "ver el historico de propietarios",
                         HttpMethod.GET,
-                        laUnidad + "/propietarios/historico",
+                        theUnit + "/owners/history",
                         null,
                         soloPara(CONDO_ADMIN)),
                 new Endpoint(
                         "transferir una unidad",
                         HttpMethod.POST,
-                        laUnidadAjena + "/transferencia",
+                        laUnidadAjena + "/transfer",
                         "{\"fromPersonId\":\"" + vendedorDeLaAjena + "\",\"toPersonId\":\"" + compradorDeLaAjena
                                 + "\"}",
                         soloPara(CONDO_ADMIN)),
                 new Endpoint(
                         "terminar una ocupacion",
                         HttpMethod.DELETE,
-                        laUnidadAjena + "/ocupantes/" + ocupanteDeLaAjena,
+                        laUnidadAjena + "/occupants/" + ocupanteDeLaAjena,
                         null,
                         soloPara(CONDO_ADMIN)),
                 new Endpoint(
                         "terminar una responsabilidad de pago",
                         HttpMethod.DELETE,
-                        laUnidadAjena + "/responsables-de-pago/" + responsableDeLaAjena,
+                        laUnidadAjena + "/billing-responsibles/" + responsableDeLaAjena,
                         null,
                         soloPara(CONDO_ADMIN)));
     }
 
     /** El motivo que piden la baja, la suspension y la reactivacion. Con el minimo de caracteres. */
     private static String reason() {
-        return "{\"reason\":\"lo decide la rejilla de autorizacion\"}";
+        return "{\"reason\":\"lo decide la rejilla de authorizationHeader\"}";
     }
 
     /**
@@ -726,23 +727,23 @@ class AuthorizationChainTests {
                 + "\",\"type\":\"BUILDING\",\"timeZone\":\"America/La_Paz\",\"issueDay\":5,\"dueDay\":10}";
     }
 
-    private static Map<MembershipRole, Resultado> todos() {
-        var completa = new EnumMap<MembershipRole, Resultado>(MembershipRole.class);
+    private static Map<MembershipRole, Result> todos() {
+        var completa = new EnumMap<MembershipRole, Result>(MembershipRole.class);
         for (MembershipRole rol : MembershipRole.values()) {
             completa.put(rol, PERMITIDO);
         }
         return completa;
     }
 
-    private static Map<MembershipRole, Resultado> soloPara(MembershipRole unico) {
+    private static Map<MembershipRole, Result> soloPara(MembershipRole unico) {
         return tabla(Map.of(unico, PERMITIDO));
     }
 
     /** Rellena con {@link Resultado#PROHIBIDO} los roles que la fila no nombra. */
-    private static Map<MembershipRole, Resultado> tabla(Map<MembershipRole, Resultado> declarado) {
-        var completa = new EnumMap<MembershipRole, Resultado>(MembershipRole.class);
+    private static Map<MembershipRole, Result> tabla(Map<MembershipRole, Result> declared) {
+        var completa = new EnumMap<MembershipRole, Result>(MembershipRole.class);
         for (MembershipRole rol : MembershipRole.values()) {
-            completa.put(rol, declarado.getOrDefault(rol, PROHIBIDO));
+            completa.put(rol, declared.getOrDefault(rol, PROHIBIDO));
         }
         return completa;
     }
@@ -755,37 +756,35 @@ class AuthorizationChainTests {
                 casos.add(new Celda(
                         endpoint,
                         rol,
-                        java.util.Objects.requireNonNull(endpoint.esperado().get(rol))));
+                        java.util.Objects.requireNonNull(endpoint.expected().get(rol))));
             }
         }
         return casos;
     }
 
-    private record Celda(Endpoint endpoint, MembershipRole rol, Resultado esperado) {
+    private record Celda(Endpoint endpoint, MembershipRole rol, Result expected) {
 
         @Override
         public String toString() {
-            return "%s con %s da %s".formatted(endpoint.name(), rol, esperado);
+            return "%s con %s da %s".formatted(endpoint.name(), rol, expected);
         }
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("celdas")
     @DisplayName("la rejilla entera: los cuarenta y un endpoints por los siete roles")
-    void laRejillaEntera(Celda celda) throws Exception {
-        var resultado = mockMvc.perform(
-                peticion(celda.endpoint(), principal(celda.rol()).autorizacion()));
+    void theWholeGrid(Celda celda) throws Exception {
+        var result = mockMvc.perform(
+                authorizedRequest(celda.endpoint(), principal(celda.rol()).authorizationHeader()));
 
-        switch (celda.esperado()) {
-            case PERMITIDO -> resultado.andExpect(estadoQueNoSea(403, 404, celda));
+        switch (celda.expected()) {
+            case PERMITIDO -> result.andExpect(estadoQueNoSea(403, 404, celda));
             case PROHIBIDO ->
-                resultado
-                        .andExpect(status().isForbidden())
-                        .andExpect(jsonPath("$.codigo").value("SIN_PERMISO"));
-            case NO_ENCONTRADO ->
-                resultado
-                        .andExpect(status().isNotFound())
-                        .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
+                result.andExpect(status().isForbidden())
+                        .andExpect(jsonPath("$.code").value("NO_PERMISSION"));
+            case NOT_FOUND ->
+                result.andExpect(status().isNotFound())
+                        .andExpect(jsonPath("$.code").value("NOT_FOUND"));
         }
     }
 
@@ -797,19 +796,19 @@ class AuthorizationChainTests {
      * fallo sin nombre obliga a contar filas.
      */
     private static org.springframework.test.web.servlet.ResultMatcher estadoQueNoSea(
-            int unEstado, int otro, Celda celda) {
-        return resultado -> {
-            int status = resultado.getResponse().getStatus();
-            if (status == unEstado || status == otro) {
+            int aStatus, int otro, Celda celda) {
+        return result -> {
+            int status = result.getResponse().getStatus();
+            if (status == aStatus || status == otro) {
                 throw new AssertionError("La celda '%s' respondio %d.".formatted(celda, status));
             }
         };
     }
 
-    private MockHttpServletRequestBuilder peticion(Endpoint endpoint, String autorizacion) {
-        var constructor = request(endpoint.metodo(), endpoint.ruta())
+    private MockHttpServletRequestBuilder authorizedRequest(Endpoint endpoint, String authorizationHeader) {
+        var constructor = request(endpoint.metodo(), endpoint.path())
                 .with(SecurityMockMvcRequestPostProcessors.csrf())
-                .header(HttpHeaders.AUTHORIZATION, autorizacion);
+                .header(HttpHeaders.AUTHORIZATION, authorizationHeader);
         String cuerpo = endpoint.cuerpo();
         if (cuerpo != null) {
             constructor.contentType(MediaType.APPLICATION_JSON).content(cuerpo);
@@ -826,13 +825,13 @@ class AuthorizationChainTests {
         // dos unidades son del MISMO condominio y el propietario tiene membresia activa en el, asi
         // que el 404 no lo pone el filtro del #17 sino la relacion con el recurso. Es la unica
         // forma de probar este eslabon por separado.
-        String owner = principal(OWNER).autorizacion();
+        String owner = principal(OWNER).authorizationHeader();
 
-        mockMvc.perform(peticion(laUnidad(unidadPropia), owner)).andExpect(status().isOk());
+        mockMvc.perform(authorizedRequest(theUnit(unidadPropia), owner)).andExpect(status().isOk());
 
-        mockMvc.perform(peticion(laUnidad(unidadAjena), owner))
+        mockMvc.perform(authorizedRequest(theUnit(unidadAjena), owner))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 
     @Test
@@ -840,10 +839,10 @@ class AuthorizationChainTests {
     void theAdminSeesBoth() throws Exception {
         // El control del caso anterior. Sin esto, una unidad mal sembrada daria 404 a todo el mundo
         // y el 404 del propietario no probaria nada.
-        String administrador = principal(CONDO_ADMIN).autorizacion();
+        String administrador = principal(CONDO_ADMIN).authorizationHeader();
 
-        mockMvc.perform(peticion(laUnidad(unidadPropia), administrador)).andExpect(status().isOk());
-        mockMvc.perform(peticion(laUnidad(unidadAjena), administrador)).andExpect(status().isOk());
+        mockMvc.perform(authorizedRequest(theUnit(unidadPropia), administrador)).andExpect(status().isOk());
+        mockMvc.perform(authorizedRequest(theUnit(unidadAjena), administrador)).andExpect(status().isOk());
     }
 
     @Test
@@ -853,19 +852,19 @@ class AuthorizationChainTests {
         // son intercambiables: a quien le falta el permiso se le dice que le falta, y a quien lo
         // tiene sobre lo suyo se le dice que esto no existe. Al reves, el 403 del propietario
         // confirmaria que esa unidad existe y con eso se enumera el edificio.
-        String ruta = "/api/v1/condominios/" + condominium + "/unidades/" + unidadAjena + "/propietarios";
+        String path = "/api/v1/condominiums/" + condominium + "/units/" + unidadAjena + "/owners";
 
-        mockMvc.perform(request(HttpMethod.GET, ruta)
-                        .header(HttpHeaders.AUTHORIZATION, principal(OWNER).autorizacion()))
+        mockMvc.perform(request(HttpMethod.GET, path)
+                        .header(HttpHeaders.AUTHORIZATION, principal(OWNER).authorizationHeader()))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
 
-        mockMvc.perform(request(HttpMethod.GET, ruta)
+        mockMvc.perform(request(HttpMethod.GET, path)
                         .header(
                                 HttpHeaders.AUTHORIZATION,
-                                principal(MAINTENANCE).autorizacion()))
+                                principal(MAINTENANCE).authorizationHeader()))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.codigo").value("SIN_PERMISO"));
+                .andExpect(jsonPath("$.code").value("NO_PERMISSION"));
     }
 
     @Test
@@ -877,13 +876,13 @@ class AuthorizationChainTests {
         AccountView account = cuentaNueva();
         UUID person = account.personId();
         memberships.grant(condominium, account.id(), Set.of(TENANT), null, "admin");
-        String token = "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), account.email());
+        String token = "Bearer " + TestTokenProvider.valid(TestTokenProvider.sujetoNuevo(), account.email());
 
-        mockMvc.perform(peticion(laUnidad(unidadAjena), token)).andExpect(status().isNotFound());
+        mockMvc.perform(authorizedRequest(theUnit(unidadAjena), token)).andExpect(status().isNotFound());
 
-        relaciones.assignBilling(condominium, unidadAjena, person, null, "admin");
+        relations.assignBilling(condominium, unidadAjena, person, null, "admin");
 
-        mockMvc.perform(peticion(laUnidad(unidadAjena), token)).andExpect(status().isOk());
+        mockMvc.perform(authorizedRequest(theUnit(unidadAjena), token)).andExpect(status().isOk());
     }
 
     @Test
@@ -894,13 +893,13 @@ class AuthorizationChainTests {
         // Location del alta de su cuenta apuntaria a una ruta que a el le responde 403.
         Quien owner = principal(OWNER);
 
-        mockMvc.perform(request(HttpMethod.GET, "/api/v1/personas/" + owner.person())
-                        .header(HttpHeaders.AUTHORIZATION, owner.autorizacion()))
+        mockMvc.perform(request(HttpMethod.GET, "/api/v1/people/" + owner.person())
+                        .header(HttpHeaders.AUTHORIZATION, owner.authorizationHeader()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(owner.person().toString()));
 
-        mockMvc.perform(request(HttpMethod.GET, "/api/v1/cuentas/" + owner.account())
-                        .header(HttpHeaders.AUTHORIZATION, owner.autorizacion()))
+        mockMvc.perform(request(HttpMethod.GET, "/api/v1/accounts/" + owner.account())
+                        .header(HttpHeaders.AUTHORIZATION, owner.authorizationHeader()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(owner.account().toString()));
     }
@@ -917,20 +916,20 @@ class AuthorizationChainTests {
         UUID person = account.personId();
         memberships.grant(condominium, account.id(), Set.of(OWNER), null, "admin");
         memberships.grant(otro, account.id(), Set.of(OWNER), null, "admin");
-        relaciones.grantOwnership(condominium, unidadAjena, person, new BigDecimal("10.000000"), "admin");
+        relations.grantOwnership(condominium, unidadAjena, person, new BigDecimal("10.000000"), "admin");
 
         UUID unidadDelOtro = units.register(
                         otro,
                         new NewUnit("OTRO-1", UnitType.APARTMENT, new BigDecimal("1.000000"), null, null, null),
                         "admin")
                 .id();
-        String token = "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), account.email());
+        String token = "Bearer " + TestTokenProvider.valid(TestTokenProvider.sujetoNuevo(), account.email());
 
-        mockMvc.perform(request(HttpMethod.GET, "/api/v1/condominios/" + condominium + "/unidades/" + unidadAjena)
+        mockMvc.perform(request(HttpMethod.GET, "/api/v1/condominiums/" + condominium + "/units/" + unidadAjena)
                         .header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(request(HttpMethod.GET, "/api/v1/condominios/" + otro + "/unidades/" + unidadDelOtro)
+        mockMvc.perform(request(HttpMethod.GET, "/api/v1/condominiums/" + otro + "/units/" + unidadDelOtro)
                         .header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(status().isNotFound());
     }
@@ -942,17 +941,17 @@ class AuthorizationChainTests {
         // rejilla pasaria igual; es el mismo descuido que en el #16 dejo un permiso de menos en
         // CONDO_ADMIN, y lo cazo justo el test que exigia las columnas completas.
         for (Endpoint endpoint : endpoints()) {
-            assertThat(endpoint.esperado())
+            assertThat(endpoint.expected())
                     .as("el endpoint '%s' no declara los siete roles", endpoint.name())
                     .containsOnlyKeys(MembershipRole.values());
         }
     }
 
-    private Endpoint laUnidad(UUID unit) {
+    private Endpoint theUnit(UUID unit) {
         return new Endpoint(
                 "consultar una unidad",
                 HttpMethod.GET,
-                "/api/v1/condominios/" + condominium + "/unidades/" + unit,
+                "/api/v1/condominiums/" + condominium + "/units/" + unit,
                 null,
                 todos());
     }

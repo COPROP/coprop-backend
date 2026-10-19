@@ -16,7 +16,7 @@ import org.jspecify.annotations.Nullable;
  *
  * <p><strong>Va sin condominio.</strong> Una sesion no es de un edificio --es la del navegador o la
  * del telefono, y vale para todos aquellos en los que la cuenta participe-- asi que esta fila no
- * cabe en la bitacora de un condominio y sale por {@code GET /api/v1/auditoria}. Es el mismo
+ * cabe en la bitacora de un condominio y sale por {@code GET /api/v1/audit-log}. Es el mismo
  * criterio que el rol de plataforma, y por el mismo motivo.
  *
  * <p>El actor es siempre la propia cuenta: hoy nadie cierra las sesiones de otro por esta via. El
@@ -29,7 +29,7 @@ import org.jspecify.annotations.Nullable;
  *     contesto, y entonces la app movil sigue renovando su token: es justo lo que hay que poder
  *     leer un mes despues
  */
-public record SessionsSignedOut(UUID accountId, int cerradas, boolean enElProveedor, String actor, Instant occurredAt)
+public record SessionsSignedOut(UUID accountId, int closed, boolean enElProveedor, String actor, Instant occurredAt)
         implements AuditableEvent {
 
     @Override
@@ -61,6 +61,6 @@ public record SessionsSignedOut(UUID accountId, int cerradas, boolean enElProvee
 
     @Override
     public Map<String, String> newValues() {
-        return Map.of("cerradas", String.valueOf(cerradas), "enElProveedor", String.valueOf(enElProveedor));
+        return Map.of("cerradas", String.valueOf(closed), "enElProveedor", String.valueOf(enElProveedor));
     }
 }

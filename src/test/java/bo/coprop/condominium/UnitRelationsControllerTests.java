@@ -55,7 +55,7 @@ class UnitRelationsControllerTests {
         UUID unit = unit(condominium, "302");
         UUID person = person("5000001");
 
-        mockMvc.perform(post(ruta(condominium, unit) + "/propietarios")
+        mockMvc.perform(post(path(condominium, unit) + "/owners")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"personId\":\"%s\",\"share\":12.5}".formatted(person)))
@@ -76,7 +76,7 @@ class UnitRelationsControllerTests {
         registerOwner(condominium, unit, una, "50.0");
         registerOwner(condominium, unit, otra, "50.0");
 
-        mockMvc.perform(get(ruta(condominium, unit) + "/propietarios"))
+        mockMvc.perform(get(path(condominium, unit) + "/owners"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2));
     }
@@ -90,12 +90,12 @@ class UnitRelationsControllerTests {
         UUID unidadAjena = unit(ajeno, "77");
         UUID person = person("5000004");
 
-        mockMvc.perform(post(ruta(propio, unidadAjena) + "/propietarios")
+        mockMvc.perform(post(path(propio, unidadAjena) + "/owners")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"personId\":\"%s\",\"share\":10.0}".formatted(person)))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 
     @Test
@@ -106,13 +106,13 @@ class UnitRelationsControllerTests {
         UUID unit = unit(condominium, "201");
         UUID person = person("5000005");
 
-        mockMvc.perform(post(ruta(condominium, unit) + "/propietarios")
+        mockMvc.perform(post(path(condominium, unit) + "/owners")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"personId\":\"%s\",\"share\":150.0}".formatted(person)))
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.codigo").value("VALIDACION"))
-                .andExpect(jsonPath("$.errores[0].field").value("share"));
+                .andExpect(jsonPath("$.code").value("VALIDATION"))
+                .andExpect(jsonPath("$.errors[0].field").value("share"));
     }
 
     @Test
@@ -121,23 +121,23 @@ class UnitRelationsControllerTests {
     void theTenantOccupiesAndTheOwnerPays() throws Exception {
         UUID condominium = condominium("4000000006");
         UUID unit = unit(condominium, "501");
-        UUID propietaria = person("5000006");
+        UUID owner = person("5000006");
         UUID inquilino = person("5000007");
-        registerOwner(condominium, unit, propietaria, "100.0");
+        registerOwner(condominium, unit, owner, "100.0");
 
-        mockMvc.perform(post(ruta(condominium, unit) + "/ocupantes")
+        mockMvc.perform(post(path(condominium, unit) + "/occupants")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"personId\":\"%s\",\"role\":\"TENANT\"}".formatted(inquilino)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.role").value("TENANT"));
 
-        mockMvc.perform(post(ruta(condominium, unit) + "/responsables-de-pago")
+        mockMvc.perform(post(path(condominium, unit) + "/billing-responsibles")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"personId\":\"%s\"}".formatted(propietaria)))
+                        .content("{\"personId\":\"%s\"}".formatted(owner)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.personId").value(propietaria.toString()))
+                .andExpect(jsonPath("$.personId").value(owner.toString()))
                 .andExpect(jsonPath("$.conceptId").doesNotExist());
     }
 
@@ -150,30 +150,30 @@ class UnitRelationsControllerTests {
         UUID person = person("5000008");
         registerOwner(condominium, unit, person, "50.0");
 
-        mockMvc.perform(post(ruta(condominium, unit) + "/propietarios")
+        mockMvc.perform(post(path(condominium, unit) + "/owners")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"personId\":\"%s\",\"share\":50.0}".formatted(person)))
-                .andExpect(jsonPath("$.codigo").value("REGLA_DE_NEGOCIO"));
+                .andExpect(jsonPath("$.code").value("BUSINESS_RULE"));
     }
 
     @Test
     @DisplayName("sin autenticar no se registran relaciones")
     void withoutAuthenticatingNothingIsRegistered() throws Exception {
-        mockMvc.perform(post(ruta(UUID.randomUUID(), UUID.randomUUID()) + "/propietarios")
+        mockMvc.perform(post(path(UUID.randomUUID(), UUID.randomUUID()) + "/owners")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"personId\":\"%s\",\"share\":10.0}".formatted(UUID.randomUUID())))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.codigo").value("NO_AUTENTICADO"));
+                .andExpect(jsonPath("$.code").value("NOT_AUTHENTICATED"));
     }
 
-    private static String ruta(UUID condominiumId, UUID unitId) {
-        return "/api/v1/condominios/" + condominiumId + "/unidades/" + unitId;
+    private static String path(UUID condominiumId, UUID unitId) {
+        return "/api/v1/condominiums/" + condominiumId + "/units/" + unitId;
     }
 
     private void registerOwner(UUID condominiumId, UUID unitId, UUID personId, String share) throws Exception {
-        mockMvc.perform(post(ruta(condominiumId, unitId) + "/propietarios")
+        mockMvc.perform(post(path(condominiumId, unitId) + "/owners")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"personId\":\"%s\",\"share\":%s}".formatted(personId, share)))

@@ -47,25 +47,25 @@ class CondominiumsTests {
     @Test
     @DisplayName("un condominio se crea con su configuracion minima y en estado activo")
     void itIsCreatedWithItsMinimalConfig() {
-        CondominiumView creado = condominiums.register(lasPalmas(), "emma");
+        CondominiumView created = condominiums.register(lasPalmas(), "emma");
 
-        assertThat(creado.id()).isNotNull();
-        assertThat(creado.name()).isEqualTo("Las Palmas");
-        assertThat(creado.status()).isEqualTo(CondominiumStatus.ACTIVE);
-        assertThat(creado.currency()).isEqualTo("BOB");
-        assertThat(creado.issueDay()).isEqualTo(1);
-        assertThat(creado.dueDay()).isEqualTo(15);
+        assertThat(created.id()).isNotNull();
+        assertThat(created.name()).isEqualTo("Las Palmas");
+        assertThat(created.status()).isEqualTo(CondominiumStatus.ACTIVE);
+        assertThat(created.currency()).isEqualTo("BOB");
+        assertThat(created.issueDay()).isEqualTo(1);
+        assertThat(created.dueDay()).isEqualTo(15);
 
-        assertThat(condominiums.find(creado.id())).isEqualTo(creado);
+        assertThat(condominiums.find(created.id())).isEqualTo(created);
     }
 
     @Test
     @DisplayName("el alta publica el evento que auditara el #21, con actor y fecha")
-    void elAltaQuedaAuditada(PublishedEvents eventos) {
-        CondominiumView creado = condominiums.register(lasPalmas(), "emma");
+    void theRegistrationIsAudited(PublishedEvents eventos) {
+        CondominiumView created = condominiums.register(lasPalmas(), "emma");
 
         assertThat(eventos.ofType(CondominiumRegistered.class)).singleElement().satisfies(evento -> {
-            assertThat(evento.condominiumId()).isEqualTo(creado.id());
+            assertThat(evento.condominiumId()).isEqualTo(created.id());
             assertThat(evento.name()).isEqualTo("Las Palmas");
             assertThat(evento.actor()).isEqualTo("emma");
             assertThat(evento.occurredAt()).isEqualTo(AHORA);
@@ -75,34 +75,34 @@ class CondominiumsTests {
     @Test
     @DisplayName("cambiar la configuracion no pisa la anterior: la cierra y abre otra")
     void changingTheConfigDoesNotOverwriteThePrevious() {
-        CondominiumView creado = condominiums.register(lasPalmas(), "emma");
+        CondominiumView created = condominiums.register(lasPalmas(), "emma");
 
-        CondominiumView cambiado = condominiums.changeConfig(creado.id(), 5, 20, "emma");
+        CondominiumView changed = condominiums.changeConfig(created.id(), 5, 20, "emma");
 
         // Lo vigente es lo nuevo...
-        assertThat(cambiado.issueDay()).isEqualTo(5);
-        assertThat(cambiado.dueDay()).isEqualTo(20);
-        assertThat(condominiums.find(creado.id()).issueDay()).isEqualTo(5);
+        assertThat(changed.issueDay()).isEqualTo(5);
+        assertThat(changed.dueDay()).isEqualTo(20);
+        assertThat(condominiums.find(created.id()).issueDay()).isEqualTo(5);
 
         // ...y lo anterior sigue existiendo, cerrado. Esto es lo que hara que una obligacion
         // emitida con la configuracion vieja no cambie bajo los pies cuando llegue M2.
-        assertThat(configuracionesDe(creado.id())).isEqualTo(2);
-        assertThat(vigentesDe(creado.id())).isEqualTo(1);
+        assertThat(configuracionesDe(created.id())).isEqualTo(2);
+        assertThat(vigentesDe(created.id())).isEqualTo(1);
     }
 
     @Test
     @DisplayName("el cambio de configuracion dice quien lo hizo y desde que valores")
-    void elCambioDeConfiguracionQuedaAuditado(PublishedEvents eventos) {
-        CondominiumView creado = condominiums.register(lasPalmas(), "emma");
+    void theConfigChangeIsAudited(PublishedEvents eventos) {
+        CondominiumView created = condominiums.register(lasPalmas(), "emma");
 
-        condominiums.changeConfig(creado.id(), 5, 20, "ana");
+        condominiums.changeConfig(created.id(), 5, 20, "ana");
 
         // La fila cerrada ya dice cuando cambio; sin este evento no quedaria quien ni desde que
         // valores, y es el cambio que mueve los vencimientos y la mora (analisis 12.2).
         assertThat(eventos.ofType(CondominiumConfigChanged.class))
                 .singleElement()
                 .satisfies(evento -> {
-                    assertThat(evento.condominiumId()).isEqualTo(creado.id());
+                    assertThat(evento.condominiumId()).isEqualTo(created.id());
                     assertThat(evento.previousIssueDay()).isEqualTo(1);
                     assertThat(evento.previousDueDay()).isEqualTo(15);
                     assertThat(evento.issueDay()).isEqualTo(5);
@@ -134,33 +134,33 @@ class CondominiumsTests {
     @Test
     @DisplayName("editar corrige nombre, NIT y direccion, y la direccion nace nula")
     void editingFixesTheThreeFields() {
-        CondominiumView creado = condominiums.register(lasPalmas(), "emma");
-        assertThat(creado.address()).isNull();
+        CondominiumView created = condominiums.register(lasPalmas(), "emma");
+        assertThat(created.address()).isNull();
 
-        CondominiumView editado =
-                condominiums.edit(creado.id(), "Las Palmas II", "9876543210", "Av. Ballivian 123", "emma");
+        CondominiumView edited =
+                condominiums.edit(created.id(), "Las Palmas II", "9876543210", "Av. Ballivian 123", "emma");
 
-        assertThat(editado.name()).isEqualTo("Las Palmas II");
-        assertThat(editado.nit()).isEqualTo("9876543210");
-        assertThat(editado.address()).isEqualTo("Av. Ballivian 123");
+        assertThat(edited.name()).isEqualTo("Las Palmas II");
+        assertThat(edited.nit()).isEqualTo("9876543210");
+        assertThat(edited.address()).isEqualTo("Av. Ballivian 123");
         // Lo que no se toca: el tipo, el estado, la zona horaria, la moneda y la configuracion
         // siguen como estaban. Es la mitad del valor del caso.
-        assertThat(editado.type()).isEqualTo(creado.type());
-        assertThat(editado.status()).isEqualTo(creado.status());
-        assertThat(editado.timeZone()).isEqualTo(creado.timeZone());
-        assertThat(editado.issueDay()).isEqualTo(creado.issueDay());
-        assertThat(condominiums.find(creado.id())).isEqualTo(editado);
+        assertThat(edited.type()).isEqualTo(created.type());
+        assertThat(edited.status()).isEqualTo(created.status());
+        assertThat(edited.timeZone()).isEqualTo(created.timeZone());
+        assertThat(edited.issueDay()).isEqualTo(created.issueDay());
+        assertThat(condominiums.find(created.id())).isEqualTo(edited);
     }
 
     @Test
     @DisplayName("la edicion publica el evento con los tres campos de oldValues y los tres de newValues")
-    void laEdicionQuedaAuditada(PublishedEvents eventos) {
-        CondominiumView creado = condominiums.register(lasPalmas(), "emma");
+    void theEditIsAudited(PublishedEvents eventos) {
+        CondominiumView created = condominiums.register(lasPalmas(), "emma");
 
-        condominiums.edit(creado.id(), "Las Palmas II", "9876543210", "Av. Ballivian 123", "ana");
+        condominiums.edit(created.id(), "Las Palmas II", "9876543210", "Av. Ballivian 123", "ana");
 
         assertThat(eventos.ofType(CondominiumEdited.class)).singleElement().satisfies(evento -> {
-            assertThat(evento.condominiumId()).isEqualTo(creado.id());
+            assertThat(evento.condominiumId()).isEqualTo(created.id());
             assertThat(evento.actor()).isEqualTo("ana");
             assertThat(evento.occurredAt()).isEqualTo(AHORA);
             // Antes lleva los tres campos aunque solo interese el NIT: la pregunta que se hace un
@@ -179,22 +179,22 @@ class CondominiumsTests {
     @Test
     @DisplayName("corregir solo el nombre, con su propio NIT, no choca consigo mismo")
     void sendingTheSameNitIsNotAClash() {
-        CondominiumView creado = condominiums.register(lasPalmas(), "emma");
+        CondominiumView created = condominiums.register(lasPalmas(), "emma");
 
-        CondominiumView editado = condominiums.edit(creado.id(), "Las Palmas II", creado.nit(), null, "emma");
+        CondominiumView edited = condominiums.edit(created.id(), "Las Palmas II", created.nit(), null, "emma");
 
-        assertThat(editado.name()).isEqualTo("Las Palmas II");
-        assertThat(editado.nit()).isEqualTo(creado.nit());
+        assertThat(edited.name()).isEqualTo("Las Palmas II");
+        assertThat(edited.nit()).isEqualTo(created.nit());
     }
 
     @Test
     @DisplayName("el NIT de otro condominio se rechaza: dos con el mismo NIT serian el mismo")
     void anotherCondominiumsNitIsRejected() {
-        CondominiumView primero = condominiums.register(lasPalmas(), "emma");
+        CondominiumView first = condominiums.register(lasPalmas(), "emma");
         CondominiumView segundo = condominiums.register(
                 new NewCondominium("Bolivar", "5555555555", CondominiumType.HOUSES, "America/La_Paz", 3, 18), "emma");
 
-        assertThatThrownBy(() -> condominiums.edit(segundo.id(), "Bolivar", primero.nit(), null, "emma"))
+        assertThatThrownBy(() -> condominiums.edit(segundo.id(), "Bolivar", first.nit(), null, "emma"))
                 .isInstanceOf(BusinessRuleViolated.class);
 
         assertThat(condominiums.find(segundo.id()).nit()).isEqualTo("5555555555");

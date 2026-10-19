@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Alta y consulta de personas, y apertura de sus cuentas.
  *
  * <p>La ruta no lleva condominio, y es deliberado: la persona y la cuenta son globales (Seguridad
- * 2), asi que no cuelgan de {@code /condominios/{id}} como todo lo demas. Lo que si cuelga del
+ * 2), asi que no cuelgan de {@code /condominiums/{id}} como todo lo demas. Lo que si cuelga del
  * condominio es la membresia, en {@link MembershipController}.
  *
  * <p>Dar de alta personas le toca al administrador de un condominio (#16), y como la ruta es global
@@ -35,7 +35,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @ApiController
 @RestController
-@RequestMapping("/personas")
+@RequestMapping("/people")
 class PersonController {
 
     private final People people;
@@ -59,7 +59,7 @@ class PersonController {
     @PostMapping
     ResponseEntity<PersonView> alta(@Valid @RequestBody NewPerson body, Principal principal) {
         PersonView person = people.register(body, principal.getName());
-        return ResponseEntity.created(URI.create("/api/v1/personas/" + person.id()))
+        return ResponseEntity.created(URI.create("/api/v1/people/" + person.id()))
                 .body(person);
     }
 
@@ -77,11 +77,11 @@ class PersonController {
 
     /** Abre la cuenta con la que la persona entrara. El envio de la invitacion es el issue #18. */
     @PreAuthorize("@authorization.canInAnyCondominium(authentication, 'MANAGE_UNITS')")
-    @PostMapping("/{personId}/cuenta")
+    @PostMapping("/{personId}/account")
     ResponseEntity<AccountView> openAccount(
             @PathVariable UUID personId, @Valid @RequestBody AccountOpening opening, Principal principal) {
         AccountView account = people.openAccount(personId, opening.email(), opening.phone(), principal.getName());
-        return ResponseEntity.created(URI.create("/api/v1/cuentas/" + account.id()))
+        return ResponseEntity.created(URI.create("/api/v1/accounts/" + account.id()))
                 .body(account);
     }
 

@@ -60,7 +60,7 @@ class MeTests {
     private Units units;
 
     @Autowired
-    private UnitRelations relaciones;
+    private UnitRelations relations;
 
     @Autowired
     private People people;
@@ -74,8 +74,8 @@ class MeTests {
     @Test
     @DisplayName("Con dos membresias, la respuesta lista las dos con su rol")
     void withTwoMembershipsBothAreListedWithTheirRole() throws Exception {
-        UUID aurora = condominioLlamado("Aurora");
-        UUID bolivar = condominioLlamado("Bolivar");
+        UUID aurora = condominiumNamed("Aurora");
+        UUID bolivar = condominiumNamed("Bolivar");
         Quien emma = cuentaNueva();
         memberships.grant(aurora, emma.account(), Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
         memberships.grant(bolivar, emma.account(), Set.of(MembershipRole.OWNER, MembershipRole.BOARD), null, "admin");
@@ -96,25 +96,25 @@ class MeTests {
     @Test
     @DisplayName("Un request a un condominio sin membresia devuelve 404")
     void aRequestToACondominiumWithoutMembershipReturns404() throws Exception {
-        UUID propio = condominioLlamado("Propio");
-        UUID ajeno = condominioLlamado("Ajeno");
+        UUID propio = condominiumNamed("Propio");
+        UUID ajeno = condominiumNamed("Ajeno");
         Quien emma = cuentaNueva();
         memberships.grant(propio, emma.account(), Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
 
-        mockMvc.perform(get("/api/v1/condominios/" + ajeno).header(HttpHeaders.AUTHORIZATION, emma.token()))
+        mockMvc.perform(get("/api/v1/condominiums/" + ajeno).header(HttpHeaders.AUTHORIZATION, emma.token()))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
 
         // La otra mitad del criterio: que el 404 no venga de una ruta mal escrita.
-        mockMvc.perform(get("/api/v1/condominios/" + propio).header(HttpHeaders.AUTHORIZATION, emma.token()))
+        mockMvc.perform(get("/api/v1/condominiums/" + propio).header(HttpHeaders.AUTHORIZATION, emma.token()))
                 .andExpect(status().isOk());
     }
 
     @Test
     @DisplayName("El perfil no nombra un condominio en el que no hay membresia")
     void theProfileDoesNotNameACondominiumWithoutMembership() throws Exception {
-        UUID propio = condominioLlamado("Propio");
-        condominioLlamado("Del vecino");
+        UUID propio = condominiumNamed("Propio");
+        condominiumNamed("Del vecino");
         Quien emma = cuentaNueva();
         memberships.grant(propio, emma.account(), Set.of(MembershipRole.OWNER), null, "admin");
 
@@ -129,7 +129,7 @@ class MeTests {
     @Test
     @DisplayName("Una membresia suspendida no se lista")
     void aSuspendedMembershipIsNotListed() throws Exception {
-        UUID condominium = condominioLlamado("Suspendido");
+        UUID condominium = condominiumNamed("Suspendido");
         Quien emma = cuentaNueva();
         UUID membership = memberships
                 .grant(condominium, emma.account(), Set.of(MembershipRole.OWNER), null, "admin")
@@ -149,22 +149,22 @@ class MeTests {
     @Test
     @DisplayName("Quien no tiene ninguna membresia recibe 200 con la lista vacia")
     void someoneWithNoMembershipGets200WithAnEmptyList() throws Exception {
-        condominioLlamado("Ninguno mio");
-        Quien recienLlegada = cuentaNueva();
+        condominiumNamed("Ninguno mio");
+        Quien justArrived = cuentaNueva();
 
         // Ni 404 ni 403: la pregunta es sobre uno mismo y la respuesta correcta es "existes y no
         // estas en ningun condominio". Es el caso del superadministrador que abre el arranque, que
         // es justo quien tiene que poder crear el primero.
-        mockMvc.perform(get(ME).header(HttpHeaders.AUTHORIZATION, recienLlegada.token()))
+        mockMvc.perform(get(ME).header(HttpHeaders.AUTHORIZATION, justArrived.token()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.condominiums").isEmpty())
-                .andExpect(jsonPath("$.person.id").value(recienLlegada.person().toString()));
+                .andExpect(jsonPath("$.person.id").value(justArrived.person().toString()));
     }
 
     @Test
     @DisplayName("Cada unidad aparece una vez con todos sus papeles")
     void eachUnitAppearsOnceWithAllItsRoles() throws Exception {
-        UUID condominium = condominioLlamado("Con unidades");
+        UUID condominium = condominiumNamed("Con unidades");
         Quien emma = cuentaNueva();
         memberships.grant(condominium, emma.account(), Set.of(MembershipRole.OWNER), null, "admin");
         UUID suya = unit(condominium, "A-1");
@@ -172,9 +172,9 @@ class MeTests {
 
         // El reparto normal de un alquiler: de la suya es propietaria y responde por los cobros; la
         // otra solo la ocupa.
-        relaciones.grantOwnership(condominium, suya, emma.person(), new BigDecimal("100.00"), "admin");
-        relaciones.assignBilling(condominium, suya, emma.person(), null, "admin");
-        relaciones.grantOccupancy(condominium, queOcupa, emma.person(), OccupancyRole.TENANT, "admin");
+        relations.grantOwnership(condominium, suya, emma.person(), new BigDecimal("100.00"), "admin");
+        relations.assignBilling(condominium, suya, emma.person(), null, "admin");
+        relations.grantOccupancy(condominium, queOcupa, emma.person(), OccupancyRole.TENANT, "admin");
 
         mockMvc.perform(get(ME).header(HttpHeaders.AUTHORIZATION, emma.token()))
                 .andExpect(status().isOk())
@@ -189,12 +189,12 @@ class MeTests {
     @Test
     @DisplayName("Las unidades de un condominio no se cuelgan de otro")
     void theUnitsOfOneCondominiumDoNotHangFromAnother() throws Exception {
-        UUID uno = condominioLlamado("Uno");
-        UUID otro = condominioLlamado("Otro");
+        UUID uno = condominiumNamed("Uno");
+        UUID otro = condominiumNamed("Otro");
         Quien emma = cuentaNueva();
         memberships.grant(uno, emma.account(), Set.of(MembershipRole.OWNER), null, "admin");
         memberships.grant(otro, emma.account(), Set.of(MembershipRole.OWNER), null, "admin");
-        relaciones.grantOwnership(uno, unit(uno, "U-1"), emma.person(), new BigDecimal("100.00"), "admin");
+        relations.grantOwnership(uno, unit(uno, "U-1"), emma.person(), new BigDecimal("100.00"), "admin");
 
         mockMvc.perform(get(ME).header(HttpHeaders.AUTHORIZATION, emma.token()))
                 .andExpect(status().isOk())
@@ -207,7 +207,7 @@ class MeTests {
     @Test
     @DisplayName("El superadministrador se anuncia aparte y no como rol de un condominio")
     void thePlatformAdminIsAnnouncedApartAndNotAsACondominiumRole() throws Exception {
-        UUID condominium = condominioLlamado("De la plataforma");
+        UUID condominium = condominiumNamed("De la plataforma");
         Quien principal = cuentaNueva();
         new JdbcTemplate(dataSource)
                 .update("insert into platform_admin (user_id, granted_at) values (?, now())", principal.account());
@@ -226,21 +226,21 @@ class MeTests {
     void withoutAValidTokenThereIsNoProfile() throws Exception {
         mockMvc.perform(get(ME).header(HttpHeaders.AUTHORIZATION, "Bearer no-es-un-token"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.codigo").value("NO_AUTENTICADO"));
+                .andExpect(jsonPath("$.code").value("NOT_AUTHENTICATED"));
     }
 
     @Test
     @DisplayName("Un token valido de quien no tiene cuenta en COPROP no da perfil")
     void aValidTokenFromSomeoneWithoutACopropAccountGivesNoProfile() throws Exception {
         String token =
-                "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), TestTokenProvider.correoNuevo());
+                "Bearer " + TestTokenProvider.valid(TestTokenProvider.sujetoNuevo(), TestTokenProvider.correoNuevo());
 
         // Lo rechaza el filtro de identidad, no este endpoint: autenticarse no reparte acceso
         // (Seguridad 10.1). Esta aqui porque es el primer sitio al que llega un cliente recien
         // logueado, y es donde se notaria si ese filtro dejara de correr.
         mockMvc.perform(get(ME).header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.codigo").value("SIN_CUENTA"));
+                .andExpect(jsonPath("$.code").value("NO_ACCOUNT"));
     }
 
     /** Una cuenta recien abierta, con su persona y el token con el que entra. */
@@ -249,11 +249,11 @@ class MeTests {
     private Quien cuentaNueva() {
         PersonView person = people.register(new NewPerson("Emma", "Tola", null), "admin");
         AccountView account = people.openAccount(person.id(), TestTokenProvider.correoNuevo(), null, "admin");
-        String token = "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), account.email());
+        String token = "Bearer " + TestTokenProvider.valid(TestTokenProvider.sujetoNuevo(), account.email());
         return new Quien(person.id(), account.id(), account.email(), token);
     }
 
-    private UUID condominioLlamado(String name) {
+    private UUID condominiumNamed(String name) {
         return condominiums
                 .register(
                         new NewCondominium(name, nitNuevo(), CondominiumType.BUILDING, "America/La_Paz", 5, 10),

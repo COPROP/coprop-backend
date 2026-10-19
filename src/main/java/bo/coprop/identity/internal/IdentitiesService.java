@@ -79,14 +79,14 @@ class IdentitiesService implements Identities {
         }
 
         Instant ahora = clock.instant();
-        PlatformAdmin concedido = superadministradores.save(new PlatformAdmin(accountId, quienConcede, ahora));
+        PlatformAdmin granted = superadministradores.save(new PlatformAdmin(accountId, quienConcede, ahora));
         eventos.publishEvent(new PlatformAdminGranted(accountId, quienConcede, ahora));
 
         log.warn(
                 "La cuenta {} administra la plataforma desde ahora; se lo concedio {}. Crea condominios y puede abrir accesos de soporte (Seguridad 10.1).",
                 accountId,
                 actor);
-        return view(concedido);
+        return view(granted);
     }
 
     @Override
@@ -124,15 +124,15 @@ class IdentitiesService implements Identities {
 
     @Override
     @Transactional
-    public @Nullable AccountView signIn(String idpSubject, String email, boolean emailVerificado) {
+    public @Nullable AccountView signIn(String idpSubject, String email, boolean emailVerified) {
         Instant ahora = clock.instant();
 
         // El camino de siempre: la cuenta ya se vinculo y se reconoce por el sujeto. Va primero
         // porque es el de todos los logins menos uno, y porque el correo puede cambiar en el
         // proveedor sin que la cuenta deje de ser la misma.
-        Optional<UserAccount> vinculada = accounts.findByIdpSubject(idpSubject);
-        if (vinculada.isPresent()) {
-            UserAccount account = vinculada.get();
+        Optional<UserAccount> linked = accounts.findByIdpSubject(idpSubject);
+        if (linked.isPresent()) {
+            UserAccount account = linked.get();
             if (!account.canSignIn()) {
                 log.info("Acceso denegado: la cuenta {} esta en estado {}.", account.getId(), account.getStatus());
                 return null;
@@ -145,7 +145,7 @@ class IdentitiesService implements Identities {
         // Google caigan en la misma cuenta, y eso solo vale si el proveedor garantiza que el correo
         // es de quien dice. Sin esa garantia, cualquiera que pudiera registrar una cuenta con el
         // correo ajeno se quedaria con la cuenta de COPROP de esa persona.
-        if (!emailVerificado) {
+        if (!emailVerified) {
             log.warn("Primer login rechazado: el token trae {} sin verificar.", email);
             return null;
         }
@@ -206,7 +206,7 @@ class IdentitiesService implements Identities {
                     null,
                     session.created(),
                     session.lastAccess(),
-                    session.lastAccess().plus(session.inactividad())));
+                    session.lastAccess().plus(session.inactivity())));
         }
         try {
             for (var session : proveedor.sessionsOf(account.getEmail())) {
@@ -218,14 +218,14 @@ class IdentitiesService implements Identities {
                         session.lastAccess(),
                         null));
             }
-        } catch (IdentityProvider.FalloDelProveedorDeIdentidad fallo) {
+        } catch (IdentityProvider.IdentityProviderFailure failure) {
             // Media lista es mejor que ninguna: quien mira esta pantalla esta intentando averiguar
             // si le robaron la cuenta, y dejarle sin respuesta porque Keycloak no contesta no le
             // ayuda a decidir nada. Lo que no se puede hacer es callarlo en el log.
             log.error(
                     "No se pudieron listar las sesiones de la cuenta {} en el proveedor de identidad; se devuelven solo las del navegador. La lista que ve el usuario esta INCOMPLETA.",
                     accountId,
-                    fallo);
+                    failure);
         }
         todas.sort(java.util.Comparator.comparing(ActiveSessionView::lastAccess).reversed());
         return List.copyOf(todas);
@@ -237,16 +237,16 @@ class IdentitiesService implements Identities {
         UserAccount account =
                 accounts.findById(accountId).orElseThrow(() -> ResourceNotFound.de("la cuenta", accountId));
 
-        AccessRevocation.Cerradas cerradas = cierre.byOwnRequest(account.getId());
+        AccessRevocation.Closed closed = cierre.byOwnRequest(account.getId());
         eventos.publishEvent(
-                new SessionsSignedOut(accountId, cerradas.delBff(), cerradas.enElProveedor(), actor, clock.instant()));
+                new SessionsSignedOut(accountId, closed.delBff(), closed.enElProveedor(), actor, clock.instant()));
 
         log.warn(
                 "La cuenta {} cerro todas sus sesiones: {} del navegador, y en el proveedor {} (Seguridad 5.3).",
                 accountId,
-                cerradas.delBff(),
-                cerradas.enElProveedor() ? "tambien" : "NO");
-        return cerradas.delBff();
+                closed.delBff(),
+                closed.enElProveedor() ? "tambien" : "NO");
+        return closed.delBff();
     }
 
     /**

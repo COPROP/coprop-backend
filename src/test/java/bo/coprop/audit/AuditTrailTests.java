@@ -74,7 +74,7 @@ class AuditTrailTests {
     private Units units;
 
     @Autowired
-    private UnitRelations relaciones;
+    private UnitRelations relations;
 
     @Autowired
     private DataSource fuenteDeDatos;
@@ -119,7 +119,7 @@ class AuditTrailTests {
     private List<AuditEntryView> delCondominio() {
         return auditTrail
                 .ofCondominium(condominium, null, null, null, null, 0, 100)
-                .contenido();
+                .content();
     }
 
     /**
@@ -130,7 +130,7 @@ class AuditTrailTests {
      * asi que lo que hay ahi lo escribieron tambien los demas casos.
      */
     private List<AuditEntryView> deLaPlataforma() {
-        return auditTrail.ofPlatform(null, null, null, null, 0, 200).contenido();
+        return auditTrail.ofPlatform(null, null, null, null, 0, 200).content();
     }
 
     /**
@@ -176,11 +176,11 @@ class AuditTrailTests {
     @Test
     @DisplayName("conceder una membresia queda en la bitacora, con sus roles")
     void theMembershipIsRecorded() {
-        UUID invitada = cuentaNueva().id();
+        UUID invited = cuentaNueva().id();
 
         memberships.grant(
                 condominium,
-                invitada,
+                invited,
                 Set.of(MembershipRole.OWNER, MembershipRole.BOARD),
                 null,
                 administradora.toString());
@@ -192,7 +192,7 @@ class AuditTrailTests {
         // Antes es nulo porque no habia nada antes: la membresia nace aqui. Vacio querria decir
         // "existia y no tenia valores", que no es lo mismo.
         assertThat(fila.oldValues()).isNull();
-        assertThat(fila.newValues()).containsEntry("accountId", invitada.toString());
+        assertThat(fila.newValues()).containsEntry("accountId", invited.toString());
         // Ordenados al escribirlos, para que dos filas con los mismos roles se vean iguales.
         assertThat(fila.newValues()).containsEntry("roles", "BOARD,OWNER");
     }
@@ -217,20 +217,20 @@ class AuditTrailTests {
     void theInvitationsAreRecorded() {
         // Es el tercer criterio de aceptacion del issue #18, que quedo esperando a este modulo.
         memberships.grant(condominium, administradora, Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
-        AccountView unaInvitada = cuentaNueva();
-        AccountView otraInvitada = cuentaNueva();
+        AccountView anInvitee = cuentaNueva();
+        AccountView anotherInvitee = cuentaNueva();
 
         UUID aRevocar = invitations
-                .issue(condominium, unaInvitada.id(), Set.of(MembershipRole.OWNER), administradora.toString())
+                .issue(condominium, anInvitee.id(), Set.of(MembershipRole.OWNER), administradora.toString())
                 .id();
         invitations.revoke(condominium, aRevocar, administradora.toString());
 
-        invitations.issue(condominium, otraInvitada.id(), Set.of(MembershipRole.TENANT), administradora.toString());
-        invitations.accept(tokenDe(otraInvitada), otraInvitada.id());
+        invitations.issue(condominium, anotherInvitee.id(), Set.of(MembershipRole.TENANT), administradora.toString());
+        invitations.accept(tokenDe(anotherInvitee), anotherInvitee.id());
 
         assertThat(laFilaDe("INVITATION_ISSUED").entity()).isEqualTo("invitacion");
         assertThat(laFilaDe("INVITATION_REVOKED").oldValues())
-                .containsEntry("accountId", unaInvitada.id().toString());
+                .containsEntry("accountId", anInvitee.id().toString());
         assertThat(laFilaDe("INVITATION_ACCEPTED").newValues()).containsKey("membershipId");
     }
 
@@ -240,11 +240,11 @@ class AuditTrailTests {
         // Quien lee la bitacora busca "a quien se invito" o "a quien hubo que insistirle". Con una
         // bandera dentro del JSON eso no se filtra.
         memberships.grant(condominium, administradora, Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
-        UUID primera = invitations
+        UUID first = invitations
                 .issue(condominium, cuentaNueva().id(), Set.of(MembershipRole.OWNER), administradora.toString())
                 .id();
 
-        invitations.resend(condominium, primera, administradora.toString());
+        invitations.resend(condominium, first, administradora.toString());
 
         laFilaDe("INVITATION_RESENT");
         laFilaDe("INVITATION_REVOKED_BY_RESEND");
@@ -303,9 +303,9 @@ class AuditTrailTests {
                 people.register(new NewPerson("Vende", "Perez", null), "admin").id();
         UUID comprador =
                 people.register(new NewPerson("Compra", "Perez", null), "admin").id();
-        relaciones.grantOwnership(condominium, unit, vendedor, new BigDecimal("100.000000"), administradora.toString());
+        relations.grantOwnership(condominium, unit, vendedor, new BigDecimal("100.000000"), administradora.toString());
 
-        relaciones.transferOwnership(condominium, unit, vendedor, comprador, administradora.toString());
+        relations.transferOwnership(condominium, unit, vendedor, comprador, administradora.toString());
 
         // Un evento propio y no dos --una cerrada y otra abierta-- porque lo que hay que poder
         // reconstruir dentro de un año es la venta, con sus dos lados.
@@ -509,11 +509,11 @@ class AuditTrailTests {
     private List<AuditEntryView> filtrando(
             @org.jspecify.annotations.Nullable String actor,
             @org.jspecify.annotations.Nullable String entity,
-            @org.jspecify.annotations.Nullable Instant desde,
+            @org.jspecify.annotations.Nullable Instant from,
             @org.jspecify.annotations.Nullable Instant until) {
         return auditTrail
-                .ofCondominium(condominium, actor, entity, desde, until, 0, 100)
-                .contenido();
+                .ofCondominium(condominium, actor, entity, from, until, 0, 100)
+                .content();
     }
 
     @Test
@@ -526,21 +526,21 @@ class AuditTrailTests {
         // Cuatro y no tres: el alta del condominio tambien esta, escrita por el @BeforeEach.
         assertThat(delCondominio()).hasSize(4);
 
-        PagedResponse<AuditEntryView> primera = auditTrail.ofCondominium(condominium, null, null, null, null, 0, 2);
-        assertThat(primera.contenido()).hasSize(2);
-        assertThat(primera.total()).isEqualTo(4);
-        assertThat(primera.totalPages()).isEqualTo(2);
-        assertThat(primera.page()).isZero();
+        PagedResponse<AuditEntryView> first = auditTrail.ofCondominium(condominium, null, null, null, null, 0, 2);
+        assertThat(first.content()).hasSize(2);
+        assertThat(first.total()).isEqualTo(4);
+        assertThat(first.totalPages()).isEqualTo(2);
+        assertThat(first.page()).isZero();
 
         // Lo mas reciente primero: una bitacora se lee empezando por lo ultimo.
-        assertThat(primera.contenido().get(0).newValues()).containsEntry("issueDay", "7");
-        assertThat(primera.contenido().get(1).newValues()).containsEntry("issueDay", "6");
+        assertThat(first.content().get(0).newValues()).containsEntry("issueDay", "7");
+        assertThat(first.content().get(1).newValues()).containsEntry("issueDay", "6");
 
         PagedResponse<AuditEntryView> segunda = auditTrail.ofCondominium(condominium, null, null, null, null, 1, 2);
-        assertThat(segunda.contenido()).hasSize(2);
-        assertThat(segunda.contenido().get(0).newValues()).containsEntry("issueDay", "5");
+        assertThat(segunda.content()).hasSize(2);
+        assertThat(segunda.content().get(0).newValues()).containsEntry("issueDay", "5");
         // Y al final de todo, el alta: es lo primero que le paso a este condominio.
-        assertThat(segunda.contenido().get(1).action()).isEqualTo("CONDOMINIUM_REGISTERED");
+        assertThat(segunda.content().get(1).action()).isEqualTo("CONDOMINIUM_REGISTERED");
     }
 
     // --- La retencion del año ----------------------------------------------------------------
@@ -609,7 +609,7 @@ class AuditTrailTests {
 
         mockMvc.perform(
                         org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(
-                                        "/api/v1/condominios/" + condominium + "/configuracion")
+                                        "/api/v1/condominiums/" + condominium + "/configuration")
                                 .with(org.springframework.security.test.web.servlet.request
                                         .SecurityMockMvcRequestPostProcessors.csrf())
                                 .with(org.springframework.security.test.web.servlet.request

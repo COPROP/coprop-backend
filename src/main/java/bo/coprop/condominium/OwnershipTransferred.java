@@ -32,7 +32,7 @@ public record OwnershipTransferred(
         UUID fromPersonId,
         UUID toPersonId,
         BigDecimal share,
-        int relacionesCerradas,
+        int closedRelations,
         String actor,
         Instant occurredAt)
         implements AuditableEvent {
@@ -72,6 +72,6 @@ public record OwnershipTransferred(
                 "share",
                 share.toPlainString(),
                 "relacionesCerradas",
-                String.valueOf(relacionesCerradas));
+                String.valueOf(closedRelations));
     }
 }

@@ -52,7 +52,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @ApiController
 @RestController
-@RequestMapping("/parametricas")
+@RequestMapping("/catalogs")
 class CatalogsController {
 
     /**
@@ -81,13 +81,13 @@ class CatalogsController {
     @GetMapping
     Catalogs consultar() {
         var catalogo = new TreeMap<String, List<String>>();
-        for (Class<? extends Enum<?>> enumeracion : ENUMERACIONES) {
-            catalogo.put(enumeracion.getSimpleName(), valoresDe(enumeracion));
+        for (Class<? extends Enum<?>> enumeration : ENUMERACIONES) {
+            catalogo.put(enumeration.getSimpleName(), valoresDe(enumeration));
         }
         return new Catalogs(catalogo);
     }
 
-    @GetMapping("/matriz-de-permisos")
+    @GetMapping("/permission-matrix")
     RolePermissionMatrix matriz() {
         var filas = new ArrayList<RolePermissionMatrix.Row>();
         for (Permission permission : Permission.values()) {
@@ -111,8 +111,8 @@ class CatalogsController {
      * deduce del parametro que aqui no puede serlo, asi que el nulo se trata en vez de anotarse como
      * imposible. La lista vacia no llega a ocurrir: la rama existe para el analizador.
      */
-    private static List<String> valoresDe(Class<? extends Enum<?>> enumeracion) {
-        Enum<?>[] valores = enumeracion.getEnumConstants();
+    private static List<String> valoresDe(Class<? extends Enum<?>> enumeration) {
+        Enum<?>[] valores = enumeration.getEnumConstants();
         return valores == null
                 ? List.of()
                 : Arrays.stream(valores).map(Enum::name).toList();

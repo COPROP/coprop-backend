@@ -72,5 +72,5 @@ public interface Sessions {
      * @param ultimoAcceso la ultima peticion que la uso
      * @param inactividad cuanto aguanta sin usarse, ya resuelta por rol (Seguridad 5.3)
      */
-    record BffSession(String id, Instant created, Instant lastAccess, Duration inactividad) {}
+    record BffSession(String id, Instant created, Instant lastAccess, Duration inactivity) {}
 }

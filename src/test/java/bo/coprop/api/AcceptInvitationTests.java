@@ -84,19 +84,19 @@ class AcceptInvitationTests {
 
         // La invitada: persona y cuenta ya dadas de alta por la administradora (el orden de 6.1), y
         // sin haber entrado nunca.
-        AccountView invitada = cuentaNueva();
-        UUID personaDeLaInvitada = invitada.personId();
+        AccountView invited = cuentaNueva();
+        UUID theInviteesPerson = invited.personId();
 
         invitations.issue(
                 condominium,
-                invitada.id(),
+                invited.id(),
                 Set.of(MembershipRole.OWNER),
                 administradora.id().toString());
-        String token = buzon.ultimoTokenPara(invitada.email())
+        String token = buzon.ultimoTokenPara(invited.email())
                 .orElseThrow(() -> new AssertionError("No llego el correo de la invitacion."));
 
         // Abre el enlace sin estar autenticada: todavia no tiene con que.
-        mockMvc.perform(post("/api/v1/invitaciones/apertura")
+        mockMvc.perform(post("/api/v1/invitations/opening")
                         .with(SecurityMockMvcRequestPostProcessors.csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"token\":\"%s\"}".formatted(token)))
@@ -106,33 +106,34 @@ class AcceptInvitationTests {
         // Y ahora entra de verdad. El sujeto del proveedor es nuevo --es su primera vez-- y el
         // correo viene verificado, que es lo que el #13 exige para vincular. Con esto, la cuenta de
         // COPROP que ya existia queda atada a ese sujeto; no nace ninguna segunda.
-        String autorizacion = "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), invitada.email());
+        String authorizationCheck =
+                "Bearer " + TestTokenProvider.valid(TestTokenProvider.sujetoNuevo(), invited.email());
 
-        mockMvc.perform(get("/api/v1/me").header(HttpHeaders.AUTHORIZATION, autorizacion))
+        mockMvc.perform(get("/api/v1/me").header(HttpHeaders.AUTHORIZATION, authorizationCheck))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.account.id").value(invitada.id().toString()))
-                .andExpect(jsonPath("$.person.id").value(personaDeLaInvitada.toString()))
+                .andExpect(jsonPath("$.account.id").value(invited.id().toString()))
+                .andExpect(jsonPath("$.person.id").value(theInviteesPerson.toString()))
                 // Todavia no es miembro de nada: la invitacion no la metio, solo le abrio la puerta.
                 .andExpect(jsonPath("$.condominiums.length()").value(0));
 
-        mockMvc.perform(post("/api/v1/invitaciones/aceptacion")
+        mockMvc.perform(post("/api/v1/invitations/acceptance")
                         .with(SecurityMockMvcRequestPostProcessors.csrf())
-                        .header(HttpHeaders.AUTHORIZATION, autorizacion)
+                        .header(HttpHeaders.AUTHORIZATION, authorizationCheck)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"token\":\"%s\"}".formatted(token)))
                 .andExpect(status().isOk());
 
-        MembershipView nacida = Objects.requireNonNull(
-                memberships.of(condominium, invitada.id()), "Aceptar no dejo ninguna membresia.");
-        assertThat(nacida.roles()).containsExactly(MembershipRole.OWNER);
+        MembershipView born =
+                Objects.requireNonNull(memberships.of(condominium, invited.id()), "Aceptar no dejo ninguna membresia.");
+        assertThat(born.roles()).containsExactly(MembershipRole.OWNER);
 
         // La misma cuenta y la misma persona que antes de entrar: "no se crea una segunda cuenta".
-        AccountView newValues = people.findAccount(invitada.id());
-        assertThat(newValues.personId()).isEqualTo(personaDeLaInvitada);
-        assertThat(newValues.email()).isEqualTo(invitada.email());
+        AccountView newValues = people.findAccount(invited.id());
+        assertThat(newValues.personId()).isEqualTo(theInviteesPerson);
+        assertThat(newValues.email()).isEqualTo(invited.email());
 
         // Y ahora /me si lo lista, que es lo que vera la pantalla despues de aceptar.
-        mockMvc.perform(get("/api/v1/me").header(HttpHeaders.AUTHORIZATION, autorizacion))
+        mockMvc.perform(get("/api/v1/me").header(HttpHeaders.AUTHORIZATION, authorizationCheck))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.condominiums.length()").value(1))
                 .andExpect(jsonPath("$.condominiums[0].condominium.id").value(condominium.toString()));

@@ -43,7 +43,7 @@ class PermissionMatrixTests {
             Scope finanzas,
             Scope owner,
             Scope inquilino,
-            Scope mantenimiento,
+            Scope maintenance,
             Scope directiva) {}
 
     /** Las veintiuna filas del analisis, mas las dos que esta implementacion separa. */
@@ -254,7 +254,7 @@ class PermissionMatrixTests {
         assertThat(PermissionMatrix.scopeOf(FINANCE_ADMIN, fila.permission())).isEqualTo(fila.finanzas());
         assertThat(PermissionMatrix.scopeOf(OWNER, fila.permission())).isEqualTo(fila.owner());
         assertThat(PermissionMatrix.scopeOf(TENANT, fila.permission())).isEqualTo(fila.inquilino());
-        assertThat(PermissionMatrix.scopeOf(MAINTENANCE, fila.permission())).isEqualTo(fila.mantenimiento());
+        assertThat(PermissionMatrix.scopeOf(MAINTENANCE, fila.permission())).isEqualTo(fila.maintenance());
         assertThat(PermissionMatrix.scopeOf(BOARD, fila.permission())).isEqualTo(fila.directiva());
     }
 

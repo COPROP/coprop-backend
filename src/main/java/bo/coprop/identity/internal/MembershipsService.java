@@ -71,7 +71,7 @@ class MembershipsService implements Memberships {
 
         Instant ahora = clock.instant();
         Membership membership = memberships.save(new Membership(condominiumId, accountId, roles, invitedBy, ahora));
-        avisarSiConcentraFunciones(membership.getRoles(), condominiumId, accountId, actor);
+        warnIfConcentratesDuties(membership.getRoles(), condominiumId, accountId, actor);
 
         eventos.publishEvent(new MembershipGranted(
                 condominiumId, membership.getId(), accountId, membership.getRoles(), actor, ahora));
@@ -181,12 +181,12 @@ class MembershipsService implements Memberships {
         Instant ahora = clock.instant();
         membership.changeRoles(roles);
 
-        Set<MembershipRole> retirados = EnumSet.noneOf(MembershipRole.class);
-        retirados.addAll(oldValues);
-        retirados.removeAll(roles);
-        boolean closedSessions = cierre.siPierdeAlgunRolAdministrativo(membership.getAccountId(), retirados);
-        boolean concentraFunciones =
-                avisarSiConcentraFunciones(membership.getRoles(), condominiumId, membership.getAccountId(), actor);
+        Set<MembershipRole> removed = EnumSet.noneOf(MembershipRole.class);
+        removed.addAll(oldValues);
+        removed.removeAll(roles);
+        boolean closedSessions = cierre.siPierdeAlgunRolAdministrativo(membership.getAccountId(), removed);
+        boolean concentratesDuties =
+                warnIfConcentratesDuties(membership.getRoles(), condominiumId, membership.getAccountId(), actor);
 
         eventos.publishEvent(new MembershipRolesChanged(
                 condominiumId,
@@ -195,7 +195,7 @@ class MembershipsService implements Memberships {
                 oldValues,
                 membership.getRoles(),
                 reason,
-                concentraFunciones,
+                concentratesDuties,
                 closedSessions,
                 actor,
                 ahora));
@@ -247,7 +247,7 @@ class MembershipsService implements Memberships {
      *
      * @return si concentra, para que el evento lo lleve
      */
-    private static boolean avisarSiConcentraFunciones(
+    private static boolean warnIfConcentratesDuties(
             Set<MembershipRole> roles, UUID condominiumId, UUID accountId, String actor) {
         if (!roles.contains(MembershipRole.CONDO_ADMIN) || !roles.contains(MembershipRole.FINANCE_ADMIN)) {
             return false;

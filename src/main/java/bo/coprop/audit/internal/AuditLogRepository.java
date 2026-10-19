@@ -49,7 +49,7 @@ interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
             @Param("condominio") UUID condominium,
             @Param("actor") @Nullable String actor,
             @Param("entity") @Nullable String entity,
-            @Param("desde") Instant desde,
+            @Param("desde") Instant from,
             @Param("hasta") Instant until,
             Pageable page);
 
@@ -73,7 +73,7 @@ interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
     Page<AuditLog> findPlatformEntries(
             @Param("actor") @Nullable String actor,
             @Param("entity") @Nullable String entity,
-            @Param("desde") Instant desde,
+            @Param("desde") Instant from,
             @Param("hasta") Instant until,
             Pageable page);
 }
