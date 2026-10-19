@@ -4,8 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import bo.coprop.TestcontainersConfiguration;
-import bo.coprop.shared.RecursoNoEncontrado;
-import bo.coprop.shared.ReglaDeNegocioViolada;
+import bo.coprop.shared.BusinessRuleViolated;
+import bo.coprop.shared.ResourceNotFound;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -119,7 +119,7 @@ class UnitRelationsTests {
         relaciones.grantOwnership(condominio, unidad, persona, MITAD, "admin");
 
         assertThatThrownBy(() -> relaciones.grantOwnership(condominio, unidad, persona, MITAD, "admin"))
-                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("ya es propietaria vigente");
     }
 
@@ -134,13 +134,13 @@ class UnitRelationsTests {
         // Es la razon de que estas relaciones vivan en este modulo: desde identity no se podria
         // comprobar, y la ruta de un condominio serviria para colgar titularidades de otro.
         assertThatThrownBy(() -> relaciones.grantOwnership(propio, unidadAjena, persona, MITAD, "admin"))
-                .isInstanceOf(RecursoNoEncontrado.class);
+                .isInstanceOf(ResourceNotFound.class);
         assertThatThrownBy(
                         () -> relaciones.grantOccupancy(propio, unidadAjena, persona, OccupancyRole.RESIDENT, "admin"))
-                .isInstanceOf(RecursoNoEncontrado.class);
+                .isInstanceOf(ResourceNotFound.class);
         assertThatThrownBy(() -> relaciones.assignBilling(propio, unidadAjena, persona, null, "admin"))
-                .isInstanceOf(RecursoNoEncontrado.class);
-        assertThatThrownBy(() -> relaciones.ownersOf(propio, unidadAjena)).isInstanceOf(RecursoNoEncontrado.class);
+                .isInstanceOf(ResourceNotFound.class);
+        assertThatThrownBy(() -> relaciones.ownersOf(propio, unidadAjena)).isInstanceOf(ResourceNotFound.class);
     }
 
     @Test
@@ -152,7 +152,7 @@ class UnitRelationsTests {
         relaciones.assignBilling(condominio, unidad, persona, null, "admin");
 
         assertThatThrownBy(() -> relaciones.assignBilling(condominio, unidad, persona, null, "admin"))
-                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("ya responde");
     }
 
@@ -179,7 +179,7 @@ class UnitRelationsTests {
         relaciones.grantOccupancy(condominio, unidad, persona, OccupancyRole.RESIDENT, "admin");
 
         assertThatThrownBy(() -> relaciones.grantOccupancy(condominio, unidad, persona, OccupancyRole.TENANT, "admin"))
-                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("ya ocupa");
     }
 
@@ -296,12 +296,12 @@ class UnitRelationsTests {
         relaciones.grantOwnership(condominio, unidad, copropietaria, MITAD, "admin");
 
         assertThatThrownBy(() -> relaciones.transferOwnership(condominio, unidad, ajena, dueno, "admin"))
-                .isInstanceOf(RecursoNoEncontrado.class);
+                .isInstanceOf(ResourceNotFound.class);
         assertThatThrownBy(() -> relaciones.transferOwnership(condominio, unidad, dueno, copropietaria, "admin"))
-                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("titularidad por titularidad");
         assertThatThrownBy(() -> relaciones.transferOwnership(condominio, unidad, dueno, dueno, "admin"))
-                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("su propio dueño");
     }
 
@@ -350,13 +350,13 @@ class UnitRelationsTests {
         UUID persona = persona("6000026");
 
         assertThatThrownBy(() -> relaciones.endOccupancy(propio, unidad, persona, "admin"))
-                .isInstanceOf(RecursoNoEncontrado.class);
+                .isInstanceOf(ResourceNotFound.class);
         assertThatThrownBy(() -> relaciones.endBilling(propio, unidad, persona, null, "admin"))
-                .isInstanceOf(RecursoNoEncontrado.class);
+                .isInstanceOf(ResourceNotFound.class);
         assertThatThrownBy(() -> relaciones.endOccupancy(propio, unidadAjena, persona, "admin"))
-                .isInstanceOf(RecursoNoEncontrado.class);
+                .isInstanceOf(ResourceNotFound.class);
         assertThatThrownBy(() -> relaciones.ownershipHistoryOf(propio, unidadAjena))
-                .isInstanceOf(RecursoNoEncontrado.class);
+                .isInstanceOf(ResourceNotFound.class);
     }
 
     @Test

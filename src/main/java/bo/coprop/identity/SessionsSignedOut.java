@@ -1,6 +1,6 @@
 package bo.coprop.identity;
 
-import bo.coprop.shared.EventoAuditable;
+import bo.coprop.shared.AuditableEvent;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -30,7 +30,7 @@ import org.jspecify.annotations.Nullable;
  *     leer un mes despues
  */
 public record SessionsSignedOut(UUID accountId, int cerradas, boolean enElProveedor, String actor, Instant occurredAt)
-        implements EventoAuditable {
+        implements AuditableEvent {
 
     @Override
     public String action() {

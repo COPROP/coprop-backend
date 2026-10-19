@@ -7,7 +7,7 @@
  * <p>La idea original era que este modulo <strong>solo</strong> reaccionara a eventos, sin que nadie
  * lo llamara: asi añadir un aviso no obliga a tocar a quien lo origina. Para casi todo sigue siendo
  * lo correcto y es como entraran los avisos de M2. El issue <strong>#18</strong> obligo a abrir una
- * excepcion y a publicar el puerto {@code Correo}: el correo de la invitacion lleva el token, los
+ * excepcion y a publicar el puerto {@code Mail}: el correo de la invitacion lleva el token, los
  * eventos de este sistema se persisten --la migracion V2-- y Seguridad 6.1 exige que de ese token
  * solo quede el hash. Por un evento no puede viajar, asi que lo envia quien lo tiene en memoria.
  *

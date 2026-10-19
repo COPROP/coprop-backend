@@ -9,9 +9,9 @@ import bo.coprop.identity.MembershipStatus;
 import bo.coprop.identity.MembershipSuspended;
 import bo.coprop.identity.MembershipView;
 import bo.coprop.identity.Memberships;
-import bo.coprop.shared.ConflictoDeEstado;
-import bo.coprop.shared.RecursoNoEncontrado;
-import bo.coprop.shared.ReglaDeNegocioViolada;
+import bo.coprop.shared.BusinessRuleViolated;
+import bo.coprop.shared.ResourceNotFound;
+import bo.coprop.shared.StateConflict;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.EnumSet;
@@ -32,14 +32,14 @@ class MembershipsService implements Memberships {
 
     private final MembershipRepository membresias;
     private final UserAccountRepository cuentas;
-    private final CierreDeAcceso cierre;
+    private final AccessRevocation cierre;
     private final ApplicationEventPublisher eventos;
     private final Clock reloj;
 
     MembershipsService(
             MembershipRepository membresias,
             UserAccountRepository cuentas,
-            CierreDeAcceso cierre,
+            AccessRevocation cierre,
             ApplicationEventPublisher eventos,
             Clock reloj) {
         this.membresias = membresias;
@@ -54,7 +54,7 @@ class MembershipsService implements Memberships {
     public MembershipView grant(
             UUID condominiumId, UUID accountId, Set<MembershipRole> roles, @Nullable UUID invitedBy, String actor) {
         if (!cuentas.existsById(accountId)) {
-            throw RecursoNoEncontrado.de("la cuenta", accountId);
+            throw ResourceNotFound.de("la cuenta", accountId);
         }
         // Al menos un rol, y ninguno de plataforma. Las dos reglas y sus motivos estan en
         // exigirRolesDeMembresia, compartido con el cambio de roles del #20.
@@ -62,11 +62,11 @@ class MembershipsService implements Memberships {
         // El segundo criterio de aceptacion del issue #11. Tambien lo impone un indice parcial;
         // comprobarlo aqui permite explicar que pasa.
         if (membresias.existsByCondominiumIdAndAccountIdAndValidToIsNull(condominiumId, accountId)) {
-            throw new ReglaDeNegocioViolada(
+            throw new BusinessRuleViolated(
                     "La cuenta %s ya tiene membresia vigente en el condominio %s.".formatted(accountId, condominiumId));
         }
         if (invitedBy != null && invitedBy.equals(accountId)) {
-            throw new ReglaDeNegocioViolada("Nadie se invita a si mismo.");
+            throw new BusinessRuleViolated("Nadie se invita a si mismo.");
         }
 
         Instant ahora = reloj.instant();
@@ -107,7 +107,7 @@ class MembershipsService implements Memberships {
     public MembershipView suspend(UUID condominiumId, UUID membershipId, String motivo, String actor) {
         Membership membresia = vigenteParaCambiar(condominiumId, membershipId, actor);
         if (membresia.getStatus() == MembershipStatus.SUSPENDED) {
-            throw new ConflictoDeEstado("La membresia %s ya esta suspendida.".formatted(membershipId));
+            throw new StateConflict("La membresia %s ya esta suspendida.".formatted(membershipId));
         }
         exigirQueNoSeaElUltimoAdministrador(membresia, "suspender");
 
@@ -135,7 +135,7 @@ class MembershipsService implements Memberships {
         Membership membresia = deEsteCondominio(condominiumId, membershipId);
         exigirVigente(membresia, "reactivar");
         if (membresia.getStatus() == MembershipStatus.ACTIVE) {
-            throw new ConflictoDeEstado("La membresia %s no esta suspendida.".formatted(membershipId));
+            throw new StateConflict("La membresia %s no esta suspendida.".formatted(membershipId));
         }
 
         Instant ahora = reloj.instant();
@@ -223,10 +223,10 @@ class MembershipsService implements Memberships {
      */
     private static void exigirRolesDeMembresia(Set<MembershipRole> roles) {
         if (roles.isEmpty()) {
-            throw new ReglaDeNegocioViolada("Una membresia necesita al menos un rol.");
+            throw new BusinessRuleViolated("Una membresia necesita al menos un rol.");
         }
         if (roles.contains(MembershipRole.PLATFORM_ADMIN)) {
-            throw new ReglaDeNegocioViolada(
+            throw new BusinessRuleViolated(
                     "PLATFORM_ADMIN no se concede como membresia: su alcance es la plataforma, no un condominio.");
         }
     }
@@ -275,7 +275,7 @@ class MembershipsService implements Memberships {
      * que se lo haga-- sino de recuperacion: el unico administrador de un edificio que se diera de
      * baja, o que se quitara {@code CONDO_ADMIN}, se dejaria fuera de la unica pantalla desde la que
      * podria volver a entrar, y arreglarlo exigiria al superadministrador. El actor es el
-     * identificador de la cuenta, que es lo que pone {@code IdentidadAutenticada}.
+     * identificador de la cuenta, que es lo que pone {@code AuthenticatedIdentity}.
      *
      * <p>El issue <strong>#20</strong> la hereda tal cual, y eso tiene un precio que conviene
      * conocer: un administrador que quiera <em>quitarse</em> {@code FINANCE_ADMIN} para que haya
@@ -287,7 +287,7 @@ class MembershipsService implements Memberships {
         Membership membresia = deEsteCondominio(condominiumId, membershipId);
         exigirVigente(membresia, "cambiar");
         if (membresia.getAccountId().toString().equals(actor)) {
-            throw new ReglaDeNegocioViolada(
+            throw new BusinessRuleViolated(
                     "Nadie se da de baja, se suspende ni se cambia los roles a si mismo: pidelo a otro administrador del condominio.");
         }
         return membresia;
@@ -297,12 +297,12 @@ class MembershipsService implements Memberships {
         return membresias
                 .findById(membershipId)
                 .filter(membresia -> membresia.getCondominiumId().equals(condominiumId))
-                .orElseThrow(() -> RecursoNoEncontrado.de("la membresia", membershipId));
+                .orElseThrow(() -> ResourceNotFound.de("la membresia", membershipId));
     }
 
     private static void exigirVigente(Membership membresia, String queSeQueriaHacer) {
         if (membresia.getValidTo() != null) {
-            throw new ConflictoDeEstado(
+            throw new StateConflict(
                     "La membresia %s esta dada de baja desde %s y no se puede %s; lo que se hace es conceder una membresia nueva."
                             .formatted(membresia.getId(), membresia.getValidTo(), queSeQueriaHacer));
         }
@@ -323,7 +323,7 @@ class MembershipsService implements Memberships {
         }
         if (!membresias.existeOtraVigenteConRol(
                 membresia.getCondominiumId(), MembershipRole.CONDO_ADMIN, membresia.getId())) {
-            throw new ReglaDeNegocioViolada(
+            throw new BusinessRuleViolated(
                     "No se puede %s la ultima membresia con CONDO_ADMIN del condominio %s: nombra oldValues a otro administrador."
                             .formatted(queSeQueriaHacer, membresia.getCondominiumId()));
         }

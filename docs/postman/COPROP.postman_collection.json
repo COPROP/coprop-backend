@@ -1488,7 +1488,7 @@
                 }
               ]
             },
-            "description": "Pide `VIEW_AUDIT_LOG`: los dos administradores del condominio y el superadministrador, que no opera pero audita (Seguridad §10.1).\n\nLos cuatro filtros de abajo vienen **desactivados**: actívalos para probarlos. Se combinan, y `entidad` toma `membresia`, `invitacion`, `configuracion` o `cuenta`.\n\n`desde` es inclusivo y `hasta` exclusivo, así que dos rangos contiguos no devuelven la misma fila dos veces. Las fechas van en ISO-8601 con zona, igual que las que devuelve la respuesta: lo que se lee en una fila se puede pegar tal cual como filtro.\n\nCada fila trae el actor, la acción, sobre qué, los valores de antes y de después, la IP y el `traceId` de la petición que la originó. Con ese `traceId` se encuentran sus líneas de log.\n\n**Paginada siempre**: es el primer endpoint paginado del sistema, y por él se movió el sobre `Pagina` de `api` a `shared`. El tope de `tamano` es 200."
+            "description": "Pide `VIEW_AUDIT_LOG`: los dos administradores del condominio y el superadministrador, que no opera pero audita (Seguridad §10.1).\n\nLos cuatro filtros de abajo vienen **desactivados**: actívalos para probarlos. Se combinan, y `entidad` toma `membresia`, `invitacion`, `configuracion` o `cuenta`.\n\n`desde` es inclusivo y `hasta` exclusivo, así que dos rangos contiguos no devuelven la misma fila dos veces. Las fechas van en ISO-8601 con zona, igual que las que devuelve la respuesta: lo que se lee en una fila se puede pegar tal cual como filtro.\n\nCada fila trae el actor, la acción, sobre qué, los valores de antes y de después, la IP y el `traceId` de la petición que la originó. Con ese `traceId` se encuentran sus líneas de log.\n\n**Paginada siempre**: es el primer endpoint paginado del sistema, y por él se movió el sobre `PagedResponse` de `api` a `shared`. El tope de `tamano` es 200."
           }
         },
         {
@@ -1747,7 +1747,7 @@
                 "matriz-de-permisos"
               ]
             },
-            "description": "La matriz de Seguridad §3 tal como la aplica el backend: 23 permisos por 7 roles, 161 celdas.\n\nSale de `MatrizDePermisos`, la misma clase que decide cada `@PreAuthorize`, así que una pantalla que la pinte desde aquí no puede divergir de la autorización real.\n\n**Cada fila declara los siete roles, incluidos los que no pueden**, con `NONE`. Omitirlos daría una respuesta más corta y obligaría al cliente a decidir qué significa una ausencia: no puede, o no se declaró."
+            "description": "La matriz de Seguridad §3 tal como la aplica el backend: 23 permisos por 7 roles, 161 celdas.\n\nSale de `PermissionMatrix`, la misma clase que decide cada `@PreAuthorize`, así que una pantalla que la pinte desde aquí no puede divergir de la autorización real.\n\n**Cada fila declara los siete roles, incluidos los que no pueden**, con `NONE`. Omitirlos daría una respuesta más corta y obligaría al cliente a decidir qué significa una ausencia: no puede, o no se declaró."
           }
         }
       ]

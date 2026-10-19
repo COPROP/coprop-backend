@@ -47,8 +47,8 @@ public interface Invitations {
      * @param roles al menos uno, y ninguno puede ser {@link MembershipRole#PLATFORM_ADMIN}: su
      *     alcance es la plataforma y no se concede como membresia
      * @param actor la cuenta que invita
-     * @throws bo.coprop.shared.RecursoNoEncontrado si la cuenta invitada no existe
-     * @throws bo.coprop.shared.ReglaDeNegocioViolada si no llega ningun rol, si llega
+     * @throws bo.coprop.shared.ResourceNotFound si la cuenta invitada no existe
+     * @throws bo.coprop.shared.BusinessRuleViolated si no llega ningun rol, si llega
      *     {@code PLATFORM_ADMIN}, si esa cuenta ya tiene membresia vigente en ese condominio --ya
      *     esta dentro, no hay a que invitarla-- o si ya tiene una invitacion viva, que es lo que
      *     {@link #resend} resuelve
@@ -66,8 +66,8 @@ public interface Invitations {
      *
      * <p>Publica {@link InvitationRevoked} por la anterior y {@link InvitationIssued} por la nueva.
      *
-     * @throws bo.coprop.shared.RecursoNoEncontrado si no existe o no es de ese condominio
-     * @throws bo.coprop.shared.ReglaDeNegocioViolada si ya se acepto: ahi la membresia existe y
+     * @throws bo.coprop.shared.ResourceNotFound si no existe o no es de ese condominio
+     * @throws bo.coprop.shared.BusinessRuleViolated si ya se acepto: ahi la membresia existe y
      *     reenviar no significa nada
      */
     InvitationView resend(UUID condominiumId, UUID invitationId, String actor);
@@ -77,8 +77,8 @@ public interface Invitations {
      *
      * <p>Publica {@link InvitationRevoked}.
      *
-     * @throws bo.coprop.shared.RecursoNoEncontrado si no existe o no es de ese condominio
-     * @throws bo.coprop.shared.ReglaDeNegocioViolada si ya se acepto
+     * @throws bo.coprop.shared.ResourceNotFound si no existe o no es de ese condominio
+     * @throws bo.coprop.shared.BusinessRuleViolated si ya se acepto
      */
     InvitationView revoke(UUID condominiumId, UUID invitationId, String actor);
 
@@ -86,7 +86,7 @@ public interface Invitations {
     List<InvitationView> ofCondominium(UUID condominiumId);
 
     /**
-     * @throws bo.coprop.shared.RecursoNoEncontrado si no existe o no es de ese condominio
+     * @throws bo.coprop.shared.ResourceNotFound si no existe o no es de ese condominio
      */
     InvitationView find(UUID condominiumId, UUID invitationId);
 
@@ -105,7 +105,7 @@ public interface Invitations {
      *
      * <p>No consume el token: eso es {@link #accept}. Abrir el enlace dos veces no rompe nada.
      *
-     * @throws bo.coprop.shared.RecursoNoEncontrado si el token no existe, ya se uso, se revoco o
+     * @throws bo.coprop.shared.ResourceNotFound si el token no existe, ya se uso, se revoco o
      *     vencio. Los cuatro responden igual a proposito: distinguirlos le diria a quien prueba
      *     tokens cuales existieron
      */
@@ -133,7 +133,7 @@ public interface Invitations {
      * {@link MembershipGranted}.
      *
      * @param accountId la cuenta que esta autenticada
-     * @throws bo.coprop.shared.RecursoNoEncontrado si el token no sirve, por cualquiera de las
+     * @throws bo.coprop.shared.ResourceNotFound si el token no sirve, por cualquiera de las
      *     cuatro razones, <strong>o si la invitacion no es para esa cuenta</strong>: con el enlace
      *     de otro en la mano, la respuesta tiene que ser la misma que con un token inventado
      */

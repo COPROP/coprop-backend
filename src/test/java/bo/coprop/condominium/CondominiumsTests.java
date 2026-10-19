@@ -4,8 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import bo.coprop.TestcontainersConfiguration;
-import bo.coprop.shared.RecursoNoEncontrado;
-import bo.coprop.shared.ReglaDeNegocioViolada;
+import bo.coprop.shared.BusinessRuleViolated;
+import bo.coprop.shared.ResourceNotFound;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -118,14 +118,14 @@ class CondominiumsTests {
         condominios.register(lasPalmas(), "emma");
 
         assertThatThrownBy(() -> condominios.register(lasPalmas(), "emma"))
-                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("1234567890");
     }
 
     @Test
     @DisplayName("un condominio que no existe da no encontrado, no un nulo")
     void elQueNoExisteDaNoEncontrado() {
-        assertThatThrownBy(() -> condominios.find(UUID.randomUUID())).isInstanceOf(RecursoNoEncontrado.class);
+        assertThatThrownBy(() -> condominios.find(UUID.randomUUID())).isInstanceOf(ResourceNotFound.class);
     }
 
     @Autowired
@@ -195,16 +195,16 @@ class CondominiumsTests {
                 new NewCondominium("Bolivar", "5555555555", CondominiumType.HOUSES, "America/La_Paz", 3, 18), "emma");
 
         assertThatThrownBy(() -> condominios.edit(segundo.id(), "Bolivar", primero.nit(), null, "emma"))
-                .isInstanceOf(ReglaDeNegocioViolada.class);
+                .isInstanceOf(BusinessRuleViolated.class);
 
         assertThat(condominios.find(segundo.id()).nit()).isEqualTo("5555555555");
     }
 
     @Test
-    @DisplayName("editar uno que no existe no crea nada: da RecursoNoEncontrado")
+    @DisplayName("editar uno que no existe no crea nada: da ResourceNotFound")
     void editarUnoQueNoExisteFalla() {
         assertThatThrownBy(() -> condominios.edit(UUID.randomUUID(), "Fantasma", "1111111111", null, "emma"))
-                .isInstanceOf(RecursoNoEncontrado.class);
+                .isInstanceOf(ResourceNotFound.class);
     }
 
     private long configuracionesDe(UUID condominiumId) {

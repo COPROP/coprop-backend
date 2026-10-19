@@ -34,7 +34,7 @@ coprop:
   oidc:
     # El cliente confidencial del BFF. El navegador no lo ve nunca. Va aqui y no en
     # spring.security.oauth2.client porque con issuer-uri Boot descarga el documento de
-    # descubrimiento al arrancar: ver ConfiguracionDeOidc.
+    # descubrimiento al arrancar: ver OidcConfiguration.
     emisor: http://localhost:8081/realms/coprop
     cliente-id: coprop-web
     cliente-secreto: coprop-local-secret-web

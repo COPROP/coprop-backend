@@ -2,9 +2,9 @@ package bo.coprop.audit.internal;
 
 import bo.coprop.audit.AuditEntryView;
 import bo.coprop.audit.AuditTrail;
-import bo.coprop.shared.ClavesDeLog;
-import bo.coprop.shared.EventoAuditable;
-import bo.coprop.shared.Pagina;
+import bo.coprop.shared.AuditableEvent;
+import bo.coprop.shared.LogKeys;
+import bo.coprop.shared.PagedResponse;
 import jakarta.persistence.EntityManager;
 import java.time.Instant;
 import java.util.Map;
@@ -69,7 +69,7 @@ class AuditTrailService implements AuditTrail {
      * modulo sin depender de ninguno.
      *
      * <p>Spring resuelve los oyentes por el tipo del evento y acepta una interfaz, asi que todo
-     * evento que implemente {@link EventoAuditable} cae aqui sin que nadie lo registre. Sumar una
+     * evento que implemente {@link AuditableEvent} cae aqui sin que nadie lo registre. Sumar una
      * accion a la bitacora es implementar la interfaz en su evento; quitarla, dejar de implementarla.
      *
      * <p><strong>Despues del commit y en su propia transaccion, pero en el MISMO HILO.</strong> Las
@@ -100,7 +100,7 @@ class AuditTrailService implements AuditTrail {
      */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    void registrar(EventoAuditable evento) {
+    void registrar(AuditableEvent evento) {
         try {
             bitacora.save(new AuditLog(
                     evento.actor(),
@@ -110,8 +110,8 @@ class AuditTrailService implements AuditTrail {
                     evento.condominiumId(),
                     aJson(evento.oldValues(), evento),
                     aJson(evento.newValues(), evento),
-                    delContexto(ClavesDeLog.IP),
-                    delContexto(ClavesDeLog.TRAZA),
+                    delContexto(LogKeys.IP),
+                    delContexto(LogKeys.TRAZA),
                     evento.occurredAt()));
         } catch (RuntimeException fallo) {
             log.error(
@@ -133,7 +133,7 @@ class AuditTrailService implements AuditTrail {
      * la mitad no se puede volver a leer, y una fila con la accion y sin los valores sigue diciendo
      * quien hizo que y cuando. Perder la fila entera por un valor largo seria mucho peor.
      */
-    private @Nullable String aJson(@Nullable Map<String, String> valores, EventoAuditable evento) {
+    private @Nullable String aJson(@Nullable Map<String, String> valores, AuditableEvent evento) {
         if (valores == null) {
             return null;
         }
@@ -156,7 +156,7 @@ class AuditTrailService implements AuditTrail {
 
     @Override
     @Transactional(readOnly = true)
-    public Pagina<AuditEntryView> ofCondominium(
+    public PagedResponse<AuditEntryView> ofCondominium(
             UUID condominiumId,
             @Nullable String actor,
             @Nullable String entity,
@@ -164,7 +164,7 @@ class AuditTrailService implements AuditTrail {
             @Nullable Instant hasta,
             int pagina,
             int tamano) {
-        return Pagina.de(
+        return PagedResponse.de(
                 bitacora.buscar(
                         condominiumId,
                         actor,
@@ -177,14 +177,14 @@ class AuditTrailService implements AuditTrail {
 
     @Override
     @Transactional(readOnly = true)
-    public Pagina<AuditEntryView> ofPlatform(
+    public PagedResponse<AuditEntryView> ofPlatform(
             @Nullable String actor,
             @Nullable String entity,
             @Nullable Instant desde,
             @Nullable Instant hasta,
             int pagina,
             int tamano) {
-        return Pagina.de(
+        return PagedResponse.de(
                 bitacora.buscarDePlataforma(
                         actor,
                         entity,

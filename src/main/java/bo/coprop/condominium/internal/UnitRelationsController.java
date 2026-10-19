@@ -5,7 +5,7 @@ import bo.coprop.condominium.OccupancyRole;
 import bo.coprop.condominium.OccupancyView;
 import bo.coprop.condominium.OwnershipView;
 import bo.coprop.condominium.UnitRelations;
-import bo.coprop.shared.ControladorDeApi;
+import bo.coprop.shared.ApiController;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.Digits;
@@ -44,7 +44,7 @@ import org.springframework.web.bind.annotation.RestController;
  * una responsabilidad de pago. Ninguna borra nada: cierran la vigencia, de modo que lo historico
  * queda consultable, que es el segundo criterio de ese issue.
  */
-@ControladorDeApi
+@ApiController
 @RestController
 @RequestMapping("/condominios/{condominiumId}/unidades/{unitId}")
 class UnitRelationsController {

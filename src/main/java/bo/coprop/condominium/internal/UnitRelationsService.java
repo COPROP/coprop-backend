@@ -13,8 +13,8 @@ import bo.coprop.condominium.OwnershipView;
 import bo.coprop.condominium.RelatedUnitView;
 import bo.coprop.condominium.UnitRelation;
 import bo.coprop.condominium.UnitRelations;
-import bo.coprop.shared.RecursoNoEncontrado;
-import bo.coprop.shared.ReglaDeNegocioViolada;
+import bo.coprop.shared.BusinessRuleViolated;
+import bo.coprop.shared.ResourceNotFound;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -62,7 +62,7 @@ class UnitRelationsService implements UnitRelations {
             UUID condominiumId, UUID unitId, UUID personId, BigDecimal share, String actor) {
         exigirUnidadDelCondominio(condominiumId, unitId);
         if (titularidades.existsByUnitIdAndPersonIdAndValidToIsNull(unitId, personId)) {
-            throw new ReglaDeNegocioViolada(
+            throw new BusinessRuleViolated(
                     "La persona %s ya es propietaria vigente de la unidad %s.".formatted(personId, unitId));
         }
 
@@ -81,7 +81,7 @@ class UnitRelationsService implements UnitRelations {
             UUID condominiumId, UUID unitId, UUID personId, OccupancyRole role, String actor) {
         exigirUnidadDelCondominio(condominiumId, unitId);
         if (ocupaciones.existsByUnitIdAndPersonIdAndValidToIsNull(unitId, personId)) {
-            throw new ReglaDeNegocioViolada("La persona %s ya ocupa la unidad %s.".formatted(personId, unitId));
+            throw new BusinessRuleViolated("La persona %s ya ocupa la unidad %s.".formatted(personId, unitId));
         }
 
         Instant ahora = reloj.instant();
@@ -105,7 +105,7 @@ class UnitRelationsService implements UnitRelations {
                 ? responsabilidades.existsByUnitIdAndPersonIdAndConceptIdIsNullAndValidToIsNull(unitId, personId)
                 : responsabilidades.existsByUnitIdAndPersonIdAndConceptIdAndValidToIsNull(unitId, personId, conceptId);
         if (yaResponde) {
-            throw new ReglaDeNegocioViolada(
+            throw new BusinessRuleViolated(
                     "La persona %s ya responde por ese concepto de la unidad %s.".formatted(personId, unitId));
         }
 
@@ -136,16 +136,16 @@ class UnitRelationsService implements UnitRelations {
             UUID condominiumId, UUID unitId, UUID fromPersonId, UUID toPersonId, String actor) {
         exigirUnidadDelCondominio(condominiumId, unitId);
         if (fromPersonId.equals(toPersonId)) {
-            throw new ReglaDeNegocioViolada("Una unidad no se vende a su propio dueño.");
+            throw new BusinessRuleViolated("Una unidad no se vende a su propio dueño.");
         }
         UnitOwnership delVendedor = titularidades
                 .findByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(condominiumId, unitId, fromPersonId)
-                .orElseThrow(() -> RecursoNoEncontrado.de("la titularidad vigente de la persona", fromPersonId));
+                .orElseThrow(() -> ResourceNotFound.de("la titularidad vigente de la persona", fromPersonId));
         // Una venta a quien ya es copropietario cambia el reparto de la unidad, y eso no es esta
         // operacion: el porcentaje del comprador tendria que ser la suma de los dos, y aqui el que
         // se transfiere es el del vendedor. Se registra cerrando y abriendo a mano.
         if (titularidades.existsByUnitIdAndPersonIdAndValidToIsNull(unitId, toPersonId)) {
-            throw new ReglaDeNegocioViolada(
+            throw new BusinessRuleViolated(
                     "La persona %s ya es propietaria vigente de la unidad %s; una venta entre copropietarios cambia el reparto y se registra titularidad por titularidad."
                             .formatted(toPersonId, unitId));
         }
@@ -208,7 +208,7 @@ class UnitRelationsService implements UnitRelations {
         exigirUnidadDelCondominio(condominiumId, unitId);
         UnitOccupancy ocupacion = ocupaciones
                 .findByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(condominiumId, unitId, personId)
-                .orElseThrow(() -> RecursoNoEncontrado.de("la ocupacion vigente de la persona", personId));
+                .orElseThrow(() -> ResourceNotFound.de("la ocupacion vigente de la persona", personId));
 
         Instant ahora = reloj.instant();
         ocupacion.close(ahora);
@@ -226,8 +226,7 @@ class UnitRelationsService implements UnitRelations {
                                 condominiumId, unitId, personId)
                         : responsabilidades.findByCondominiumIdAndUnitIdAndPersonIdAndConceptIdAndValidToIsNull(
                                 condominiumId, unitId, personId, conceptId))
-                .orElseThrow(
-                        () -> RecursoNoEncontrado.de("la responsabilidad de pago vigente de la persona", personId));
+                .orElseThrow(() -> ResourceNotFound.de("la responsabilidad de pago vigente de la persona", personId));
 
         Instant ahora = reloj.instant();
         responsabilidad.close(ahora);
@@ -339,7 +338,7 @@ class UnitRelationsService implements UnitRelations {
                 .map(unidad -> unidad.getCondominiumId().equals(condominiumId))
                 .orElse(false);
         if (!esDeEsteCondominio) {
-            throw RecursoNoEncontrado.de("la unidad", unitId);
+            throw ResourceNotFound.de("la unidad", unitId);
         }
     }
 

@@ -6,7 +6,7 @@
  * seguridad y la especificacion OpenAPI.
  *
  * <p>La direccion de la dependencia es siempre api -> dominio, nunca al reves. Por eso la
- * anotacion {@code ControladorDeApi} vive en shared: un controlador de identity o de condominium
+ * anotacion {@code ApiController} vive en shared: un controlador de identity o de condominium
  * puede marcarse sin tener que depender de este modulo.
  *
  * <p>Depende de {@code identity} desde el issue #13: el filtro que traduce el sujeto del token a la
@@ -22,7 +22,7 @@
  * ponerlo en {@code condominium} invertiria la de {@code identity}. Componer en {@code api} lo que
  * cada dominio publica es la direccion permitida por la regla 6 y no relaja ningun limite.
  *
- * <p>Por ese mismo motivo vive aqui {@code ControlDeAcceso} desde el issue #15: la cadena de
+ * <p>Por ese mismo motivo vive aqui {@code AccessControl} desde el issue #15: la cadena de
  * autorizacion completa cruza los dos dominios --la matriz de permisos es de {@code identity} y las
  * relaciones de la unidad son de {@code condominium}-- y este es el unico modulo que ve las dos.
  * Los controladores lo invocan por nombre de bean desde {@code @PreAuthorize}, igual que

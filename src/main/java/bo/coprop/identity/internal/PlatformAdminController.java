@@ -2,7 +2,7 @@ package bo.coprop.identity.internal;
 
 import bo.coprop.identity.Identities;
 import bo.coprop.identity.PlatformAdminView;
-import bo.coprop.shared.ControladorDeApi;
+import bo.coprop.shared.ApiController;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -39,7 +39,7 @@ import org.springframework.web.bind.annotation.RestController;
  * rol de plataforma es asignar un rol administrativo, el mayor de ellos, asi que la celda ya lo
  * cubre y no hace falta añadir una fila a la matriz --que seria cambiar el analisis--.
  */
-@ControladorDeApi
+@ApiController
 @RestController
 @RequestMapping("/superadministradores")
 class PlatformAdminController {

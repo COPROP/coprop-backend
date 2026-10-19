@@ -2,7 +2,7 @@ package bo.coprop.identity.internal;
 
 import bo.coprop.identity.AccountView;
 import bo.coprop.identity.People;
-import bo.coprop.shared.ControladorDeApi;
+import bo.coprop.shared.ApiController;
 import java.util.UUID;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
  * <strong>#14</strong> y no es esto: esa resuelve la cuenta a partir del token, no de un
  * identificador en la ruta.
  */
-@ControladorDeApi
+@ApiController
 @RestController
 @RequestMapping("/cuentas")
 class AccountController {

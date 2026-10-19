@@ -4,8 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import bo.coprop.TestcontainersConfiguration;
-import bo.coprop.shared.RecursoNoEncontrado;
-import bo.coprop.shared.ReglaDeNegocioViolada;
+import bo.coprop.shared.BusinessRuleViolated;
+import bo.coprop.shared.ResourceNotFound;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -28,15 +28,15 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>Arranca el modulo {@code identity} y <strong>sus dependencias declaradas</strong>, que desde el
  * issue #18 son {@code shared} y {@code notifications}: la emision de una invitacion manda el correo
- * por el puerto {@code Correo}, porque el token no puede viajar en un evento.
+ * por el puerto {@code Mail}, porque el token no puede viajar en un evento.
  *
  * <p>El modo era {@code STANDALONE} --el de por defecto-- mientras {@code identity} no dependia de
  * nadie, y entonces decia algo util: que el modulo arrancaba solo. Ya no es cierto, y dejarlo asi
- * solo obligaria a poner un doble de {@code Correo} en cada test de este modulo. Que nadie meta una
+ * solo obligaria a poner un doble de {@code Mail} en cada test de este modulo. Que nadie meta una
  * dependencia <em>sin declararla</em> lo sigue comprobando {@code ModularityTests}, que es su
  * trabajo.
  */
-@Import({TestcontainersConfiguration.class, DoblesDeAcceso.class, PeopleTests.RelojFijo.class})
+@Import({TestcontainersConfiguration.class, AccessDoubles.class, PeopleTests.RelojFijo.class})
 @ApplicationModuleTest(BootstrapMode.DIRECT_DEPENDENCIES)
 @Transactional
 class PeopleTests {
@@ -128,7 +128,7 @@ class PeopleTests {
         personas.openAccount(persona.id(), "primera@coprop.bo", null, "admin");
 
         assertThatThrownBy(() -> personas.openAccount(persona.id(), "segunda@coprop.bo", null, "admin"))
-                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("ya tiene cuenta");
     }
 
@@ -140,7 +140,7 @@ class PeopleTests {
         personas.openAccount(una.id(), "repetido@coprop.bo", null, "admin");
 
         assertThatThrownBy(() -> personas.openAccount(otra.id(), "repetido@coprop.bo", null, "admin"))
-                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("ya esta en uso");
     }
 
@@ -148,13 +148,13 @@ class PeopleTests {
     @DisplayName("no se abre cuenta a una persona que no existe")
     void noSeAbreCuentaAQuienNoExiste() {
         assertThatThrownBy(() -> personas.openAccount(UUID.randomUUID(), "fantasma@coprop.bo", null, "admin"))
-                .isInstanceOf(RecursoNoEncontrado.class);
+                .isInstanceOf(ResourceNotFound.class);
     }
 
     @Test
     @DisplayName("una persona que no existe no se encuentra")
     void unaPersonaQueNoExisteNoSeEncuentra() {
-        assertThatThrownBy(() -> personas.find(UUID.randomUUID())).isInstanceOf(RecursoNoEncontrado.class);
+        assertThatThrownBy(() -> personas.find(UUID.randomUUID())).isInstanceOf(ResourceNotFound.class);
     }
 
     @Test

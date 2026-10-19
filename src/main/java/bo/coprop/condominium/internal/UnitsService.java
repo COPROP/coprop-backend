@@ -8,8 +8,8 @@ import bo.coprop.condominium.NewUnit;
 import bo.coprop.condominium.UnitView;
 import bo.coprop.condominium.Units;
 import bo.coprop.condominium.UnitsRegistered;
-import bo.coprop.shared.RecursoNoEncontrado;
-import bo.coprop.shared.ReglaDeNegocioViolada;
+import bo.coprop.shared.BusinessRuleViolated;
+import bo.coprop.shared.ResourceNotFound;
 import java.time.Clock;
 import java.util.HashSet;
 import java.util.List;
@@ -55,7 +55,7 @@ class UnitsService implements Units {
     public List<UnitView> registerAll(UUID condominiumId, List<NewUnit> nuevas, String actor) {
         exigirCondominio(condominiumId);
         if (nuevas.isEmpty()) {
-            throw new ReglaDeNegocioViolada("El lote no trae ninguna unidad.");
+            throw new BusinessRuleViolated("El lote no trae ninguna unidad.");
         }
 
         rechazarCodigosRepetidosEnElLote(nuevas);
@@ -95,7 +95,7 @@ class UnitsService implements Units {
         return unidades.findById(unitId)
                 .filter(unidad -> unidad.getCondominiumId().equals(condominiumId))
                 .map(UnitsService::vista)
-                .orElseThrow(() -> RecursoNoEncontrado.de("la unidad", unitId));
+                .orElseThrow(() -> ResourceNotFound.de("la unidad", unitId));
     }
 
     @Override
@@ -103,7 +103,7 @@ class UnitsService implements Units {
     public BlockView addBlock(UUID condominiumId, String name, String actor) {
         exigirCondominio(condominiumId);
         if (bloques.existsByCondominiumIdAndName(condominiumId, name)) {
-            throw new ReglaDeNegocioViolada("El condominio ya tiene un bloque llamado %s.".formatted(name));
+            throw new BusinessRuleViolated("El condominio ya tiene un bloque llamado %s.".formatted(name));
         }
         Block bloque = bloques.save(new Block(condominiumId, name));
 
@@ -121,10 +121,10 @@ class UnitsService implements Units {
         // colgar pisos de las torres de cualquier otro.
         Block bloque = bloques.findById(blockId)
                 .filter(candidato -> candidato.getCondominiumId().equals(condominiumId))
-                .orElseThrow(() -> RecursoNoEncontrado.de("el bloque", blockId));
+                .orElseThrow(() -> ResourceNotFound.de("el bloque", blockId));
 
         if (pisos.existsByBlockIdAndNumber(blockId, number)) {
-            throw new ReglaDeNegocioViolada("El bloque %s ya tiene el piso %d.".formatted(bloque.getName(), number));
+            throw new BusinessRuleViolated("El bloque %s ya tiene el piso %d.".formatted(bloque.getName(), number));
         }
         Floor piso = pisos.save(new Floor(condominiumId, blockId, number));
 
@@ -136,7 +136,7 @@ class UnitsService implements Units {
 
     private void exigirCondominio(UUID condominiumId) {
         if (!condominios.existsById(condominiumId)) {
-            throw RecursoNoEncontrado.de("el condominio", condominiumId);
+            throw ResourceNotFound.de("el condominio", condominiumId);
         }
     }
 
@@ -154,7 +154,7 @@ class UnitsService implements Units {
                 .distinct()
                 .toList();
         if (!repetidos.isEmpty()) {
-            throw new ReglaDeNegocioViolada("El lote repite estos codigos de unidad: %s.".formatted(repetidos));
+            throw new BusinessRuleViolated("El lote repite estos codigos de unidad: %s.".formatted(repetidos));
         }
     }
 
@@ -165,7 +165,7 @@ class UnitsService implements Units {
                 .sorted()
                 .toList();
         if (!yaUsados.isEmpty()) {
-            throw new ReglaDeNegocioViolada(
+            throw new BusinessRuleViolated(
                     "El condominio ya tiene unidades con estos codigos: %s.".formatted(yaUsados));
         }
     }
@@ -181,7 +181,7 @@ class UnitsService implements Units {
         UUID floorId = nueva.floorId();
 
         if (floorId != null && blockId == null) {
-            throw new ReglaDeNegocioViolada(
+            throw new BusinessRuleViolated(
                     "La unidad %s indica piso pero no bloque, y un piso siempre cuelga de un bloque."
                             .formatted(nueva.code()));
         }
@@ -189,14 +189,14 @@ class UnitsService implements Units {
             return;
         }
 
-        Block bloque = bloques.findById(blockId).orElseThrow(() -> RecursoNoEncontrado.de("el bloque", blockId));
+        Block bloque = bloques.findById(blockId).orElseThrow(() -> ResourceNotFound.de("el bloque", blockId));
         if (!bloque.getCondominiumId().equals(condominiumId)) {
-            throw new ReglaDeNegocioViolada("El bloque %s no es de este condominio.".formatted(bloque.getName()));
+            throw new BusinessRuleViolated("El bloque %s no es de este condominio.".formatted(bloque.getName()));
         }
         if (floorId != null) {
-            Floor piso = pisos.findById(floorId).orElseThrow(() -> RecursoNoEncontrado.de("el piso", floorId));
+            Floor piso = pisos.findById(floorId).orElseThrow(() -> ResourceNotFound.de("el piso", floorId));
             if (!piso.getBlockId().equals(blockId)) {
-                throw new ReglaDeNegocioViolada(
+                throw new BusinessRuleViolated(
                         "El piso %d no es del bloque %s.".formatted(piso.getNumber(), bloque.getName()));
             }
         }

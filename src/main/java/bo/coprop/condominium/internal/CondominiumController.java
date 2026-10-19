@@ -3,7 +3,7 @@ package bo.coprop.condominium.internal;
 import bo.coprop.condominium.CondominiumView;
 import bo.coprop.condominium.Condominiums;
 import bo.coprop.condominium.NewCondominium;
-import bo.coprop.shared.ControladorDeApi;
+import bo.coprop.shared.ApiController;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -27,13 +27,13 @@ import org.springframework.web.bind.annotation.RestController;
  * Alta y consulta de condominios.
  *
  * <p>La ruta se declara sin el prefijo de version: lo antepone la configuracion del modulo
- * {@code api} a todo lo anotado con {@link ControladorDeApi}, asi que esto se sirve bajo
+ * {@code api} a todo lo anotado con {@link ApiController}, asi que esto se sirve bajo
  * {@code /api/v1/condominios}, que es lo que fija Seguridad 5.4.
  *
  * <p>El alta es del superadministrador y la configuracion del que maneja el dinero (#16). La
  * consulta no pide permiso a proposito, y el porque esta en ella.
  */
-@ControladorDeApi
+@ApiController
 @RestController
 @RequestMapping("/condominios")
 class CondominiumController {
@@ -65,7 +65,7 @@ class CondominiumController {
      * <p>Exigir un permiso aqui significaria elegir una fila de la matriz que no habla de esto, y
      * dejaria a porteria o al directorio sin saber en que edificio estan. Lo que no se devuelve
      * desde aqui es nada de los vecinos: para eso estan las rutas de unidades y membresias, cada
-     * una con su permiso. Lo sostiene un caso de {@code CadenaDeAutorizacionTests} que recorre los
+     * una con su permiso. Lo sostiene un caso de {@code AuthorizationChainTests} que recorre los
      * siete roles.
      */
     @GetMapping("/{condominiumId}")

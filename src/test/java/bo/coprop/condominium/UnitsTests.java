@@ -5,8 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import bo.coprop.TestcontainersConfiguration;
-import bo.coprop.shared.RecursoNoEncontrado;
-import bo.coprop.shared.ReglaDeNegocioViolada;
+import bo.coprop.shared.BusinessRuleViolated;
+import bo.coprop.shared.ResourceNotFound;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
@@ -74,7 +74,7 @@ class UnitsTests {
         unidades.register(lasPalmas, unidad("302"), "emma");
 
         assertThatThrownBy(() -> unidades.register(lasPalmas, unidad("302"), "emma"))
-                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("302");
     }
 
@@ -94,7 +94,7 @@ class UnitsTests {
     @DisplayName("una unidad no puede existir sin condominio")
     void noPuedeExistirSinCondominio() {
         assertThatThrownBy(() -> unidades.register(UUID.randomUUID(), unidad("302"), "emma"))
-                .isInstanceOf(RecursoNoEncontrado.class);
+                .isInstanceOf(ResourceNotFound.class);
     }
 
     @Test
@@ -103,7 +103,7 @@ class UnitsTests {
         UnitView ajena = unidades.register(villaSol(), unidad("302"), "emma");
 
         // 404 y no 403: distinguirlos diria que esa unidad existe en algun sitio (Seguridad 7.1).
-        assertThatThrownBy(() -> unidades.find(lasPalmas, ajena.id())).isInstanceOf(RecursoNoEncontrado.class);
+        assertThatThrownBy(() -> unidades.find(lasPalmas, ajena.id())).isInstanceOf(ResourceNotFound.class);
     }
 
     @Test
@@ -112,7 +112,7 @@ class UnitsTests {
         BlockView torreAjena = unidades.addBlock(villaSol(), "Torre A", "emma");
 
         assertThatThrownBy(() -> unidades.addFloor(lasPalmas, torreAjena.id(), 3, "emma"))
-                .isInstanceOf(RecursoNoEncontrado.class);
+                .isInstanceOf(ResourceNotFound.class);
     }
 
     @Test
@@ -130,7 +130,7 @@ class UnitsTests {
         unidades.register(lasPalmas, unidad("301"), "emma");
 
         assertThatThrownBy(() -> unidades.registerAll(lasPalmas, List.of(unidad("302"), unidad("301")), "emma"))
-                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("301");
 
         // La 302 del lote fallido no quedo creada: si hubiera entrado, esto chocaria con su codigo.
@@ -142,7 +142,7 @@ class UnitsTests {
     @DisplayName("el lote avisa de sus propios codigos repetidos, diciendo cual")
     void elLoteNoPuedeRepetirCodigos() {
         assertThatThrownBy(() -> unidades.registerAll(lasPalmas, List.of(unidad("301"), unidad("301")), "emma"))
-                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("301");
     }
 
@@ -193,7 +193,7 @@ class UnitsTests {
                         lasPalmas,
                         new NewUnit("302", UnitType.APARTMENT, new BigDecimal("1.0"), null, torreAjena.id(), null),
                         "emma"))
-                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("no es de este condominio");
     }
 
@@ -207,7 +207,7 @@ class UnitsTests {
                         lasPalmas,
                         new NewUnit("302", UnitType.APARTMENT, new BigDecimal("1.0"), null, null, tercero.id()),
                         "emma"))
-                .isInstanceOf(ReglaDeNegocioViolada.class)
+                .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("bloque");
     }
 
@@ -217,6 +217,6 @@ class UnitsTests {
         unidades.addBlock(lasPalmas, "Torre A", "emma");
 
         assertThatThrownBy(() -> unidades.addBlock(lasPalmas, "Torre A", "emma"))
-                .isInstanceOf(ReglaDeNegocioViolada.class);
+                .isInstanceOf(BusinessRuleViolated.class);
     }
 }

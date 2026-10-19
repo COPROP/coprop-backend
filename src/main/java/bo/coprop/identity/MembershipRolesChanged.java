@@ -1,6 +1,6 @@
 package bo.coprop.identity;
 
-import bo.coprop.shared.EventoAuditable;
+import bo.coprop.shared.AuditableEvent;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
@@ -38,7 +38,7 @@ public record MembershipRolesChanged(
         boolean sesionesCerradas,
         String actor,
         Instant occurredAt)
-        implements EventoAuditable {
+        implements AuditableEvent {
 
     @Override
     public String action() {

@@ -33,7 +33,7 @@ public interface People {
     PersonView register(NewPerson nueva, String actor);
 
     /**
-     * @throws bo.coprop.shared.RecursoNoEncontrado si no existe
+     * @throws bo.coprop.shared.ResourceNotFound si no existe
      */
     PersonView find(UUID personId);
 
@@ -48,14 +48,14 @@ public interface People {
      *
      * @param phone opcional
      * @param actor quien la abre, para la bitacora
-     * @throws bo.coprop.shared.RecursoNoEncontrado si la persona no existe
-     * @throws bo.coprop.shared.ReglaDeNegocioViolada si la persona ya tiene cuenta --una por
+     * @throws bo.coprop.shared.ResourceNotFound si la persona no existe
+     * @throws bo.coprop.shared.BusinessRuleViolated si la persona ya tiene cuenta --una por
      *     persona, que es el titulo del issue #11-- o si el correo ya lo usa otra
      */
     AccountView openAccount(UUID personId, String email, @Nullable String phone, String actor);
 
     /**
-     * @throws bo.coprop.shared.RecursoNoEncontrado si no existe
+     * @throws bo.coprop.shared.ResourceNotFound si no existe
      */
     AccountView findAccount(UUID accountId);
 }

@@ -43,7 +43,7 @@ import org.springframework.test.web.servlet.MockMvc;
  * por donde se escaparia la lista de condominios de la plataforma. De ahi que haya mas casos de lo
  * que no sale que de lo que sale.
  */
-@Import({TestcontainersConfiguration.class, ProveedorDeTokensDePrueba.class})
+@Import({TestcontainersConfiguration.class, TestTokenProvider.class})
 @SpringBootTest
 @AutoConfigureMockMvc
 class MeTests {
@@ -233,9 +233,8 @@ class MeTests {
     @Test
     @DisplayName("Un token valido de quien no tiene cuenta en COPROP no da perfil")
     void unTokenValidoDeQuienNoTieneCuentaEnCopropNoDaPerfil() throws Exception {
-        String token = "Bearer "
-                + ProveedorDeTokensDePrueba.valido(
-                        ProveedorDeTokensDePrueba.sujetoNuevo(), ProveedorDeTokensDePrueba.correoNuevo());
+        String token =
+                "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), TestTokenProvider.correoNuevo());
 
         // Lo rechaza el filtro de identidad, no este endpoint: autenticarse no reparte acceso
         // (Seguridad 10.1). Esta aqui porque es el primer sitio al que llega un cliente recien
@@ -250,9 +249,8 @@ class MeTests {
 
     private Quien cuentaNueva() {
         PersonView persona = personas.register(new NewPerson("Emma", "Tola", null), "admin");
-        AccountView cuenta = personas.openAccount(persona.id(), ProveedorDeTokensDePrueba.correoNuevo(), null, "admin");
-        String token =
-                "Bearer " + ProveedorDeTokensDePrueba.valido(ProveedorDeTokensDePrueba.sujetoNuevo(), cuenta.email());
+        AccountView cuenta = personas.openAccount(persona.id(), TestTokenProvider.correoNuevo(), null, "admin");
+        String token = "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), cuenta.email());
         return new Quien(persona.id(), cuenta.id(), cuenta.email(), token);
     }
 

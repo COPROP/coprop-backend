@@ -2,18 +2,18 @@ package bo.coprop.identity.internal;
 
 import bo.coprop.identity.AccountActivated;
 import bo.coprop.identity.AccountView;
+import bo.coprop.identity.ActiveSessionView;
 import bo.coprop.identity.Identities;
-import bo.coprop.identity.OrigenDeSesion;
+import bo.coprop.identity.IdentityProvider;
 import bo.coprop.identity.PlatformAdminGranted;
 import bo.coprop.identity.PlatformAdminRevoked;
 import bo.coprop.identity.PlatformAdminView;
-import bo.coprop.identity.ProveedorDeIdentidad;
-import bo.coprop.identity.SesionActivaView;
-import bo.coprop.identity.Sesiones;
+import bo.coprop.identity.SessionOrigin;
+import bo.coprop.identity.Sessions;
 import bo.coprop.identity.SessionsSignedOut;
-import bo.coprop.shared.ConflictoDeEstado;
-import bo.coprop.shared.RecursoNoEncontrado;
-import bo.coprop.shared.ReglaDeNegocioViolada;
+import bo.coprop.shared.BusinessRuleViolated;
+import bo.coprop.shared.ResourceNotFound;
+import bo.coprop.shared.StateConflict;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
@@ -33,18 +33,18 @@ class IdentitiesService implements Identities {
 
     private final UserAccountRepository cuentas;
     private final PlatformAdminRepository superadministradores;
-    private final CierreDeAcceso cierre;
-    private final Sesiones sesionesDelBff;
-    private final ProveedorDeIdentidad proveedor;
+    private final AccessRevocation cierre;
+    private final Sessions sesionesDelBff;
+    private final IdentityProvider proveedor;
     private final ApplicationEventPublisher eventos;
     private final Clock reloj;
 
     IdentitiesService(
             UserAccountRepository cuentas,
             PlatformAdminRepository superadministradores,
-            CierreDeAcceso cierre,
-            Sesiones sesionesDelBff,
-            ProveedorDeIdentidad proveedor,
+            AccessRevocation cierre,
+            Sessions sesionesDelBff,
+            IdentityProvider proveedor,
             ApplicationEventPublisher eventos,
             Clock reloj) {
         this.cuentas = cuentas;
@@ -69,13 +69,13 @@ class IdentitiesService implements Identities {
         if (accountId.equals(quienConcede)) {
             // Lo impide tambien el CHECK de la migracion V7. Comprobarlo aqui permite explicarlo:
             // un fallo de integridad saldria como un 500 sin decir nada util.
-            throw new ReglaDeNegocioViolada("Nadie se concede a si mismo el rol de plataforma.");
+            throw new BusinessRuleViolated("Nadie se concede a si mismo el rol de plataforma.");
         }
         if (!cuentas.existsById(accountId)) {
-            throw RecursoNoEncontrado.de("la cuenta", accountId);
+            throw ResourceNotFound.de("la cuenta", accountId);
         }
         if (superadministradores.existsById(accountId)) {
-            throw new ConflictoDeEstado("La cuenta %s ya administra la plataforma.".formatted(accountId));
+            throw new StateConflict("La cuenta %s ya administra la plataforma.".formatted(accountId));
         }
 
         Instant ahora = reloj.instant();
@@ -93,7 +93,7 @@ class IdentitiesService implements Identities {
     @Transactional
     public void revokePlatformAdmin(UUID accountId, String motivo, String actor) {
         if (accountId.equals(cuentaDe(actor))) {
-            throw new ReglaDeNegocioViolada(
+            throw new BusinessRuleViolated(
                     "Nadie se revoca a si mismo el rol de plataforma: pideselo a otro superadministrador.");
         }
         PlatformAdmin quienLoTiene = superadministradores
@@ -101,7 +101,7 @@ class IdentitiesService implements Identities {
                 // 404 y no un 422: quien administra la plataforma no es dato publico, asi que
                 // preguntar por una cuenta que no lo administra responde lo mismo que preguntar por
                 // una que no existe. Mismo criterio que el 404-no-403 del #17.
-                .orElseThrow(() -> RecursoNoEncontrado.de("el superadministrador", accountId));
+                .orElseThrow(() -> ResourceNotFound.de("el superadministrador", accountId));
 
         Instant ahora = reloj.instant();
         superadministradores.delete(quienLoTiene);
@@ -194,15 +194,14 @@ class IdentitiesService implements Identities {
      */
     @Override
     @Transactional(readOnly = true)
-    public List<SesionActivaView> sessionsOf(UUID accountId) {
-        UserAccount cuenta =
-                cuentas.findById(accountId).orElseThrow(() -> RecursoNoEncontrado.de("la cuenta", accountId));
+    public List<ActiveSessionView> sessionsOf(UUID accountId) {
+        UserAccount cuenta = cuentas.findById(accountId).orElseThrow(() -> ResourceNotFound.de("la cuenta", accountId));
 
-        var todas = new java.util.ArrayList<SesionActivaView>();
+        var todas = new java.util.ArrayList<ActiveSessionView>();
         for (var sesion : sesionesDelBff.listarLasDe(nombresDe(cuenta))) {
-            todas.add(new SesionActivaView(
+            todas.add(new ActiveSessionView(
                     sesion.id(),
-                    OrigenDeSesion.BROWSER,
+                    SessionOrigin.BROWSER,
                     null,
                     sesion.creada(),
                     sesion.ultimoAcceso(),
@@ -210,15 +209,15 @@ class IdentitiesService implements Identities {
         }
         try {
             for (var sesion : proveedor.sesionesDe(cuenta.getEmail())) {
-                todas.add(new SesionActivaView(
+                todas.add(new ActiveSessionView(
                         sesion.id(),
-                        OrigenDeSesion.PROVIDER,
+                        SessionOrigin.PROVIDER,
                         sesion.ip(),
                         sesion.creada(),
                         sesion.ultimoAcceso(),
                         null));
             }
-        } catch (ProveedorDeIdentidad.FalloDelProveedorDeIdentidad fallo) {
+        } catch (IdentityProvider.FalloDelProveedorDeIdentidad fallo) {
             // Media lista es mejor que ninguna: quien mira esta pantalla esta intentando averiguar
             // si le robaron la cuenta, y dejarle sin respuesta porque Keycloak no contesta no le
             // ayuda a decidir nada. Lo que no se puede hacer es callarlo en el log.
@@ -228,17 +227,16 @@ class IdentitiesService implements Identities {
                     fallo);
         }
         todas.sort(
-                java.util.Comparator.comparing(SesionActivaView::ultimoAcceso).reversed());
+                java.util.Comparator.comparing(ActiveSessionView::ultimoAcceso).reversed());
         return List.copyOf(todas);
     }
 
     @Override
     @Transactional
     public int signOutEverywhere(UUID accountId, String actor) {
-        UserAccount cuenta =
-                cuentas.findById(accountId).orElseThrow(() -> RecursoNoEncontrado.de("la cuenta", accountId));
+        UserAccount cuenta = cuentas.findById(accountId).orElseThrow(() -> ResourceNotFound.de("la cuenta", accountId));
 
-        CierreDeAcceso.Cerradas cerradas = cierre.porPeticionPropia(cuenta.getId());
+        AccessRevocation.Cerradas cerradas = cierre.porPeticionPropia(cuenta.getId());
         eventos.publishEvent(
                 new SessionsSignedOut(accountId, cerradas.delBff(), cerradas.enElProveedor(), actor, reloj.instant()));
 
@@ -253,7 +251,7 @@ class IdentitiesService implements Identities {
     /**
      * Los nombres con los que una sesion de esa cuenta puede estar indexada.
      *
-     * <p>Es la misma pareja que arma {@link CierreDeAcceso}, y por el mismo motivo. Se repite aqui
+     * <p>Es la misma pareja que arma {@link AccessRevocation}, y por el mismo motivo. Se repite aqui
      * en vez de exponerla porque son tres lineas y compartirlas obligaria a sacar un metodo
      * publico de una clase que es un detalle del modulo.
      */
@@ -275,7 +273,7 @@ class IdentitiesService implements Identities {
      * El actor como cuenta.
      *
      * <p>En toda operacion de escritura el actor es el identificador de la cuenta en texto, que es
-     * lo que pone {@code IdentidadAutenticada}. Aqui hace falta como {@code UUID} porque va a la
+     * lo que pone {@code AuthenticatedIdentity}. Aqui hace falta como {@code UUID} porque va a la
      * columna {@code granted_by}, que tiene clave foranea. Un actor que no sea un identificador
      * --el "arranque" del primer superadministrador-- no puede llegar a estas operaciones: entran
      * por HTTP, y alli siempre hay una cuenta.

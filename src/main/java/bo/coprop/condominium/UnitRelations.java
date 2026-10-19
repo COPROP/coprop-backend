@@ -40,8 +40,8 @@ public interface UnitRelations {
      *
      * @param share porcentaje de copropiedad, mayor que 0 y hasta 100
      * @param actor quien lo registra, para la bitacora
-     * @throws bo.coprop.shared.RecursoNoEncontrado si la unidad no es de ese condominio
-     * @throws bo.coprop.shared.ReglaDeNegocioViolada si esa persona ya es propietaria vigente de
+     * @throws bo.coprop.shared.ResourceNotFound si la unidad no es de ese condominio
+     * @throws bo.coprop.shared.BusinessRuleViolated si esa persona ya es propietaria vigente de
      *     esa unidad
      */
     OwnershipView grantOwnership(UUID condominiumId, UUID unitId, UUID personId, BigDecimal share, String actor);
@@ -51,8 +51,8 @@ public interface UnitRelations {
      *
      * <p>Publica {@link OccupancyGranted}.
      *
-     * @throws bo.coprop.shared.RecursoNoEncontrado si la unidad no es de ese condominio
-     * @throws bo.coprop.shared.ReglaDeNegocioViolada si esa persona ya ocupa esa unidad
+     * @throws bo.coprop.shared.ResourceNotFound si la unidad no es de ese condominio
+     * @throws bo.coprop.shared.BusinessRuleViolated si esa persona ya ocupa esa unidad
      */
     OccupancyView grantOccupancy(UUID condominiumId, UUID unitId, UUID personId, OccupancyRole role, String actor);
 
@@ -64,8 +64,8 @@ public interface UnitRelations {
      * @param conceptId nulo = responde por todo lo que se cobre a la unidad; con valor, solo por
      *     ese concepto. El concepto como entidad nace en M2, asi que hoy no se comprueba que
      *     exista.
-     * @throws bo.coprop.shared.RecursoNoEncontrado si la unidad no es de ese condominio
-     * @throws bo.coprop.shared.ReglaDeNegocioViolada si esa persona ya responde por ese concepto
+     * @throws bo.coprop.shared.ResourceNotFound si la unidad no es de ese condominio
+     * @throws bo.coprop.shared.BusinessRuleViolated si esa persona ya responde por ese concepto
      *     de esa unidad
      */
     BillingResponsibilityView assignBilling(
@@ -99,9 +99,9 @@ public interface UnitRelations {
      * <p>Publica {@link OwnershipTransferred}.
      *
      * @return la titularidad nueva, la del comprador
-     * @throws bo.coprop.shared.RecursoNoEncontrado si la unidad no es de ese condominio, o si quien
+     * @throws bo.coprop.shared.ResourceNotFound si la unidad no es de ese condominio, o si quien
      *     vende no es propietario vigente de ella
-     * @throws bo.coprop.shared.ReglaDeNegocioViolada si comprador y vendedor son la misma persona,
+     * @throws bo.coprop.shared.BusinessRuleViolated si comprador y vendedor son la misma persona,
      *     o si el comprador ya es propietario vigente de esa unidad --ahi lo que hay es una venta
      *     entre copropietarios, que cambia el reparto y se registra a mano--
      */
@@ -118,7 +118,7 @@ public interface UnitRelations {
      *
      * <p>Publica {@link OccupancyEnded}.
      *
-     * @throws bo.coprop.shared.RecursoNoEncontrado si la unidad no es de ese condominio, o si esa
+     * @throws bo.coprop.shared.ResourceNotFound si la unidad no es de ese condominio, o si esa
      *     persona no la ocupa vigentemente
      */
     void endOccupancy(UUID condominiumId, UUID unitId, UUID personId, String actor);
@@ -131,7 +131,7 @@ public interface UnitRelations {
      * @param conceptId nulo = la responsabilidad general, la que cubre todo lo que se cobre a la
      *     unidad. Hay que pasar el mismo con el que se asigno: cerrar la general no cierra las de
      *     un concepto concreto, porque son filas distintas y responden por cosas distintas
-     * @throws bo.coprop.shared.RecursoNoEncontrado si la unidad no es de ese condominio, o si esa
+     * @throws bo.coprop.shared.ResourceNotFound si la unidad no es de ese condominio, o si esa
      *     persona no responde vigentemente por ese concepto de esa unidad
      */
     void endBilling(UUID condominiumId, UUID unitId, UUID personId, @Nullable UUID conceptId, String actor);

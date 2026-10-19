@@ -1,6 +1,6 @@
 package bo.coprop.condominium;
 
-import bo.coprop.shared.EventoAuditable;
+import bo.coprop.shared.AuditableEvent;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -11,7 +11,7 @@ import java.util.UUID;
  * <p>Existe para que el alta quede auditada sin que este modulo conozca al de auditoria. La regla
  * 4 de ARCHITECTURE.md dice que {@code audit} solo reacciona a eventos y que nadie depende de el.
  *
- * <p><strong>Implementa {@link EventoAuditable} desde el 16-oct-2026, y antes no.</strong> El
+ * <p><strong>Implementa {@link AuditableEvent} desde el 16-oct-2026, y antes no.</strong> El
  * evento se publicaba desde el issue #9 con el comentario de que la bitacora llegaria con el #21,
  * y el #21 cerro sin cablearlo: nadie lo escuchaba, asi que <em>el alta de un condominio no
  * quedaba registrada</em> aunque el primer criterio del #9 lo exige. Es la forma exacta del riesgo
@@ -27,7 +27,7 @@ import java.util.UUID;
  * @param occurredAt cuando
  */
 public record CondominiumRegistered(UUID condominiumId, String name, String actor, Instant occurredAt)
-        implements EventoAuditable {
+        implements AuditableEvent {
 
     @Override
     public String action() {
