@@ -122,7 +122,7 @@ class ApiPermissionsTests {
 
     @Test
     @DisplayName("el propietario no da de alta unidades: eso es del administrador del condominio")
-    void elPropietarioNoDaDeAltaUnidades() throws Exception {
+    void theOwnerDoesNotRegisterUnits() throws Exception {
         UUID condominium = condominioNuevo();
 
         mockMvc.perform(peticion(
@@ -136,7 +136,7 @@ class ApiPermissionsTests {
 
     @Test
     @DisplayName("el administrador del condominio si da de alta unidades")
-    void elAdministradorSiDaDeAltaUnidades() throws Exception {
+    void theAdminDoesRegisterUnits() throws Exception {
         UUID condominium = condominioNuevo();
 
         mockMvc.perform(peticion(
@@ -149,7 +149,7 @@ class ApiPermissionsTests {
 
     @Test
     @DisplayName("el administrador del condominio no toca lo que se cobra: separacion de funciones")
-    void elAdministradorNoTocaLoQueSeCobra() throws Exception {
+    void theAdminDoesNotTouchWhatIsCharged() throws Exception {
         UUID condominium = condominioNuevo();
 
         mockMvc.perform(peticion(
@@ -170,7 +170,7 @@ class ApiPermissionsTests {
 
     @Test
     @DisplayName("el financiero no reparte roles: la otra mitad de la separacion de funciones")
-    void elFinancieroNoReparteRoles() throws Exception {
+    void theFinanceAdminDoesNotHandOutRoles() throws Exception {
         UUID condominium = condominioNuevo();
         AccountView invitada = cuentaNueva();
 
@@ -185,7 +185,7 @@ class ApiPermissionsTests {
 
     @Test
     @DisplayName("crear condominios es del superadministrador, y de nadie mas")
-    void crearCondominiosEsDelSuperadministrador() throws Exception {
+    void creatingCondominiumsBelongsToThePlatformAdmin() throws Exception {
         UUID condominium = condominioNuevo();
         String alta = "{\"name\":\"Torre body\",\"nit\":\"" + nitNuevo()
                 + "\",\"type\":\"BUILDING\",\"timeZone\":\"America/La_Paz\",\"issueDay\":5,\"dueDay\":10}";
@@ -201,7 +201,7 @@ class ApiPermissionsTests {
 
     @Test
     @DisplayName("el superadministrador pone el primer administrador de un condominio donde no es miembro")
-    void elSuperadministradorPoneAlPrimerAdministrador() throws Exception {
+    void thePlatformAdminAppointsTheFirstAdmin() throws Exception {
         // Es el arranque de un condominio, y la razon de que el filtro del #17 lo deje pasar sin
         // membresia: sin esto, un condominio recien creado no tendria forma de tener a nadie dentro.
         UUID condominium = condominioNuevo();
@@ -217,7 +217,7 @@ class ApiPermissionsTests {
 
     @Test
     @DisplayName("el superadministrador solo reparte roles administrativos")
-    void elSuperadministradorSoloRepartoAdministrativo() throws Exception {
+    void thePlatformAdminHandsOutOnlyAdminRoles() throws Exception {
         // La celda dice "Solo administradores". Que pueda poner un CONDO_ADMIN no lo convierte en
         // alguien que reparte propietarios: eso es operar el condominio, y 10.1 dice que no opera.
         UUID condominium = condominioNuevo();
@@ -234,7 +234,7 @@ class ApiPermissionsTests {
 
     @Test
     @DisplayName("el administrador del condominio si puede conceder los dos roles administrativos")
-    void elAdministradorConcedeAmbosRolesAdministrativos() throws Exception {
+    void theAdminGrantsBothAdminRoles() throws Exception {
         // Decision explicita de Seguridad 10.1: en condominios pequenos una sola persona hace las
         // dos cosas. Lo que no puede es pasar desapercibido, y de eso se encarga la auditoria.
         UUID condominium = condominioNuevo();
@@ -250,7 +250,7 @@ class ApiPermissionsTests {
 
     @Test
     @DisplayName("PLATFORM_ADMIN no se concede como membresia de un condominio")
-    void elRolDePlataformaNoEsUnaMembresia() throws Exception {
+    void thePlatformRoleIsNotAMembership() throws Exception {
         // Su alcance es la plataforma y vive en su propia tabla. Concederlo aqui daria un
         // "superadministrador de un condominio", que no significa nada, y dejaria dos sitios donde
         // mirar quien administra la plataforma.
@@ -268,7 +268,7 @@ class ApiPermissionsTests {
 
     @Test
     @DisplayName("el superadministrador que ademas es miembro conserva los dos juegos de roles")
-    void elSuperadministradorMiembroConservaAmbos() throws Exception {
+    void aPlatformAdminWhoIsAlsoAMemberKeepsBoth() throws Exception {
         // Es como arranca un condominio de verdad: el superadministrador lo crea y se pone de
         // primer administrador hasta que haya a quien invitar. Si al entrar perdiera los roles de
         // su membresia --porque el filtro se conformara con que es de plataforma-- no podria
@@ -297,7 +297,7 @@ class ApiPermissionsTests {
 
     @Test
     @DisplayName("dar de alta una persona pide administrar algun condominio")
-    void darDeAltaUnaPersonaPideAdministrarAlguno() throws Exception {
+    void registeringAPersonRequiresManagingSomeCondominium() throws Exception {
         UUID condominium = condominioNuevo();
         String person = "{\"firstNames\":\"Ana\",\"lastNames\":\"Perez\"}";
 

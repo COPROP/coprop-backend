@@ -62,14 +62,14 @@ class PlatformAdminsTests {
 
     /** Los dobles son del contexto y el contexto se comparte: lo mismo que en MembershipsTests. */
     @BeforeEach
-    void dejarLosDoblesLimpios() {
+    void resetTheDoubles() {
         sessions.reiniciar();
         proveedor.reiniciar();
     }
 
     @Test
     @DisplayName("se le concede el rol a otra cuenta, y queda quien se lo concedio")
-    void seConcedeAOtraCuenta() {
+    void itIsGrantedToAnotherAccount() {
         UUID quienConcede = accountOf("concede@coprop.bo");
         UUID quienRecibe = accountOf("recibe@coprop.bo");
 
@@ -84,7 +84,7 @@ class PlatformAdminsTests {
 
     @Test
     @DisplayName("nadie se concede a si mismo el rol de plataforma")
-    void nadieSeLoConcedeASiMismo() {
+    void nobodyGrantsItToThemselves() {
         UUID account = accountOf("solo@coprop.bo");
 
         // Lo impide tambien el CHECK de la migracion V7; aqui se comprueba antes para poder
@@ -96,7 +96,7 @@ class PlatformAdminsTests {
 
     @Test
     @DisplayName("concederselo a quien ya lo tiene es un conflicto de estado, no un alta repetida")
-    void aQuienYaLoTieneEsConflicto() {
+    void whoAlreadyHasItGetsAConflict() {
         UUID quienConcede = accountOf("concede2@coprop.bo");
         UUID quienRecibe = accountOf("recibe2@coprop.bo");
         identities.grantPlatformAdmin(quienRecibe, quienConcede.toString());
@@ -110,7 +110,7 @@ class PlatformAdminsTests {
 
     @Test
     @DisplayName("no se le concede a una cuenta que no existe")
-    void noSeConcedeAUnaCuentaQueNoExiste() {
+    void itIsNotGrantedToAnAccountThatDoesNotExist() {
         UUID quienConcede = accountOf("concede3@coprop.bo");
 
         assertThatThrownBy(() -> identities.grantPlatformAdmin(UUID.randomUUID(), quienConcede.toString()))
@@ -119,7 +119,7 @@ class PlatformAdminsTests {
 
     @Test
     @DisplayName("revocar le quita el rol y le cierra las sesiones, las dos")
-    void revocarQuitaElRolYCierraLasSesiones() {
+    void revokingRemovesTheRoleAndClosesTheSessions() {
         UUID quienRevoca = accountOf("revoca@coprop.bo");
         UUID quienLoPierde = accountOf("pierde@coprop.bo");
         identities.grantPlatformAdmin(quienLoPierde, quienRevoca.toString());
@@ -135,7 +135,7 @@ class PlatformAdminsTests {
 
     @Test
     @DisplayName("revocarle el rol a quien no lo tiene responde como si no existiera")
-    void aQuienNoLoTieneResponde404() {
+    void whoDoesNotHaveItGets404() {
         UUID quienRevoca = accountOf("revoca2@coprop.bo");
         UUID cualquiera = accountOf("cualquiera@coprop.bo");
 
@@ -148,7 +148,7 @@ class PlatformAdminsTests {
 
     @Test
     @DisplayName("nadie se revoca a si mismo: se quedaria sin la pantalla para volver")
-    void nadieSeLoRevocaASiMismo() {
+    void nobodyRevokesItFromThemselves() {
         UUID quienConcede = accountOf("concede4@coprop.bo");
         UUID whoHoldsIt = accountOf("tiene@coprop.bo");
         identities.grantPlatformAdmin(whoHoldsIt, quienConcede.toString());
@@ -183,7 +183,7 @@ class PlatformAdminsTests {
 
     @Test
     @DisplayName("el actor del evento de concesion es quien lo concedio, no el arranque")
-    void elActorEsQuienLoConcedio() {
+    void theActorIsWhoGrantedIt() {
         UUID quienConcede = accountOf("concede6@coprop.bo");
         UUID quienRecibe = accountOf("recibe6@coprop.bo");
 

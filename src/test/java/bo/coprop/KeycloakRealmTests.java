@@ -58,14 +58,14 @@ class KeycloakRealmTests {
     }
 
     @Test
-    void elArchivoEsElRealmCoprop() {
+    void theFileIsTheCopropRealm() {
         assertThat(REALM.get("realm").asString()).isEqualTo("coprop");
         assertThat(REALM.get("enabled").asBoolean()).isTrue();
     }
 
     @Test
     @DisplayName("la web va por el BFF: cliente confidencial y la vuelta al backend, no al navegador")
-    void elClienteDeLaWebEsConfidencial() {
+    void theWebClientIsConfidential() {
         var web = cliente("coprop-web");
 
         assertThat(web.get("publicClient").asBoolean()).isFalse();
@@ -83,7 +83,7 @@ class KeycloakRealmTests {
 
     @Test
     @DisplayName("el unico cliente publico es el movil, que es el unico que guarda tokens")
-    void elClienteMovilEsPublicoConPkce() {
+    void theMobileClientIsPublicWithPkce() {
         var movil = cliente("coprop-movil");
 
         assertThat(movil.get("publicClient").asBoolean()).isTrue();
@@ -101,7 +101,7 @@ class KeycloakRealmTests {
     }
 
     @Test
-    void laApiEsSoloPortadorYLaAdminSoloCuentaDeServicio() {
+    void theApiIsBearerOnlyAndTheAdminClientIsServiceAccountOnly() {
         var api = cliente("coprop-api");
         assertThat(api.get("bearerOnly").asBoolean()).isTrue();
         assertThat(api.get("standardFlowEnabled").asBoolean()).isFalse();
@@ -113,7 +113,7 @@ class KeycloakRealmTests {
 
     @Test
     @DisplayName("el token no lleva roles: ni los del realm ni los de condominio")
-    void ningunClienteDeUsuarioPideElScopeDeRoles() {
+    void noUserClientRequestsTheRolesScope() {
         for (String clientId : List.of("coprop-web", "coprop-movil")) {
             var cliente = cliente(clientId);
 
@@ -131,7 +131,7 @@ class KeycloakRealmTests {
     }
 
     @Test
-    void losTokensDeUsuarioLlevanLaAudienciaDeLaApi() {
+    void userTokensCarryTheApiAudience() {
         for (String clientId : List.of("coprop-web", "coprop-movil")) {
             var audiencias = new ArrayList<String>();
             for (JsonNode mapeador : cliente(clientId).get("protocolMappers")) {
@@ -147,7 +147,7 @@ class KeycloakRealmTests {
 
     @Test
     @DisplayName("Google autentica y vincula por correo, pero no reparte acceso")
-    void elProveedorDeGoogleEstaDeclarado() {
+    void theGoogleProviderIsDeclared() {
         var google = REALM.get("identityProviders").get(0);
 
         assertThat(google.get("alias").asString()).isEqualTo("google");
@@ -166,7 +166,7 @@ class KeycloakRealmTests {
 
     @Test
     @DisplayName("ningun secreto literal: los tres repos son publicos")
-    void todoSecretoLlegaPorVariableDeEntorno() {
+    void everySecretArrivesByEnvironmentVariable() {
         var literales = new ArrayList<String>();
         recogerSecretosLiterales(REALM, "", literales);
 
@@ -195,7 +195,7 @@ class KeycloakRealmTests {
     }
 
     @Test
-    void laPoliticaDeContrasenaYElBloqueoPorIntentosEstanPuestos() {
+    void thePasswordPolicyAndBruteForceLockoutAreSet() {
         assertThat(REALM.get("passwordPolicy").asString())
                 .contains("length(10)")
                 .contains("notUsername")
@@ -208,7 +208,7 @@ class KeycloakRealmTests {
     }
 
     @Test
-    void nadieSeRegistraSolo() {
+    void nobodyRegistersThemselves() {
         // El acceso lo da la invitacion (Seguridad 6.1 y 10.1), no un formulario de alta.
         assertThat(REALM.get("registrationAllowed").asBoolean()).isFalse();
         assertThat(REALM.get("resetPasswordAllowed").asBoolean()).isTrue();
@@ -217,7 +217,7 @@ class KeycloakRealmTests {
 
     @Test
     @DisplayName("el usuario de desarrollo lleva el rol por defecto del realm")
-    void elUsuarioDeDesarrolloLlevaElRolPorDefecto() {
+    void theDevelopmentUserCarriesTheDefaultRole() {
         var rolesDelDev = new ArrayList<String>();
         for (JsonNode usuario : REALM.get("users")) {
             if ("dev@coprop.local".equals(usuario.path("username").asString(""))) {

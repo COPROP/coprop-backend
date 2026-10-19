@@ -50,7 +50,7 @@ class UnitRelationsControllerTests {
     @Test
     @WithMockUser(username = "emma", roles = "CONDO_ADMIN")
     @DisplayName("registrar un propietario devuelve 201 con su porcentaje")
-    void registrarPropietarioDevuelve201() throws Exception {
+    void registeringAnOwnerReturns201() throws Exception {
         UUID condominium = condominium("4000000001");
         UUID unit = unit(condominium, "302");
         UUID person = person("5000001");
@@ -68,7 +68,7 @@ class UnitRelationsControllerTests {
     @Test
     @WithMockUser(username = "emma", roles = "CONDO_ADMIN")
     @DisplayName("los propietarios de una unidad se listan con su porcentaje")
-    void losPropietariosSeListan() throws Exception {
+    void theOwnersAreListed() throws Exception {
         UUID condominium = condominium("4000000002");
         UUID unit = unit(condominium, "101");
         UUID una = person("5000002");
@@ -84,7 +84,7 @@ class UnitRelationsControllerTests {
     @Test
     @WithMockUser(username = "emma", roles = "CONDO_ADMIN")
     @DisplayName("la unidad de otro condominio da 404, no 403")
-    void laUnidadAjenaDa404() throws Exception {
+    void theOtherCondominiumsUnitGives404() throws Exception {
         UUID propio = condominium("4000000003");
         UUID ajeno = condominium("4000000004");
         UUID unidadAjena = unit(ajeno, "77");
@@ -101,7 +101,7 @@ class UnitRelationsControllerTests {
     @Test
     @WithMockUser(username = "emma", roles = "CONDO_ADMIN")
     @DisplayName("un porcentaje por encima de 100 da 422 con el campo senalado")
-    void unPorcentajeImposibleDa422() throws Exception {
+    void anImpossiblePercentageGives422() throws Exception {
         UUID condominium = condominium("4000000005");
         UUID unit = unit(condominium, "201");
         UUID person = person("5000005");
@@ -118,7 +118,7 @@ class UnitRelationsControllerTests {
     @Test
     @WithMockUser(username = "emma", roles = "CONDO_ADMIN")
     @DisplayName("el inquilino ocupa y el propietario responde por el pago, en dos llamadas")
-    void elInquilinoOcupaYElPropietarioPaga() throws Exception {
+    void theTenantOccupiesAndTheOwnerPays() throws Exception {
         UUID condominium = condominium("4000000006");
         UUID unit = unit(condominium, "501");
         UUID propietaria = person("5000006");
@@ -144,7 +144,7 @@ class UnitRelationsControllerTests {
     @Test
     @WithMockUser(username = "emma", roles = "CONDO_ADMIN")
     @DisplayName("repetir la titularidad da 409 o 422 segun la regla, nunca un 500")
-    void repetirLaTitularidadNoDa500() throws Exception {
+    void repeatingTheOwnershipDoesNotGive500() throws Exception {
         UUID condominium = condominium("4000000007");
         UUID unit = unit(condominium, "601");
         UUID person = person("5000008");
@@ -159,7 +159,7 @@ class UnitRelationsControllerTests {
 
     @Test
     @DisplayName("sin autenticar no se registran relaciones")
-    void sinAutenticarNoSeRegistra() throws Exception {
+    void withoutAuthenticatingNothingIsRegistered() throws Exception {
         mockMvc.perform(post(ruta(UUID.randomUUID(), UUID.randomUUID()) + "/propietarios")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)

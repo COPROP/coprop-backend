@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
  * una de sus claves. En el enlace del correo si va en la URL, pero esa URL es de la web y no llega
  * nunca al servidor.
  *
- * <p>Las dos son {@code POST} aunque {@link #abrir} parezca una consulta: crea el usuario en el
+ * <p>Las dos son {@code POST} aunque {@link #open} parezca una consulta: crea el usuario en el
  * proveedor de identidad y le manda un correo, asi que no es idempotente en el sentido de no tener
  * efectos. Sí lo es en el que importa --abrir el enlace dos veces vuelve a mandar el correo y no
  * rompe nada-- y por eso no consume el token.

@@ -33,7 +33,7 @@ import org.springframework.session.jdbc.JdbcIndexedSessionRepository;
  *
  * <p>Lo que se prueba aqui no es el borrado --eso es un {@code delete} y no tiene misterio-- sino
  * <strong>con que nombre queda indexada una sesion del BFF</strong>. Es la pieza donde el cierre se
- * puede romper en silencio: si el indice no es el que el puerto recibe, {@code cerrarLasDe} no
+ * puede romper en silencio: si el indice no es el que el puerto recibe, {@code closeThoseOf} no
  * encuentra nada, devuelve cero y la baja parece haber cerrado sesiones que siguen abiertas.
  *
  * <p>La sesion se arma como la deja un login OIDC --un {@code OAuth2AuthenticationToken} dentro del
@@ -62,7 +62,7 @@ class BffSessionsTests {
 
     @Test
     @DisplayName("una sesion del BFF queda indexada por el sub, y el puerto la cierra")
-    void laSesionQuedaIndexadaPorElSubYSeCierra() {
+    void theSessionIsIndexedBySubAndGetsClosed() {
         String tokenSubject = UUID.randomUUID().toString();
         String id = sesionDeAlguien(tokenSubject);
 
@@ -77,7 +77,7 @@ class BffSessionsTests {
 
     @Test
     @DisplayName("los dos nombres se cierran: el segundo del conjunto no es decorativo")
-    void losDosNombresSeCierran() {
+    void bothNamesAreClosed() {
         String tokenSubject = UUID.randomUUID().toString();
         String account = UUID.randomUUID().toString();
         String porElSujeto = sesionDeAlguien(tokenSubject);
@@ -95,7 +95,7 @@ class BffSessionsTests {
 
     @Test
     @DisplayName("cerrar las sesiones de quien no tiene ninguna no es un error")
-    void sinSesionesNoEsUnError() {
+    void havingNoSessionsIsNotAnError() {
         // Es el caso de una cuenta que nunca entro por la web, y pasa en toda baja de alguien que
         // solo usa la app movil. Tratarlo como un fallo haria que una baja normal pareciera roto.
         assertThat(sessions.closeThoseOf(Set.of(UUID.randomUUID().toString()))).isZero();
@@ -103,7 +103,7 @@ class BffSessionsTests {
 
     @Test
     @DisplayName("el listado devuelve la sesion con sus tiempos, y no la repite por los dos nombres")
-    void elListadoDevuelveLaSesionSinRepetirla() {
+    void theListingReturnsTheSessionWithoutRepeatingIt() {
         String tokenSubject = UUID.randomUUID().toString();
         String id = sesionDeAlguien(tokenSubject);
 
@@ -125,13 +125,13 @@ class BffSessionsTests {
 
     @Test
     @DisplayName("quien no tiene ninguna recibe una lista vacia, no un error")
-    void sinSesionesLaListaEstaVacia() {
+    void withoutSessionsTheListIsEmpty() {
         assertThat(sessions.listThoseOf(Set.of(UUID.randomUUID().toString()))).isEmpty();
     }
 
     @Test
     @DisplayName("una sesion cerrada deja de aparecer en el listado")
-    void laCerradaYaNoSeLista() {
+    void theClosedOneIsNoLongerListed() {
         String tokenSubject = UUID.randomUUID().toString();
         sesionDeAlguien(tokenSubject);
 

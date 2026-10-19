@@ -82,7 +82,7 @@ class IdentitiesTests {
 
     @Test
     @DisplayName("una vez vinculada, se reconoce por el sujeto aunque cambie el correo")
-    void seReconocePorElSujetoAunqueCambieElCorreo() {
+    void itIsRecognizedBySubjectEvenIfTheEmailChanges() {
         AccountView account = accountOf("emma@coprop.bo");
         identities.signIn(SUJETO, "emma@coprop.bo", true);
 
@@ -110,7 +110,7 @@ class IdentitiesTests {
 
     @Test
     @DisplayName("autenticarse no basta: sin cuenta en COPROP no hay identidad")
-    void sinCuentaNoHayIdentidad() {
+    void withoutAnAccountThereIsNoIdentity() {
         // Es el caso de quien entra con Google y nadie lo invito. Seguridad 10.1: Google solo
         // autentica, el acceso lo da la invitacion.
         assertThat(identities.signIn(SUJETO, "desconocida@gmail.com", true)).isNull();
@@ -118,7 +118,7 @@ class IdentitiesTests {
 
     @Test
     @DisplayName("una cuenta bloqueada no entra, y responde igual que si no existiera")
-    void unaCuentaBloqueadaNoEntra() {
+    void aBlockedAccountDoesNotGetIn() {
         AccountView account = accountOf("emma@coprop.bo");
 
         // Se bloquea por SQL porque todavia no hay operacion de dominio que lo haga: bloquear y
@@ -134,7 +134,7 @@ class IdentitiesTests {
 
     @Test
     @DisplayName("el correo del token se compara sin distinguir mayusculas")
-    void elCorreoSeComparaSinMayusculas() {
+    void theEmailIsComparedCaseInsensitively() {
         AccountView account = accountOf("emma@coprop.bo");
 
         // El proveedor de identidad no promete como escribe el correo, y UNIQUE (email) si

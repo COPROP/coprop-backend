@@ -124,7 +124,7 @@ class MembershipsService implements Memberships {
     /**
      * La reactivacion es la unica de las tres que se puede hacer sobre si mismo.
      *
-     * <p>No pasa por {@link #vigenteParaCambiar} por eso: la regla de "nadie se da de baja a si
+     * <p>No pasa por {@link #currentForChange} por eso: la regla de "nadie se da de baja a si
      * mismo" existe para que un administrador no se deje fuera, y devolverse el acceso no deja a
      * nadie fuera de nada. En la practica no se puede llegar aqui estando suspendido --el filtro de
      * condominio responde 404 antes-- asi que la restriccion solo estorbaria.
@@ -152,7 +152,7 @@ class MembershipsService implements Memberships {
      *
      * <p>Las comprobaciones van en este orden y cada una descarta una respuesta distinta: primero
      * que la membresia sea de este condominio y este abierta y no sea la de quien pide --las tres
-     * de {@link #vigenteParaCambiar}, iguales que en la baja--, despues que los roles que llegan
+     * de {@link #currentForChange}, iguales que en la baja--, despues que los roles que llegan
      * sean roles de membresia, y al final que el condominio no se quede sin administrador.
      */
     @Override

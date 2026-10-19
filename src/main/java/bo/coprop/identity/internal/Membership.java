@@ -154,7 +154,7 @@ class Membership {
         return status;
     }
 
-    /** Una copia: se cambian con {@link #cambiarRoles}, que es la operacion del issue #20. */
+    /** Una copia: se cambian con {@link #changeRoles}, que es la operacion del issue #20. */
     Set<MembershipRole> getRoles() {
         return Set.copyOf(roles);
     }

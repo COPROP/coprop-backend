@@ -26,13 +26,13 @@ class MaskerTests {
 
     @Test
     @DisplayName("conserva el nombre de la clave: el log sigue diciendo que habia un secreto")
-    void conservaElNombreDeLaClave() {
+    void itKeepsTheKeyName() {
         assertThat(Masker.mask("{\"client_secret\":\"abc\"}")).isEqualTo("{\"client_secret\":\"***\"}");
     }
 
     @Test
     @DisplayName("tapa un Bearer y un JWT suelto, que se reconocen por su forma")
-    void tapaTokens() {
+    void itMasksTokens() {
         String jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.firma-que-no-debe-salir";
         assertThat(Masker.mask("Authorization: Bearer " + jwt)).doesNotContain("firma-que-no-debe-salir");
         assertThat(Masker.mask("el token es " + jwt)).doesNotContain("firma-que-no-debe-salir");
@@ -40,14 +40,14 @@ class MaskerTests {
 
     @Test
     @DisplayName("no toca lo que no es un secreto: un log enmascarado de mas no sirve para depurar")
-    void noTocaElRestoDelMensaje() {
+    void itDoesNotTouchTheRestOfTheMessage() {
         String message = "Pago 42 aplicado a la unidad 7B del condominio Las Palmas en 120 ms";
         assertThat(Masker.mask(message)).isEqualTo(message);
     }
 
     @Test
     @DisplayName("con la clave aparte, tapa por el nombre de la clave")
-    void tapaPorNombreDeClave() {
+    void itMasksByKeyName() {
         assertThat(Masker.valueOf("token", "loquesea")).isEqualTo(Masker.TAPADO);
         assertThat(Masker.valueOf("Authorization", "loquesea")).isEqualTo(Masker.TAPADO);
         assertThat(Masker.valueOf("traceId", "abc-123")).isEqualTo("abc-123");
@@ -55,14 +55,14 @@ class MaskerTests {
 
     @Test
     @DisplayName("un texto nulo o vacio sale como cadena vacia, sin reventar")
-    void toleraNulos() {
+    void itToleratesNulls() {
         assertThat(Masker.mask(null)).isEmpty();
         assertThat(Masker.mask("")).isEmpty();
     }
 
     @Test
     @DisplayName("tapa los datos personales de Seguridad 8: el CI y el correo")
-    void tapaDatosPersonales() {
+    void itMasksPersonalData() {
         assertThat(Masker.mask("{\"ci\":\"1234567\",\"email\":\"ana@example.com\"}"))
                 .doesNotContain("1234567")
                 .doesNotContain("ana@example.com");

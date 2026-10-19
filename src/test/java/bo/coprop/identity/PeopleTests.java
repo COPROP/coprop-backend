@@ -52,7 +52,7 @@ class PeopleTests {
 
     @Test
     @DisplayName("una persona se da de alta con sus nombres y su carnet")
-    void seDaDeAltaConSusDatos() {
+    void itIsRegisteredWithItsData() {
         PersonView created = people.register(emma("8123456"), "admin");
 
         assertThat(created.id()).isNotNull();
@@ -65,7 +65,7 @@ class PeopleTests {
 
     @Test
     @DisplayName("el carnet es opcional: de un copropietario heredado no siempre se tiene")
-    void elCarnetEsOpcional() {
+    void theNationalIdIsOptional() {
         PersonView created = people.register(emma(null), "admin");
 
         assertThat(created.nationalId()).isNull();
@@ -73,7 +73,7 @@ class PeopleTests {
 
     @Test
     @DisplayName("el alta de una persona que ya existe devuelve la misma, sin error")
-    void elAltaRepetidaDevuelveLaMisma() {
+    void aRepeatedRegistrationReturnsTheSameOne() {
         PersonView primera = people.register(emma("8123456"), "admin");
 
         // Decision 7: responde igual exista o no. La persona es global, asi que distinguir los dos
@@ -96,7 +96,7 @@ class PeopleTests {
 
     @Test
     @DisplayName("sin carnet no hay con que reconocerla, asi que siempre crea una nueva")
-    void sinCarnetSiempreCreaUnaNueva() {
+    void withoutANationalIdItAlwaysCreatesANewOne() {
         PersonView una = people.register(emma(null), "admin");
         PersonView otra = people.register(emma(null), "admin");
 
@@ -107,7 +107,7 @@ class PeopleTests {
 
     @Test
     @DisplayName("la cuenta nace invitada, sin segundo factor y sin haber entrado nunca")
-    void laCuentaNaceInvitada() {
+    void theAccountIsBornInvited() {
         PersonView person = people.register(emma("8123456"), "admin");
 
         AccountView account = people.openAccount(person.id(), "emma@coprop.bo", null, "admin");
@@ -123,7 +123,7 @@ class PeopleTests {
 
     @Test
     @DisplayName("una persona no puede tener dos cuentas")
-    void unaPersonaNoPuedeTenerDosCuentas() {
+    void aPersonCannotHaveTwoAccounts() {
         PersonView person = people.register(emma("8123456"), "admin");
         people.openAccount(person.id(), "primera@coprop.bo", null, "admin");
 
@@ -134,7 +134,7 @@ class PeopleTests {
 
     @Test
     @DisplayName("dos cuentas no pueden compartir el correo")
-    void dosCuentasNoCompartenCorreo() {
+    void twoAccountsDoNotShareAnEmail() {
         PersonView una = people.register(emma("8123456"), "admin");
         PersonView otra = people.register(new NewPerson("Ana", "Perez", "9000001"), "admin");
         people.openAccount(una.id(), "repetido@coprop.bo", null, "admin");
@@ -146,14 +146,14 @@ class PeopleTests {
 
     @Test
     @DisplayName("no se abre cuenta a una persona que no existe")
-    void noSeAbreCuentaAQuienNoExiste() {
+    void noAccountIsOpenedForSomeoneWhoDoesNotExist() {
         assertThatThrownBy(() -> people.openAccount(UUID.randomUUID(), "fantasma@coprop.bo", null, "admin"))
                 .isInstanceOf(ResourceNotFound.class);
     }
 
     @Test
     @DisplayName("una persona que no existe no se encuentra")
-    void unaPersonaQueNoExisteNoSeEncuentra() {
+    void aPersonWhoDoesNotExistIsNotFound() {
         assertThatThrownBy(() -> people.find(UUID.randomUUID())).isInstanceOf(ResourceNotFound.class);
     }
 

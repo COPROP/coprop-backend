@@ -96,7 +96,7 @@ public class AccessDoubles {
          * <p>Es lo que permite comprobar la decision del issue #19: un Keycloak caido
          * <strong>no deshace</strong> la baja, al contrario que un SMTP caido en una invitacion.
          */
-        public void queFalle() {
+        public void makeItFail() {
             this.falla = true;
         }
 
@@ -104,7 +104,7 @@ public class AccessDoubles {
          * Deja el doble como recien creado.
          *
          * <p>Hace falta porque el bean es del contexto y el contexto se comparte entre tests: sin
-         * esto, {@link #queFalle()} de un test hundiria los siguientes y las listas se irian
+         * esto, {@link #makeItFail()} de un test hundiria los siguientes y las listas se irian
          * acumulando.
          */
         public synchronized void reiniciar() {

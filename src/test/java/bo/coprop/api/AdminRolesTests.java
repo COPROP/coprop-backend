@@ -87,7 +87,7 @@ class AdminRolesTests {
 
     @Test
     @DisplayName("un CONDO_ADMIN no concede el rol de plataforma: la ruta es global y alli no es nadie")
-    void elAdministradorDelCondominioNoConcedeElRolDePlataforma() throws Exception {
+    void theCondoAdminDoesNotGrantThePlatformRole() throws Exception {
         UUID condominium = altaDeCondominio();
         Quien administrador = conRolEn(condominium, MembershipRole.CONDO_ADMIN);
         Quien alguien = cuentaNueva();
@@ -110,7 +110,7 @@ class AdminRolesTests {
 
     @Test
     @DisplayName("un CONDO_ADMIN tampoco lo cuela por el cambio de roles de una membresia")
-    void tampocoLoCuelaPorLaMembresia() throws Exception {
+    void itDoesNotSlipThroughTheMembershipEither() throws Exception {
         UUID condominium = altaDeCondominio();
         Quien administrador = conRolEn(condominium, MembershipRole.CONDO_ADMIN);
         MembershipView deUnPropietario = membresiaDeUnPropietario(condominium);
@@ -129,7 +129,7 @@ class AdminRolesTests {
 
     @Test
     @DisplayName("el superadministrador si concede el rol de plataforma, y el nuevo crea condominios")
-    void elSuperadministradorSiLoConcede() throws Exception {
+    void thePlatformAdminDoesGrantIt() throws Exception {
         Quien quienConcede = cuentaDeSuperadministrador();
         Quien quienRecibe = cuentaNueva();
 
@@ -167,7 +167,7 @@ class AdminRolesTests {
 
     @Test
     @DisplayName("un CONDO_ADMIN no cambia roles de otro condominio: 404 y no 403")
-    void nuncaFueraDelPropioCondominio() throws Exception {
+    void neverOutsideYourOwnCondominium() throws Exception {
         UUID propio = altaDeCondominio();
         UUID ajeno = altaDeCondominio();
         Quien administrador = conRolEn(propio, MembershipRole.CONDO_ADMIN);
@@ -192,7 +192,7 @@ class AdminRolesTests {
 
     @Test
     @DisplayName("el administrador nombra a otro administrador, y surte efecto en la siguiente peticion")
-    void elAdministradorNombraAOtro() throws Exception {
+    void theAdminAppointsAnother() throws Exception {
         UUID condominium = altaDeCondominio();
         Quien administrador = conRolEn(condominium, MembershipRole.CONDO_ADMIN);
         Quien owner = cuentaNueva();
@@ -228,7 +228,7 @@ class AdminRolesTests {
 
     @Test
     @DisplayName("el financiero no reparte roles, ni para quitarlos")
-    void elFinancieroNoRepartoRoles() throws Exception {
+    void theFinanceAdminHandsOutNoRoles() throws Exception {
         UUID condominium = altaDeCondominio();
         Quien financiero = conRolEn(condominium, MembershipRole.FINANCE_ADMIN);
         MembershipView deOtro = membresiaDeUnPropietario(condominium);
@@ -246,7 +246,7 @@ class AdminRolesTests {
 
     @Test
     @DisplayName("el superadministrador no toca los roles de un propietario, solo los administrativos")
-    void elSuperadministradorSoloTocaLoAdministrativo() throws Exception {
+    void thePlatformAdminTouchesOnlyAdminMatters() throws Exception {
         UUID condominium = altaDeCondominio();
         Quien superadministrador = cuentaDeSuperadministrador();
         MembershipView deUnPropietario = membresiaDeUnPropietario(condominium);

@@ -57,7 +57,7 @@ class CatalogsTests {
 
     @Test
     @DisplayName("El catalogo trae cada enumeracion con sus valores en el orden en que se declararon")
-    void elCatalogoTraeCadaEnumeracionConSusValores() throws Exception {
+    void theCatalogBringsEachEnumerationWithItsValues() throws Exception {
         mockMvc.perform(get(PARAMETRICAS).header(HttpHeaders.AUTHORIZATION, token()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.enumerations.CondominiumType.length()").value(3))
@@ -77,7 +77,7 @@ class CatalogsTests {
 
     @Test
     @DisplayName("El catalogo es exactamente las enumeraciones publicas del dominio, ni una mas ni una menos")
-    void elCatalogoEsExactamenteLasEnumeracionesDelDominio() throws Exception {
+    void theCatalogIsExactlyTheDomainEnumerations() throws Exception {
         // Por igualdad y no por "cada una esta": si el escaner dejara de encontrar clases --por un
         // paquete renombrado, por ejemplo-- un contains pasaria sin comprobar nada, y este test es
         // toda la vigilancia que tiene el catalogo. La igualdad falla por los dos lados: una
@@ -95,7 +95,7 @@ class CatalogsTests {
 
     @Test
     @DisplayName("La matriz declara los siete roles en las veintitres filas, y cada celda es la del codigo")
-    void laMatrizDeclaraCadaCeldaComoLaDelCodigo() throws Exception {
+    void theMatrixDeclaresEachCellAsTheCodeDoes() throws Exception {
         var response = mockMvc.perform(get(MATRIZ).header(HttpHeaders.AUTHORIZATION, token()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.roles.length()").value(MembershipRole.values().length))
@@ -118,7 +118,7 @@ class CatalogsTests {
 
     @Test
     @DisplayName("Las celdas que nadie tiene se declaran como NONE, no se omiten")
-    void lasCeldasVaciasSeDeclaran() throws Exception {
+    void theEmptyCellsAreDeclared() throws Exception {
         mockMvc.perform(get(MATRIZ).header(HttpHeaders.AUTHORIZATION, token()))
                 .andExpect(status().isOk())
                 // CREATE_CONDOMINIUMS es la primera fila y solo la tiene el superadministrador: los
@@ -131,7 +131,7 @@ class CatalogsTests {
 
     @Test
     @DisplayName("Sin un token valido, los dos endpoints devuelven 401")
-    void sinTokenValidoDevuelve401() throws Exception {
+    void withoutAValidTokenItReturns401() throws Exception {
         mockMvc.perform(get(PARAMETRICAS).header(HttpHeaders.AUTHORIZATION, "Bearer no-es-un-token"))
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(get(MATRIZ).header(HttpHeaders.AUTHORIZATION, "Bearer no-es-un-token"))

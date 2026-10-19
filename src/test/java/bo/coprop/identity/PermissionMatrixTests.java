@@ -260,7 +260,7 @@ class PermissionMatrixTests {
 
     @Test
     @DisplayName("la matriz cubre el catalogo entero: ningun permiso se queda sin fila")
-    void ningunPermisoSeQuedaSinFila() {
+    void noPermissionIsLeftWithoutARow() {
         // Si entra un permiso nuevo al catalogo y nadie escribe su fila, este test lo dice. Sin
         // esto, un permiso sin declarar se comporta como "nadie puede" y nadie se entera.
         var conFila = matriz().stream().map(Row::permission).toList();
@@ -270,7 +270,7 @@ class PermissionMatrixTests {
 
     @Test
     @DisplayName("la directiva ve los agregados pero NO la morosidad por unidad")
-    void laDirectivaNoVeLaMorosidadPorUnidad() {
+    void theBoardDoesNotSeeDelinquencyByUnit() {
         // El segundo criterio de aceptacion del issue #16. Esta aparte de la fila porque es la linea
         // que no se cruza: expone lo que debe un vecino a otro vecino, y 10.1 lo deja fuera salvo
         // que el administrador lo habilite --y esa habilitacion es M2, cuando exista el reporte--.
@@ -281,7 +281,7 @@ class PermissionMatrixTests {
 
     @Test
     @DisplayName("separacion de funciones: quien administra no maneja dinero, y quien maneja dinero no reparte roles")
-    void laSeparacionDeFuncionesSeSostiene() {
+    void theSeparationOfDutiesHolds() {
         // Seguridad 3. Son las dos mitades de la misma regla, y romper cualquiera deja a una sola
         // persona pudiendo darse a si misma el control del dinero.
         assertThat(PermissionMatrix.scopeOf(CONDO_ADMIN, Permission.ISSUE_DUES)).isEqualTo(NONE);
@@ -295,7 +295,7 @@ class PermissionMatrixTests {
 
     @Test
     @DisplayName("el doble rol administrativo suma, porque el condominio lo decidio asi")
-    void elDobleRolAdministrativoSuma() {
+    void havingBothAdminRolesAddsUp() {
         // 10.1 lo permite explicitamente: en condominios pequenos una sola persona hace las dos
         // cosas. Lo que no puede es pasar desapercibido, y de eso se encarga la auditoria.
         var ambos = Set.of(CONDO_ADMIN, FINANCE_ADMIN);
@@ -306,7 +306,7 @@ class PermissionMatrixTests {
 
     @Test
     @DisplayName("el superadministrador no opera condominios")
-    void elSuperadministradorNoOperaCondominios() {
+    void thePlatformAdminDoesNotOperateCondominiums() {
         // 10.1: no ve deudas ni pagos por defecto. Crea condominios, pone administradores, lee
         // auditoria y abre soporte. Nada de lo que mueve plata del condominio.
         assertThat(PermissionMatrix.scopeOf(PLATFORM_ADMIN, Permission.VIEW_ACCOUNT_STATEMENT))
@@ -321,7 +321,7 @@ class PermissionMatrixTests {
 
     @Test
     @DisplayName("las tres celdas de step-up son las que mueven dinero")
-    void elStepUpEsSoloDondeLoDiceLaMatriz() {
+    void stepUpAppliesOnlyWhereTheMatrixSaysSo() {
         assertThat(Permission.values())
                 .filteredOn(PermissionMatrix::requiresSecondFactor)
                 .containsExactlyInAnyOrder(

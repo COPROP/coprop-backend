@@ -46,7 +46,7 @@ class CondominiumsTests {
 
     @Test
     @DisplayName("un condominio se crea con su configuracion minima y en estado activo")
-    void seCreaConSuConfiguracionMinima() {
+    void itIsCreatedWithItsMinimalConfig() {
         CondominiumView creado = condominiums.register(lasPalmas(), "emma");
 
         assertThat(creado.id()).isNotNull();
@@ -74,7 +74,7 @@ class CondominiumsTests {
 
     @Test
     @DisplayName("cambiar la configuracion no pisa la anterior: la cierra y abre otra")
-    void cambiarLaConfiguracionNoPisaLaAnterior() {
+    void changingTheConfigDoesNotOverwriteThePrevious() {
         CondominiumView creado = condominiums.register(lasPalmas(), "emma");
 
         CondominiumView cambiado = condominiums.changeConfig(creado.id(), 5, 20, "emma");
@@ -114,7 +114,7 @@ class CondominiumsTests {
 
     @Test
     @DisplayName("dos condominios no pueden compartir NIT: serian el mismo ante la ley")
-    void elNitEsUnico() {
+    void theNitIsUnique() {
         condominiums.register(lasPalmas(), "emma");
 
         assertThatThrownBy(() -> condominiums.register(lasPalmas(), "emma"))
@@ -124,7 +124,7 @@ class CondominiumsTests {
 
     @Test
     @DisplayName("un condominio que no existe da no encontrado, no un nulo")
-    void elQueNoExisteDaNoEncontrado() {
+    void theNonExistentOneGivesNotFound() {
         assertThatThrownBy(() -> condominiums.find(UUID.randomUUID())).isInstanceOf(ResourceNotFound.class);
     }
 
@@ -133,7 +133,7 @@ class CondominiumsTests {
 
     @Test
     @DisplayName("editar corrige nombre, NIT y direccion, y la direccion nace nula")
-    void editarCorrigeLosTresDatos() {
+    void editingFixesTheThreeFields() {
         CondominiumView creado = condominiums.register(lasPalmas(), "emma");
         assertThat(creado.address()).isNull();
 
@@ -178,7 +178,7 @@ class CondominiumsTests {
 
     @Test
     @DisplayName("corregir solo el nombre, con su propio NIT, no choca consigo mismo")
-    void mandarElMismoNitNoEsUnChoque() {
+    void sendingTheSameNitIsNotAClash() {
         CondominiumView creado = condominiums.register(lasPalmas(), "emma");
 
         CondominiumView editado = condominiums.edit(creado.id(), "Las Palmas II", creado.nit(), null, "emma");
@@ -189,7 +189,7 @@ class CondominiumsTests {
 
     @Test
     @DisplayName("el NIT de otro condominio se rechaza: dos con el mismo NIT serian el mismo")
-    void elNitDeOtroSeRechaza() {
+    void anotherCondominiumsNitIsRejected() {
         CondominiumView primero = condominiums.register(lasPalmas(), "emma");
         CondominiumView segundo = condominiums.register(
                 new NewCondominium("Bolivar", "5555555555", CondominiumType.HOUSES, "America/La_Paz", 3, 18), "emma");
@@ -202,7 +202,7 @@ class CondominiumsTests {
 
     @Test
     @DisplayName("editar uno que no existe no crea nada: da ResourceNotFound")
-    void editarUnoQueNoExisteFalla() {
+    void editingANonExistentOneFails() {
         assertThatThrownBy(() -> condominiums.edit(UUID.randomUUID(), "Fantasma", "1111111111", null, "emma"))
                 .isInstanceOf(ResourceNotFound.class);
     }

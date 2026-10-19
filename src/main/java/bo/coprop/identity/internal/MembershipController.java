@@ -32,14 +32,14 @@ import org.springframework.web.bind.annotation.RestController;
  * membresia es de un condominio concreto.
  *
  * <p>Conceder una membresia y leer el padron piden el permiso de invitar usuarios (#16); quien
- * puede conceder <em>esos</em> roles es una segunda regla, y de ahi {@code puedeConceder}.
+ * puede conceder <em>esos</em> roles es una segunda regla, y de ahi {@code canGrant}.
  *
  * <p>La baja, la suspension y la reactivacion son el <strong>#19</strong>, y las tres piden
  * {@code puedeCambiar}, que es la misma regla del alta leida al reves: quien no puede nombrar a un
  * administrador tampoco puede quitarlo ni dejarlo fuera.
  *
  * <p>El cambio de roles es el <strong>#20</strong>, y es el unico que pide las <strong>dos</strong>
- * mitades a la vez: {@code puedeCambiar} por los que se van y {@code puedeConceder} por los que
+ * mitades a la vez: {@code puedeCambiar} por los que se van y {@code canGrant} por los que
  * llegan. El rol de plataforma no se reparte desde aqui --no cuelga de ningun condominio-- sino en
  * {@link PlatformAdminController}.
  */
@@ -145,8 +145,8 @@ class MembershipController {
      *
      * <p><strong>Pide las dos mitades de la regla y no una</strong>: poder quitar los roles que la
      * membresia tiene hoy ({@code puedeCambiar}) <em>y</em> poder conceder los que llegan en el
-     * cuerpo ({@code puedeConceder}). Un cambio es las dos cosas a la vez, y con una sola mitad se
-     * escapa justo lo que la matriz acota: con solo {@code puedeConceder}, el superadministrador
+     * cuerpo ({@code canGrant}). Un cambio es las dos cosas a la vez, y con una sola mitad se
+     * escapa justo lo que la matriz acota: con solo {@code canGrant}, el superadministrador
      * convertiria a un propietario en {@code CONDO_ADMIN} --y la celda "Solo administradores" le
      * prohibe tocar propietarios--; con solo {@code puedeCambiar}, podria quitarle sus roles
      * administrativos a alguien y dejarle {@code OWNER}, que es repartir un rol que no le toca.

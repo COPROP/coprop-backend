@@ -70,7 +70,7 @@ class ApiAuthenticationTests {
 
     @Test
     @DisplayName("un token expirado devuelve 401 en problem+json")
-    void unTokenExpiradoDevuelve401() throws Exception {
+    void anExpiredTokenReturns401() throws Exception {
         String expirado = TestTokenProvider.token(
                 TestTokenProvider.sujetoNuevo(),
                 TestTokenProvider.correoNuevo(),
@@ -88,7 +88,7 @@ class ApiAuthenticationTests {
 
     @Test
     @DisplayName("un token firmado con otra clave devuelve 401")
-    void unTokenConFirmaInvalidaDevuelve401() throws Exception {
+    void aTokenWithAnInvalidSignatureReturns401() throws Exception {
         // Mismo contenido, otra firma: es el token que trae quien se lo fabrico el solo.
         RSAKey otraClave = new RSAKeyGenerator(2048).keyID("intrusa").generate();
         String falsificado = TestTokenProvider.token(
@@ -107,7 +107,7 @@ class ApiAuthenticationTests {
 
     @Test
     @DisplayName("un token para otra audiencia no sirve contra esta API")
-    void unTokenDeOtraAudienciaDevuelve401() throws Exception {
+    void aTokenFromAnotherAudienceReturns401() throws Exception {
         // El mismo realm emite tokens para la consola de cuenta. Sin validar la audiencia, uno de
         // esos abriria la API entera.
         String ajeno = TestTokenProvider.token(
@@ -125,7 +125,7 @@ class ApiAuthenticationTests {
 
     @Test
     @DisplayName("sin token no se entra, y la respuesta es la del contrato")
-    void sinTokenNoSeEntra() throws Exception {
+    void withoutATokenThereIsNoEntry() throws Exception {
         mockMvc.perform(get("/api/v1/cuentas/" + UUID.randomUUID()))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.codigo").value("NO_AUTENTICADO"));
@@ -133,7 +133,7 @@ class ApiAuthenticationTests {
 
     @Test
     @DisplayName("un token valido de quien no tiene cuenta autentica, pero no ve nada")
-    void unTokenSinCuentaNoVeNada() throws Exception {
+    void aTokenWithoutAnAccountSeesNothing() throws Exception {
         // El criterio del issue: autenticarse no es tener acceso. Es exactamente lo que pasara
         // cuando se encienda el login con Google y entre alguien a quien nadie invito.
         mockMvc.perform(get("/api/v1/cuentas/" + UUID.randomUUID())
@@ -149,7 +149,7 @@ class ApiAuthenticationTests {
 
     @Test
     @DisplayName("un token con el correo sin verificar tampoco entra")
-    void unTokenConCorreoSinVerificarNoEntra() throws Exception {
+    void aTokenWithAnUnverifiedEmailDoesNotGetIn() throws Exception {
         String email = TestTokenProvider.correoNuevo();
         openAccount(email);
 
@@ -169,7 +169,7 @@ class ApiAuthenticationTests {
 
     @Test
     @DisplayName("un token valido de quien si tiene cuenta entra y la deja activa")
-    void unTokenConCuentaEntra() throws Exception {
+    void aTokenWithAnAccountGetsIn() throws Exception {
         String email = TestTokenProvider.correoNuevo();
         AccountView account = openAccount(email);
 
@@ -185,7 +185,7 @@ class ApiAuthenticationTests {
 
     @Test
     @DisplayName("un segundo sujeto con el mismo correo no se queda con la cuenta")
-    void unSegundoSujetoNoSeQuedaConLaCuenta() throws Exception {
+    void aSecondSubjectDoesNotTakeOverTheAccount() throws Exception {
         String email = TestTokenProvider.correoNuevo();
         AccountView account = openAccount(email);
 
@@ -208,7 +208,7 @@ class ApiAuthenticationTests {
 
     @Test
     @DisplayName("toda linea de log de la peticion dice quien la hizo")
-    void elActorQuedaEnElLog() throws Exception {
+    void theActorIsRecordedInTheLog() throws Exception {
         String email = TestTokenProvider.correoNuevo();
         AccountView account = openAccount(email);
 
@@ -238,13 +238,13 @@ class ApiAuthenticationTests {
 
     @Test
     @DisplayName("el contrato de la API se sirve sin identidad")
-    void elContratoEsPublico() throws Exception {
+    void theContractIsPublic() throws Exception {
         mockMvc.perform(get("/api/openapi.json")).andExpect(status().isOk());
     }
 
     @Test
     @DisplayName("el health es publico y el resto del actuator no se sirve a nadie")
-    void elActuatorNoSeSirve() throws Exception {
+    void theActuatorIsNotServed() throws Exception {
         mockMvc.perform(get("/actuator/health")).andExpect(status().isOk());
 
         // Ni siquiera con un token valido: las metricas de la plataforma no son de un propietario.
@@ -272,7 +272,7 @@ class ApiAuthenticationTests {
             private static final org.slf4j.Logger log = LoggerFactory.getLogger(Endpoints.class);
 
             @GetMapping("/una-linea")
-            void unaLinea() {
+            void oneLine() {
                 log.info("algo que hace el dominio");
             }
         }

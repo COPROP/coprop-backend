@@ -82,7 +82,7 @@ class SessionValidityTests {
     private DataSource dataSource;
 
     @AfterEach
-    void limpiarElContexto() {
+    void clearTheContext() {
         // El contexto de seguridad es un ThreadLocal y estos tests lo escriben a mano: sin esto, la
         // identidad de un caso se le aparece al siguiente.
         SecurityContextHolder.clearContext();
@@ -92,7 +92,7 @@ class SessionValidityTests {
 
     @Test
     @DisplayName("la sesion de quien administra un condominio se queda en una hora")
-    void unaHoraParaElAdministrador() throws Exception {
+    void oneHourForTheAdmin() throws Exception {
         UUID condominium = altaDeCondominio();
         AccountView account = cuentaNueva();
         memberships.grant(condominium, account.id(), Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
@@ -106,7 +106,7 @@ class SessionValidityTests {
 
     @Test
     @DisplayName("la del financiero tambien: lo que cuenta es que el rol sea administrativo")
-    void unaHoraParaElFinanciero() throws Exception {
+    void oneHourForTheFinanceAdmin() throws Exception {
         UUID condominium = altaDeCondominio();
         AccountView account = cuentaNueva();
         memberships.grant(condominium, account.id(), Set.of(MembershipRole.FINANCE_ADMIN), null, "admin");
@@ -119,7 +119,7 @@ class SessionValidityTests {
 
     @Test
     @DisplayName("la de un propietario se queda en veinticuatro horas")
-    void veinticuatroHorasParaElPropietario() throws Exception {
+    void twentyFourHoursForTheOwner() throws Exception {
         UUID condominium = altaDeCondominio();
         AccountView account = cuentaNueva();
         memberships.grant(condominium, account.id(), Set.of(MembershipRole.OWNER), null, "admin");
@@ -132,7 +132,7 @@ class SessionValidityTests {
 
     @Test
     @DisplayName("quien administra un edificio y es propietario en otro tiene sesion de administrador")
-    void ganaLaMasEstricta() throws Exception {
+    void theStrictestOneWins() throws Exception {
         UUID unEdificio = altaDeCondominio();
         UUID otro = altaDeCondominio();
         AccountView account = cuentaNueva();
@@ -150,7 +150,7 @@ class SessionValidityTests {
 
     @Test
     @DisplayName("quien administra la plataforma tambien, y sin membresia ninguna")
-    void unaHoraParaElSuperadministrador() throws Exception {
+    void oneHourForThePlatformAdmin() throws Exception {
         AccountView account = cuentaNueva();
         new JdbcTemplate(dataSource)
                 .update("insert into platform_admin (user_id, granted_at) values (?, now())", account.id());
@@ -168,7 +168,7 @@ class SessionValidityTests {
 
     @Test
     @DisplayName("una membresia administrativa suspendida no endurece nada")
-    void laSuspendidaNoCuenta() throws Exception {
+    void theSuspendedOneDoesNotCount() throws Exception {
         UUID condominium = altaDeCondominio();
         AccountView account = cuentaNueva();
         // FINANCE_ADMIN y no CONDO_ADMIN: el #19 no deja suspender la ultima membresia con
@@ -189,7 +189,7 @@ class SessionValidityTests {
 
     @Test
     @DisplayName("a las veinticuatro horas la sesion se cierra aunque se este usando")
-    void elTopeAbsolutoCierraLaSesion() throws Exception {
+    void theAbsoluteCapClosesTheSession() throws Exception {
         UUID condominium = altaDeCondominio();
         AccountView account = cuentaNueva();
         memberships.grant(condominium, account.id(), Set.of(MembershipRole.OWNER), null, "admin");
@@ -209,7 +209,7 @@ class SessionValidityTests {
 
     @Test
     @DisplayName("a las veintitres no: el tope es un tope, no un redondeo")
-    void aLasVeintitresTodaviaNo() throws Exception {
+    void atTwentyThreeHoursNotYet() throws Exception {
         UUID condominium = altaDeCondominio();
         AccountView account = cuentaNueva();
         memberships.grant(condominium, account.id(), Set.of(MembershipRole.OWNER), null, "admin");
@@ -226,7 +226,7 @@ class SessionValidityTests {
 
     @Test
     @DisplayName("una sesion de una hora, sin usar durante sesenta y un minutos, ya no existe")
-    void elAdministradorInactivoUnaHoraQuedaFuera() {
+    void anAdminIdleForAnHourIsLockedOut() {
         String id = sesionGuardada(Duration.ofHours(1), Duration.ofMinutes(61));
 
         // Es el criterio del issue, contra la tabla de verdad: Spring Session no devuelve una
@@ -237,7 +237,7 @@ class SessionValidityTests {
 
     @Test
     @DisplayName("y la de un propietario, con los mismos sesenta y un minutos, sigue viva")
-    void elPropietarioNoQuedaFuera() {
+    void theOwnerIsNotLeftOut() {
         // El control de la anterior. Sin el, la suite pasaria igual con las dos duraciones puestas
         // en una hora, que es precisamente el error que el criterio distingue.
         String id = sesionGuardada(Duration.ofHours(24), Duration.ofMinutes(61));

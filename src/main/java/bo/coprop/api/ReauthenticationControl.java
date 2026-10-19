@@ -157,7 +157,7 @@ class ReauthenticationControl {
      * ahi los pagos de uno podrian aplicarse al otro. Cambiarlo es de las cosas que Seguridad 7.3
      * llama sensibles. Corregir una tilde del nombre o escribir la direccion no lo es, y pedir el
      * factor para eso dejaria el control estorbando donde no protege nada --el mismo razonamiento
-     * que {@link #siHayRolAdministrativo}--.
+     * que {@link #ifAdminRole}--.
      *
      * <p><strong>La condicion compara contra la base, no contra el cuerpo solo.</strong> Mandar el
      * NIT que el condominio ya tiene no es un cambio, y exigir el factor por el mero hecho de que el

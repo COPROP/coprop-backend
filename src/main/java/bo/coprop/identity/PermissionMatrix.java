@@ -51,7 +51,7 @@ import java.util.Set;
  * <p><strong>Lo que esta matriz no decide</strong>: si <em>este</em> recurso es tuyo. Eso es
  * {@link Scope#OWN}, y lo resuelve {@code AccessControl} en el modulo {@code api} (issue
  * #15), que es el unico sitio donde se ven a la vez la matriz y las relaciones de la unidad. Y si
- * hizo falta segundo factor hace poco, que es {@link #pideSegundoFactor} y lo hara cumplir el #22.
+ * hizo falta segundo factor hace poco, que es {@link #requiresSecondFactor} y lo hara cumplir el #22.
  */
 public final class PermissionMatrix {
 

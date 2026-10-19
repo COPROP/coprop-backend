@@ -21,7 +21,7 @@ public interface Authorization {
     /**
      * Hasta donde le llega ese permiso a quien hace esta peticion, en el condominio de la ruta.
      *
-     * <p>Existe porque {@link #puede} aplasta tres valores en dos: para la cadena del issue
+     * <p>Existe porque {@link #can} aplasta tres valores en dos: para la cadena del issue
      * <strong>#15</strong> no es lo mismo un {@link Scope#NONE} --el rol no hace esto, y la
      * respuesta es 403-- que un {@link Scope#OWN}, donde falta comprobar si el recurso es
      * suyo y la respuesta, si no lo es, tiene que ser 404. Quien compone las dos cosas vive en
@@ -43,7 +43,7 @@ public interface Authorization {
      * <p>Un permiso de alcance {@link Scope#OWN} cuenta como permitido aqui, porque lo
      * contrario dejaria al propietario sin su propio estado de cuenta. <strong>Por eso este metodo
      * no basta para un endpoint que recibe un recurso en la ruta</strong>: ahi hay que preguntar
-     * por el recurso, con {@link #alcanceDe} y las relaciones de la unidad. Vale tal cual para las
+     * por el recurso, con {@link #scopeOf} y las relaciones de la unidad. Vale tal cual para las
      * operaciones de alcance de condominio --dar de alta una unidad, cambiar la configuracion--,
      * que son las que no nombran ningun recurso propio.
      *
@@ -64,7 +64,7 @@ public interface Authorization {
     /**
      * Si puede conceder <strong>esos</strong> roles.
      *
-     * <p>Son dos reglas distintas y por eso no cabe en {@link #puede}: el administrador del
+     * <p>Son dos reglas distintas y por eso no cabe en {@link #can}: el administrador del
      * condominio puede asignar cualquier rol, incluidos {@code CONDO_ADMIN} y {@code FINANCE_ADMIN}
      * --decision explicita de Seguridad 10.1, que queda en auditoria--, mientras que el
      * superadministrador solo puede asignar roles administrativos, que es la celda "Solo
@@ -76,7 +76,7 @@ public interface Authorization {
      * Si puede dar de baja, suspender o reactivar <strong>esa</strong> membresia. Issue
      * <strong>#19</strong>.
      *
-     * <p>Es {@link #puedeConceder} leido al reves, con los roles que la membresia tiene en vez de
+     * <p>Es {@link #canGrant} leido al reves, con los roles que la membresia tiene en vez de
      * los que se van a conceder: <strong>quien no puede nombrar a un administrador tampoco puede
      * quitarlo</strong>. Sin esto, el superadministrador --que segun la matriz solo reparte roles
      * administrativos-- podria dar de baja a cualquier propietario de cualquier edificio, que es

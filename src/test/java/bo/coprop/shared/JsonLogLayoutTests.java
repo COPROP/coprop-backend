@@ -27,7 +27,7 @@ class JsonLogLayoutTests {
 
     @Test
     @DisplayName("la credencial no sale en el mensaje")
-    void noSaleEnElMensaje() {
+    void itDoesNotLeakInTheMessage() {
         String json = format.format(evento("respuesta del proveedor: {\"client_secret\":\"" + CREDENCIAL + "\"}"));
 
         assertThat(json).doesNotContain(CREDENCIAL).contains(Masker.TAPADO);
@@ -35,7 +35,7 @@ class JsonLogLayoutTests {
 
     @Test
     @DisplayName("la credencial no sale desde el MDC")
-    void noSaleDesdeElMdc() {
+    void itDoesNotLeakFromTheMdc() {
         LoggingEvent evento = evento("pago aplicado");
         evento.setMDCPropertyMap(Map.of(LogKeys.TRAZA, "abc-123", "token", CREDENCIAL));
 
@@ -46,7 +46,7 @@ class JsonLogLayoutTests {
 
     @Test
     @DisplayName("la credencial no sale desde el mensaje de la excepcion ni de su traza")
-    void noSaleDesdeLaExcepcion() {
+    void itDoesNotLeakFromTheException() {
         LoggingEvent evento = evento("fallo llamando al proveedor");
         evento.setThrowableProxy(new ch.qos.logback.classic.spi.ThrowableProxy(
                 new IllegalStateException("rechazado con apiKey=" + CREDENCIAL)));
@@ -58,7 +58,7 @@ class JsonLogLayoutTests {
 
     @Test
     @DisplayName("sale una sola linea de JSON valido, con las comillas escapadas")
-    void saleUnaLineaDeJsonValido() {
+    void oneLineOfValidJsonComesOut() {
         String json = format.format(evento("texto con \"comillas\" y un salto\nde linea"));
 
         assertThat(json).endsWith("}\n");

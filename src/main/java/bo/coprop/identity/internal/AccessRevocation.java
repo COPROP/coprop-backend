@@ -21,14 +21,14 @@ import org.springframework.stereotype.Component;
  * cierra y por que:
  *
  * <ul>
- *   <li>{@link #siSeQuedaSinCondominios}: la baja y la suspension del #19, que cierran
+ *   <li>{@link #ifLeftWithoutCondominiums}: la baja y la suspension del #19, que cierran
  *       <em>solo</em> si a la cuenta no le queda ningun condominio al que entrar.
  *   <li>{@link #siPierdeAlgunRolAdministrativo}: el cambio de roles del #20, que cierra
  *       <em>aunque</em> le queden, porque lo que caduca es el nivel de confianza de la sesion y no
  *       el acceso (Seguridad 8).
  *   <li>{@link #deTodasFormas}: la revocacion del rol de plataforma, donde no hay nada que
  *       condicionar.
- *   <li>{@link #porPeticionPropia}: el "cerrar sesion en todos los dispositivos" del #22, la unica
+ *   <li>{@link #byOwnRequest}: el "cerrar sesion en todos los dispositivos" del #22, la unica
  *       que no la provoca una perdida sino la propia persona.
  * </ul>
  *
@@ -104,7 +104,7 @@ class AccessRevocation {
      * administrativo. Issue <strong>#20</strong>.
      *
      * <p>Es la segunda entrada de esta clase, y la regla es distinta de la primera a proposito.
-     * {@link #siSeQuedaSinCondominios} cierra cuando a la cuenta no le queda ningun sitio al que
+     * {@link #ifLeftWithoutCondominiums} cierra cuando a la cuenta no le queda ningun sitio al que
      * entrar; esto cierra <strong>aunque le queden</strong>, porque lo que caduco no es el acceso
      * sino el nivel de confianza con el que se abrio esa sesion. Lo pide Seguridad 8, que nombra la
      * revocacion de sesiones "al retirar un rol administrativo" junto a la de la baja.

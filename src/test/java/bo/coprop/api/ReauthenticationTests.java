@@ -95,7 +95,7 @@ class ReauthenticationTests {
 
     @Test
     @DisplayName("cambiar roles sin segundo factor: 401 con REAUTENTICACION_REQUERIDA y el desafio del RFC 9470")
-    void sinSegundoFactorNoSeCambianRoles() throws Exception {
+    void withoutTheSecondFactorRolesAreNotChanged() throws Exception {
         UUID condominium = altaDeCondominio();
         Quien administrador = conRolEn(condominium, MembershipRole.CONDO_ADMIN, Autenticacion.SOLO_CONTRASENA);
         MembershipView deUnPropietario = membresiaDeUnPropietario(condominium);
@@ -118,7 +118,7 @@ class ReauthenticationTests {
 
     @Test
     @DisplayName("un segundo factor de hace una hora tampoco vale: la ventana es de cinco minutos")
-    void elSegundoFactorCaduca() throws Exception {
+    void theSecondFactorExpires() throws Exception {
         UUID condominium = altaDeCondominio();
         Quien administrador = conRolEn(condominium, MembershipRole.CONDO_ADMIN, Autenticacion.FACTOR_VIEJO);
         MembershipView deUnPropietario = membresiaDeUnPropietario(condominium);
@@ -137,7 +137,7 @@ class ReauthenticationTests {
 
     @Test
     @DisplayName("un proveedor que no manda amr ni auth_time: se exige, porque no se sabe")
-    void sinAfirmacionesSeExige() throws Exception {
+    void withoutClaimsItIsRequired() throws Exception {
         UUID condominium = altaDeCondominio();
         Quien administrador = conRolEn(condominium, MembershipRole.CONDO_ADMIN, Autenticacion.SIN_AFIRMACIONES);
         MembershipView deUnPropietario = membresiaDeUnPropietario(condominium);
@@ -156,7 +156,7 @@ class ReauthenticationTests {
 
     @Test
     @DisplayName("con segundo factor reciente, la misma peticion pasa")
-    void conSegundoFactorPasa() throws Exception {
+    void withTheSecondFactorItPasses() throws Exception {
         UUID condominium = altaDeCondominio();
         Quien administrador = conRolEn(condominium, MembershipRole.CONDO_ADMIN, Autenticacion.CON_SEGUNDO_FACTOR);
         MembershipView deUnPropietario = membresiaDeUnPropietario(condominium);
@@ -175,7 +175,7 @@ class ReauthenticationTests {
 
     @Test
     @DisplayName("a quien no puede se le responde 403, no se le pide un segundo factor que no le serviria")
-    void elPermisoVaPrimero() throws Exception {
+    void thePermissionComesFirst() throws Exception {
         UUID condominium = altaDeCondominio();
         // Sin permiso para repartir roles Y sin segundo factor: las dos cosas fallan a la vez, y la
         // respuesta tiene que ser la del permiso. Pedirle el factor seria mandarle a buscar su
@@ -194,7 +194,7 @@ class ReauthenticationTests {
 
     @Test
     @DisplayName("y el 404 del condominio ajeno sigue ganandole al segundo factor")
-    void elCondominioAjenoVaAntes() throws Exception {
+    void theOtherCondominiumComesFirst() throws Exception {
         UUID propio = altaDeCondominio();
         UUID ajeno = altaDeCondominio();
         Quien administrador = conRolEn(propio, MembershipRole.CONDO_ADMIN, Autenticacion.SOLO_CONTRASENA);
@@ -215,7 +215,7 @@ class ReauthenticationTests {
 
     @Test
     @DisplayName("conceder y revocar el rol de plataforma piden segundo factor")
-    void elRolDePlataformaPideSegundoFactor() throws Exception {
+    void thePlatformRoleRequiresTheSecondFactor() throws Exception {
         Quien sinFactor = cuentaDeSuperadministrador(Autenticacion.SOLO_CONTRASENA);
         Quien conFactor = cuentaDeSuperadministrador(Autenticacion.CON_SEGUNDO_FACTOR);
         Quien destinatario = cuentaNueva(Autenticacion.CON_SEGUNDO_FACTOR);
@@ -260,7 +260,7 @@ class ReauthenticationTests {
 
     @Test
     @DisplayName("dar de alta a un propietario no pide segundo factor; nombrar a un administrador si")
-    void soloLoAdministrativoPideFactor() throws Exception {
+    void onlyAdminMattersRequireTheFactor() throws Exception {
         UUID condominium = altaDeCondominio();
         Quien administrador = conRolEn(condominium, MembershipRole.CONDO_ADMIN, Autenticacion.SOLO_CONTRASENA);
         Quien vecino = cuentaNueva(Autenticacion.CON_SEGUNDO_FACTOR);
@@ -286,7 +286,7 @@ class ReauthenticationTests {
 
     @Test
     @DisplayName("una invitacion es una membresia diferida, y sigue la misma regla")
-    void laInvitacionSigueLaMismaRegla() throws Exception {
+    void theInvitationFollowsTheSameRule() throws Exception {
         UUID condominium = altaDeCondominio();
         Quien administrador = conRolEn(condominium, MembershipRole.CONDO_ADMIN, Autenticacion.SOLO_CONTRASENA);
         Quien vecino = cuentaNueva(Autenticacion.CON_SEGUNDO_FACTOR);
@@ -318,7 +318,7 @@ class ReauthenticationTests {
 
     @Test
     @DisplayName("corregir el nombre no pide segundo factor; cambiar el NIT si")
-    void soloElNitPideFactor() throws Exception {
+    void onlyTheNitRequiresTheFactor() throws Exception {
         Quien superadministrador = cuentaDeSuperadministrador(Autenticacion.SOLO_CONTRASENA);
         UUID condominium = altaDeCondominio();
         String nitActual = condominiums.find(condominium).nit();
@@ -348,7 +348,7 @@ class ReauthenticationTests {
 
     @Test
     @DisplayName("con segundo factor reciente, el NIT si se cambia")
-    void conFactorElNitSeCambia() throws Exception {
+    void withTheFactorTheNitChanges() throws Exception {
         Quien superadministrador = cuentaDeSuperadministrador(Autenticacion.CON_SEGUNDO_FACTOR);
         UUID condominium = altaDeCondominio();
 

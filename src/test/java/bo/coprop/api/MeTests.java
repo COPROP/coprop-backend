@@ -73,7 +73,7 @@ class MeTests {
 
     @Test
     @DisplayName("Con dos membresias, la respuesta lista las dos con su rol")
-    void conDosMembresiasListaLasDosConSuRol() throws Exception {
+    void withTwoMembershipsBothAreListedWithTheirRole() throws Exception {
         UUID aurora = condominioLlamado("Aurora");
         UUID bolivar = condominioLlamado("Bolivar");
         Quien emma = cuentaNueva();
@@ -95,7 +95,7 @@ class MeTests {
 
     @Test
     @DisplayName("Un request a un condominio sin membresia devuelve 404")
-    void unRequestAUnCondominioSinMembresiaDevuelve404() throws Exception {
+    void aRequestToACondominiumWithoutMembershipReturns404() throws Exception {
         UUID propio = condominioLlamado("Propio");
         UUID ajeno = condominioLlamado("Ajeno");
         Quien emma = cuentaNueva();
@@ -112,7 +112,7 @@ class MeTests {
 
     @Test
     @DisplayName("El perfil no nombra un condominio en el que no hay membresia")
-    void elPerfilNoNombraUnCondominioEnElQueNoHayMembresia() throws Exception {
+    void theProfileDoesNotNameACondominiumWithoutMembership() throws Exception {
         UUID propio = condominioLlamado("Propio");
         condominioLlamado("Del vecino");
         Quien emma = cuentaNueva();
@@ -128,7 +128,7 @@ class MeTests {
 
     @Test
     @DisplayName("Una membresia suspendida no se lista")
-    void unaMembresiaSuspendidaNoSeLista() throws Exception {
+    void aSuspendedMembershipIsNotListed() throws Exception {
         UUID condominium = condominioLlamado("Suspendido");
         Quien emma = cuentaNueva();
         UUID membership = memberships
@@ -148,7 +148,7 @@ class MeTests {
 
     @Test
     @DisplayName("Quien no tiene ninguna membresia recibe 200 con la lista vacia")
-    void quienNoTieneNingunaMembresiaRecibe200ConLaListaVacia() throws Exception {
+    void someoneWithNoMembershipGets200WithAnEmptyList() throws Exception {
         condominioLlamado("Ninguno mio");
         Quien recienLlegada = cuentaNueva();
 
@@ -163,7 +163,7 @@ class MeTests {
 
     @Test
     @DisplayName("Cada unidad aparece una vez con todos sus papeles")
-    void cadaUnidadApareceUnaVezConTodosSusPapeles() throws Exception {
+    void eachUnitAppearsOnceWithAllItsRoles() throws Exception {
         UUID condominium = condominioLlamado("Con unidades");
         Quien emma = cuentaNueva();
         memberships.grant(condominium, emma.account(), Set.of(MembershipRole.OWNER), null, "admin");
@@ -188,7 +188,7 @@ class MeTests {
 
     @Test
     @DisplayName("Las unidades de un condominio no se cuelgan de otro")
-    void lasUnidadesDeUnCondominioNoSeCuelganDeOtro() throws Exception {
+    void theUnitsOfOneCondominiumDoNotHangFromAnother() throws Exception {
         UUID uno = condominioLlamado("Uno");
         UUID otro = condominioLlamado("Otro");
         Quien emma = cuentaNueva();
@@ -206,7 +206,7 @@ class MeTests {
 
     @Test
     @DisplayName("El superadministrador se anuncia aparte y no como rol de un condominio")
-    void elSuperadministradorSeAnunciaAparteYNoComoRolDeUnCondominio() throws Exception {
+    void thePlatformAdminIsAnnouncedApartAndNotAsACondominiumRole() throws Exception {
         UUID condominium = condominioLlamado("De la plataforma");
         Quien principal = cuentaNueva();
         new JdbcTemplate(dataSource)
@@ -223,7 +223,7 @@ class MeTests {
 
     @Test
     @DisplayName("Sin un token valido no hay perfil")
-    void sinUnTokenValidoNoHayPerfil() throws Exception {
+    void withoutAValidTokenThereIsNoProfile() throws Exception {
         mockMvc.perform(get(ME).header(HttpHeaders.AUTHORIZATION, "Bearer no-es-un-token"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.codigo").value("NO_AUTENTICADO"));
@@ -231,7 +231,7 @@ class MeTests {
 
     @Test
     @DisplayName("Un token valido de quien no tiene cuenta en COPROP no da perfil")
-    void unTokenValidoDeQuienNoTieneCuentaEnCopropNoDaPerfil() throws Exception {
+    void aValidTokenFromSomeoneWithoutACopropAccountGivesNoProfile() throws Exception {
         String token =
                 "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), TestTokenProvider.correoNuevo());
 

@@ -8,7 +8,7 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>Junta las dos mitades --la del BFF y la del proveedor de identidad-- en una sola forma, porque
  * lo que el usuario mira cuando sospecha de una sesion ajena no es la arquitectura: es una lista de
- * sitios desde los que alguien esta dentro. El {@link #origen} dice de cual es cada una, y no es un
+ * sitios desde los que alguien esta dentro. El {@link #origin} dice de cual es cada una, y no es un
  * detalle de implementacion que se pueda esconder: cerrar una cosa u otra tiene consecuencias
  * distintas, y la lista con las dos es la unica que no miente.
  *

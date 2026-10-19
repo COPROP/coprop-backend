@@ -76,7 +76,7 @@ class AccessRevocationTests {
 
     @Test
     @DisplayName("tras la baja, el usuario autentica pero no ve el condominio")
-    void trasLaBajaAutenticaPeroNoVeElCondominio() throws Exception {
+    void afterTerminationTheyAuthenticateButDoNotSeeTheCondominium() throws Exception {
         UUID condominium = altaDeCondominio();
         AccountView account = cuentaNueva();
         MembershipView membership =
@@ -107,7 +107,7 @@ class AccessRevocationTests {
 
     @Test
     @DisplayName("una suspension deja a la persona fuera igual que una baja, y la reactivacion la devuelve")
-    void laSuspensionDejaFueraYLaReactivacionDevuelve() throws Exception {
+    void suspensionLocksOutAndReinstatementRestores() throws Exception {
         UUID condominium = altaDeCondominio();
         AccountView account = cuentaNueva();
         MembershipView membership =
@@ -135,7 +135,7 @@ class AccessRevocationTests {
 
     @Test
     @DisplayName("tras la baja, el administrador sigue viendo la membresia cerrada y a quien vendio")
-    void elAdministradorSigueViendoLoHistorico() throws Exception {
+    void theAdminStillSeesTheHistory() throws Exception {
         UUID condominium = altaDeCondominio();
         UUID unit = altaDeUnidad(condominium, "BAJA-101");
 

@@ -139,7 +139,7 @@ class AccessControl {
     /**
      * Si puede ver esa cuenta de acceso: la suya, o la de cualquiera si administra algun condominio.
      *
-     * <p>Misma regla que {@link #puedeVerLaPersona}, y hace falta por separado porque la cuenta
+     * <p>Misma regla que {@link #canViewPerson}, y hace falta por separado porque la cuenta
      * lleva el correo, el telefono y si tiene segundo factor. Quien la abre --el administrador que
      * invita-- la necesita; el resto, solo la suya. El perfil propio completo esta en
      * {@code GET /api/v1/me} y no pide ningun identificador.

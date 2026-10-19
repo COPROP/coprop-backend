@@ -92,7 +92,7 @@ class AuditTrailTests {
     private UUID administradora;
 
     @BeforeEach
-    void prepararUnCondominio() {
+    void prepareACondominium() {
         condominium = condominiums
                 .register(
                         new NewCondominium(
@@ -154,7 +154,7 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("el alta de un condominio queda en la bitacora, con su nombre")
-    void elAltaDelCondominioQueda() {
+    void theCondominiumRegistrationIsRecorded() {
         // Es el primer criterio del issue #9 --"un condominio se puede crear con su configuracion
         // minima y queda auditado"-- y estuvo sin cumplirse hasta el 16-oct-2026. El evento se
         // publicaba desde el principio, pero no implementaba AuditableEvent: nadie lo escuchaba,
@@ -175,7 +175,7 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("conceder una membresia queda en la bitacora, con sus roles")
-    void laMembresiaQueda() {
+    void theMembershipIsRecorded() {
         UUID invitada = cuentaNueva().id();
 
         memberships.grant(
@@ -199,7 +199,7 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("cambiar la configuracion queda con los valores de oldValues y de newValues")
-    void laConfiguracionQuedaConLasDosMitades() {
+    void theConfigIsStoredWithBothHalves() {
         condominiums.changeConfig(condominium, 7, 20, administradora.toString());
 
         AuditEntryView fila = laFilaDe("CONFIGURATION_CHANGED");
@@ -214,7 +214,7 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("toda invitacion, aceptacion y revocacion queda en la bitacora")
-    void lasInvitacionesQuedan() {
+    void theInvitationsAreRecorded() {
         // Es el tercer criterio de aceptacion del issue #18, que quedo esperando a este modulo.
         memberships.grant(condominium, administradora, Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
         AccountView unaInvitada = cuentaNueva();
@@ -236,7 +236,7 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("un reenvio es una action distinta de una emision")
-    void elReenvioEsOtraAccion() {
+    void theResendIsAnotherAction() {
         // Quien lee la bitacora busca "a quien se invito" o "a quien hubo que insistirle". Con una
         // bandera dentro del JSON eso no se filtra.
         memberships.grant(condominium, administradora, Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
@@ -258,7 +258,7 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("la baja, la suspension y la reactivacion de una membresia quedan, con su motivo")
-    void lasBajasYSuspensionesQuedan() {
+    void terminationsAndSuspensionsAreRecorded() {
         // Seguridad 8 pide los cambios de rol en la bitacora, y una baja es el mayor de todos: le
         // quita todos los que tenia. Es tambien la primera pregunta de quien mira la bitacora
         // despues de una queja: por que esta persona dejo de ver el edificio.
@@ -293,7 +293,7 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("la venta de una unidad queda como un solo hecho, con sus dos lados")
-    void laVentaQuedaComoUnSoloHecho() {
+    void theSaleIsRecordedAsASingleFact() {
         UUID unit = units.register(
                         condominium,
                         new NewUnit("AUD-101", UnitType.APARTMENT, new BigDecimal("1.000000"), null, null, null),
@@ -326,7 +326,7 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("el cambio de roles queda con las dos mitades, el motivo y la concentracion")
-    void elCambioDeRolesQueda() {
+    void theRoleChangeIsRecorded() {
         // Seguridad 8 pide los cambios de rol en la bitacora, y este es el caso de todos los dias:
         // la baja del #19 era el extremo --quitarlos todos--. Importa mas que las demas filas porque
         // la tabla solo guarda los roles de HOY: el cambio edita membership_role en el sitio, asi
@@ -365,7 +365,7 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("las acciones de plataforma no salen en la bitacora de un condominio, y si en la suya")
-    void loDePlataformaNoEsDeNingunCondominio() {
+    void platformMattersBelongToNoCondominium() {
         // El rol de superadministrador no cuelga de ningun condominio, asi que su fila va sin
         // condominio y la consulta de un condominio no la lista. Sin esto, el administrador de un
         // edificio veria acciones de la plataforma entera.
@@ -395,7 +395,7 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("la revocacion del rol de plataforma queda, con su motivo: la fila de platform_admin se borra")
-    void laRevocacionDePlataformaQueda() {
+    void thePlatformRevocationIsRecorded() {
         AccountView quienConcede = cuentaNueva();
         AccountView quienLoPierde = cuentaNueva();
         new JdbcTemplate(fuenteDeDatos)
@@ -415,7 +415,7 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("cerrar todas las sesiones queda en la bitacora de plataforma, con cuantas se cerraron")
-    void elCierreDeTodasLasSesionesQueda() {
+    void closingAllSessionsIsRecorded() {
         AccountView principal = cuentaNueva();
 
         identities.signOutEverywhere(principal.id(), principal.id().toString());
@@ -437,7 +437,7 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("un intento de modificar la bitacora falla en la base de datos")
-    void laBitacoraNoSeModifica() {
+    void theAuditTrailIsNotModified() {
         // El primer criterio del issue, y se comprueba por SQL a proposito: lo que tiene que
         // proteger la fila es la base, no el codigo Java que hay delante. Un disparador y no un
         // REVOKE porque la aplicacion se conecta como superusuario y los privilegios no le aplican,
@@ -462,7 +462,7 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("la consulta filtra por actor, por entity y por rango de fechas")
-    void laConsultaFiltra() {
+    void theQueryFilters() {
         UUID otraActora = cuentaNueva().id();
         memberships.grant(
                 condominium, cuentaNueva().id(), Set.of(MembershipRole.OWNER), null, administradora.toString());
@@ -518,7 +518,7 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("la consulta pagina y devuelve lo mas reciente primero")
-    void laConsultaPaginaYOrdena() {
+    void theQueryPagesAndSorts() {
         for (int i = 0; i < 3; i++) {
             clock.adelantar(Duration.ofMinutes(1));
             condominiums.changeConfig(condominium, 5 + i, 15 + i, administradora.toString());
@@ -547,7 +547,7 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("la purga borra lo viejo y deja lo del año")
-    void laPurgaRespetaLaRetencion() {
+    void thePurgeRespectsTheRetention() {
         memberships.grant(
                 condominium, cuentaNueva().id(), Set.of(MembershipRole.OWNER), null, administradora.toString());
         UUID recent = laFilaDe("MEMBERSHIP_GRANTED").id();
@@ -581,7 +581,7 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("la purga deja el disparador puesto")
-    void laPurgaNoDesarmaLaProteccion() {
+    void thePurgeDoesNotDisarmTheProtection() {
         // La funcion de purga apaga el disparador para poder borrar. Si lo dejara apagado, la
         // bitacora quedaria modificable desde la primera purga y nadie lo notaria.
         memberships.grant(
@@ -599,7 +599,7 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("la IP y la traza de la peticion acaban en la fila")
-    void laIpYLaTrazaDeLaPeticionQuedan() throws Exception {
+    void theRequestIpAndTraceAreRecorded() throws Exception {
         // 5.2 pide la IP en AuditLog, y ningun evento de dominio puede llevarla: un evento no sabe
         // de HTTP. Las pone el filtro de trazas en el contexto de log, y llegan al oyente --que
         // corre en OTRO HILO-- porque PropagacionDelMdc copia el MDC. Sin eso, las dos salen nulas y

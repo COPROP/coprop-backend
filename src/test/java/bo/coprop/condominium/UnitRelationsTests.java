@@ -58,7 +58,7 @@ class UnitRelationsTests {
 
     @Test
     @DisplayName("RF-03: la misma persona es propietaria en un condominio e inquilina en otro")
-    void propietariaEnUnoEInquilinaEnOtro() {
+    void ownerInOneAndTenantInAnother() {
         UUID lasPalmas = condominium("Las Palmas", "3000000001");
         UUID villaSol = condominium("Villa Sol", "3000000002");
         UUID enLasPalmas = unit(lasPalmas, "302");
@@ -77,7 +77,7 @@ class UnitRelationsTests {
 
     @Test
     @DisplayName("el inquilino ocupa y el propietario sigue pagando: lo que una sola tabla no diria")
-    void elInquilinoOcupaYElPropietarioPaga() {
+    void theTenantOccupiesAndTheOwnerPays() {
         UUID condominium = condominium("Torre Azul", "3000000003");
         UUID unit = unit(condominium, "501");
         UUID propietaria = person("6000002");
@@ -96,7 +96,7 @@ class UnitRelationsTests {
 
     @Test
     @DisplayName("una unidad admite varios copropietarios, cada uno con su porcentaje")
-    void variosCopropietarios() {
+    void severalCoOwners() {
         UUID condominium = condominium("Los Pinos", "3000000004");
         UUID unit = unit(condominium, "101");
         UUID una = person("6000004");
@@ -112,7 +112,7 @@ class UnitRelationsTests {
 
     @Test
     @DisplayName("la misma persona no figura dos veces como propietaria de la misma unidad")
-    void laMismaPersonaNoDosVeces() {
+    void theSamePersonNotTwice() {
         UUID condominium = condominium("Mirador", "3000000005");
         UUID unit = unit(condominium, "201");
         UUID person = person("6000006");
@@ -125,7 +125,7 @@ class UnitRelationsTests {
 
     @Test
     @DisplayName("la unidad de otro condominio no se encuentra: 404 y no 403")
-    void laUnidadDeOtroCondominioNoSeEncuentra() {
+    void aUnitFromAnotherCondominiumIsNotFound() {
         UUID propio = condominium("Propio", "3000000006");
         UUID ajeno = condominium("Ajeno", "3000000007");
         UUID unidadAjena = unit(ajeno, "77");
@@ -145,7 +145,7 @@ class UnitRelationsTests {
 
     @Test
     @DisplayName("el responsable general de una unidad no se asigna dos veces")
-    void elResponsableGeneralNoSeDuplica() {
+    void theGeneralBillingResponsibleIsNotDuplicated() {
         UUID condominium = condominium("Responsable", "3000000008");
         UUID unit = unit(condominium, "801");
         UUID person = person("6000008");
@@ -158,7 +158,7 @@ class UnitRelationsTests {
 
     @Test
     @DisplayName("la misma persona responde por conceptos distintos de la misma unidad")
-    void responsablePorConceptosDistintos() {
+    void responsibleForDifferentConcepts() {
         UUID condominium = condominium("Conceptos", "3000000009");
         UUID unit = unit(condominium, "802");
         UUID person = person("6000009");
@@ -172,7 +172,7 @@ class UnitRelationsTests {
 
     @Test
     @DisplayName("la misma persona no ocupa dos veces la misma unidad")
-    void noOcupaDosVeces() {
+    void itDoesNotOccupyTwice() {
         UUID condominium = condominium("Ocupacion", "3000000010");
         UUID unit = unit(condominium, "901");
         UUID person = person("6000010");
@@ -200,7 +200,7 @@ class UnitRelationsTests {
 
     @Test
     @DisplayName("la venta pasa la titularidad y el vendedor pierde el acceso a la unidad")
-    void laVentaPasaLaTitularidad() {
+    void theSaleTransfersTheOwnership() {
         UUID condominium = condominium("Venta", "3000000012");
         UUID unit = unit(condominium, "1101");
         UUID vende = person("6000012");
@@ -222,7 +222,7 @@ class UnitRelationsTests {
 
     @Test
     @DisplayName("la venta cierra tambien la ocupacion y los cobros del vendedor")
-    void laVentaCierraLasTresRelacionesDelVendedor() {
+    void theSaleClosesTheSellersThreeRelations() {
         UUID condominium = condominium("Venta completa", "3000000013");
         UUID unit = unit(condominium, "1102");
         UUID vende = person("6000014");
@@ -243,7 +243,7 @@ class UnitRelationsTests {
 
     @Test
     @DisplayName("la venta no toca al inquilino: la unidad cambia de dueño y el que vive sigue viviendo")
-    void laVentaNoTocaAlInquilino() {
+    void theSaleDoesNotTouchTheTenant() {
         UUID condominium = condominium("Con inquilino", "3000000014");
         UUID unit = unit(condominium, "1103");
         UUID vende = person("6000016");
@@ -259,7 +259,7 @@ class UnitRelationsTests {
 
     @Test
     @DisplayName("el historico de titularidades conserva al vendedor con sus fechas")
-    void elHistoricoConservaAlVendedor() {
+    void theHistoryKeepsTheSeller() {
         UUID condominium = condominium("Historico", "3000000015");
         UUID unit = unit(condominium, "1104");
         UUID vende = person("6000019");
@@ -286,7 +286,7 @@ class UnitRelationsTests {
 
     @Test
     @DisplayName("no se vende lo que no se tiene, ni a quien ya es copropietario, ni a si mismo")
-    void lasVentasImposibles() {
+    void theImpossibleSales() {
         UUID condominium = condominium("Imposibles", "3000000016");
         UUID unit = unit(condominium, "1105");
         UUID dueno = person("6000021");
@@ -307,7 +307,7 @@ class UnitRelationsTests {
 
     @Test
     @DisplayName("la mudanza cierra la ocupacion y no la borra")
-    void laMudanzaCierraLaOcupacion() {
+    void movingOutClosesTheOccupancy() {
         UUID condominium = condominium("Mudanza", "3000000017");
         UUID unit = unit(condominium, "1106");
         UUID inquilino = person("6000024");
@@ -323,7 +323,7 @@ class UnitRelationsTests {
 
     @Test
     @DisplayName("cerrar la responsabilidad general no cierra la de un concepto")
-    void cerrarLaGeneralNoCierraLaDeUnConcepto() {
+    void closingTheGeneralOneDoesNotCloseTheConceptOne() {
         UUID condominium = condominium("Responsabilidades", "3000000018");
         UUID unit = unit(condominium, "1107");
         UUID person = person("6000025");
@@ -342,7 +342,7 @@ class UnitRelationsTests {
 
     @Test
     @DisplayName("no se cierra una relacion que no existe ni una de otro condominio")
-    void losCierresImposibles() {
+    void theImpossibleClosures() {
         UUID propio = condominium("Cierre propio", "3000000019");
         UUID ajeno = condominium("Cierre ajeno", "3000000020");
         UUID unit = unit(propio, "1108");

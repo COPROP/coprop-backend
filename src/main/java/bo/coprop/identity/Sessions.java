@@ -48,7 +48,7 @@ public interface Sessions {
     /**
      * Las sesiones del BFF abiertas a nombre de alguno de esos nombres. Issue <strong>#22</strong>.
      *
-     * <p>Recibe un conjunto por lo mismo que {@link #cerrarLasDe}, y con la misma consecuencia: una
+     * <p>Recibe un conjunto por lo mismo que {@link #closeThoseOf}, y con la misma consecuencia: una
      * sesion que apareciera por dos nombres se contaria dos veces, asi que se devuelven sin
      * repetir.
      *

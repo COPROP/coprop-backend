@@ -84,7 +84,7 @@ class InvitationsTests {
     private AccountView invitada;
 
     @BeforeEach
-    void prepararElCondominioYLasDosCuentas() {
+    void prepareTheCondominiumAndBothAccounts() {
         buzon.vaciar();
         condominium = condominiums
                 .register(
@@ -161,7 +161,7 @@ class InvitationsTests {
 
     @Test
     @DisplayName("la invitacion llega por correo, se abre sin autenticar y al aceptarla nace la membresia")
-    void elCaminoCompleto() throws Exception {
+    void theWholePath() throws Exception {
         String token = issue(MembershipRole.OWNER, MembershipRole.BOARD);
 
         // Antes de aceptar no hay membresia: la invitacion no mete a nadie, solo le abre la puerta.
@@ -192,7 +192,7 @@ class InvitationsTests {
 
     @Test
     @DisplayName("aceptar no crea una segunda cuenta: la persona sigue siendo la misma")
-    void aceptarNoCreaUnaSegundaCuenta() throws Exception {
+    void acceptingDoesNotCreateASecondAccount() throws Exception {
         // La mitad de este issue del segundo criterio. La otra --que entrar con Google caiga en la
         // misma cuenta-- la hace cumplir el primer login del #13, vinculando por correo verificado.
         String token = issue(MembershipRole.OWNER);
@@ -207,7 +207,7 @@ class InvitationsTests {
 
     @Test
     @DisplayName("el correo lleva un enlace a la web, no a la API")
-    void elCorreoLlevaUnEnlaceALaWeb() throws Exception {
+    void theEmailCarriesALinkToTheWeb() throws Exception {
         issue(MembershipRole.OWNER);
 
         List<InvitationDoubles.CorreoDePrueba.Enviado> enviados = buzon.enviados();
@@ -223,7 +223,7 @@ class InvitationsTests {
 
     @Test
     @DisplayName("un token ya usado no vuelve a servir")
-    void unTokenUsadoNoVuelveAServir() throws Exception {
+    void aUsedTokenDoesNotWorkAgain() throws Exception {
         String token = issue(MembershipRole.OWNER);
         mockMvc.perform(aceptacion(token, invitada.id())).andExpect(status().isOk());
 
@@ -234,7 +234,7 @@ class InvitationsTests {
 
     @Test
     @DisplayName("un token vencido no activa nada")
-    void unTokenVencidoNoActivaNada() throws Exception {
+    void anExpiredTokenActivatesNothing() throws Exception {
         String token = issue(MembershipRole.OWNER);
 
         // Siete dias y un minuto. Con un Instant.now() dentro del servicio, este test no existiria.
@@ -248,7 +248,7 @@ class InvitationsTests {
 
     @Test
     @DisplayName("a los siete dias justos todavia sirve")
-    void justoAntesDeVencerTodaviaSirve() throws Exception {
+    void justBeforeExpiryItStillWorks() throws Exception {
         // El control del test anterior: sin esto, una vigencia de cero dias lo pasaria igual.
         String token = issue(MembershipRole.OWNER);
 
@@ -259,7 +259,7 @@ class InvitationsTests {
 
     @Test
     @DisplayName("un token revocado no activa nada")
-    void unTokenRevocadoNoActivaNada() throws Exception {
+    void aRevokedTokenActivatesNothing() throws Exception {
         String token = issue(MembershipRole.OWNER);
         UUID invitation = invitations.ofCondominium(condominium).get(0).id();
 
@@ -276,7 +276,7 @@ class InvitationsTests {
 
     @Test
     @DisplayName("un token inventado responde igual que uno que existio")
-    void unTokenInventadoRespondeIgual() throws Exception {
+    void anInventedTokenAnswersTheSame() throws Exception {
         // Los cuatro motivos responden lo mismo a proposito: distinguirlos le diria a quien prueba
         // tokens cuales existieron.
         mockMvc.perform(opening("estonoesuntoken"))
@@ -286,7 +286,7 @@ class InvitationsTests {
 
     @Test
     @DisplayName("el enlace de otro no sirve ni teniendolo en la mano")
-    void elEnlaceDeOtroNoSirve() throws Exception {
+    void someoneElsesLinkDoesNotWork() throws Exception {
         String token = issue(MembershipRole.OWNER);
         AccountView ajena = cuentaNueva();
 
@@ -303,7 +303,7 @@ class InvitationsTests {
 
     @Test
     @DisplayName("al reenviar, el enlace anterior deja de servir")
-    void alReenviarElAnteriorDejaDeServir() throws Exception {
+    void onResendThePreviousOneStopsWorking() throws Exception {
         String viejo = issue(MembershipRole.OWNER);
         UUID primera = invitations.ofCondominium(condominium).get(0).id();
 
@@ -321,7 +321,7 @@ class InvitationsTests {
 
     @Test
     @DisplayName("se puede reenviar una invitacion ya vencida")
-    void seReenviaUnaVencida() throws Exception {
+    void anExpiredOneIsResent() throws Exception {
         // Es el "EXPIRADO --> INVITADO: administrador reenvia" del diagrama de Seguridad 6. Lo que
         // lo hace posible es que el indice parcial considere abierta una fila vencida, asi que el
         // reenvio la revoca antes de emitir la nueva.
@@ -338,7 +338,7 @@ class InvitationsTests {
 
     @Test
     @DisplayName("una invitacion ya aceptada no se revoca ni se reenvia")
-    void unaAceptadaNoSeRevocaNiSeReenvia() throws Exception {
+    void anAcceptedOneIsNeitherRevokedNorResent() throws Exception {
         String token = issue(MembershipRole.OWNER);
         UUID invitation = invitations.ofCondominium(condominium).get(0).id();
         mockMvc.perform(aceptacion(token, invitada.id())).andExpect(status().isOk());
@@ -360,7 +360,7 @@ class InvitationsTests {
 
     @Test
     @DisplayName("no se invita dos veces a la misma cuenta: para eso esta el reenvio")
-    void noSeInvitaDosVeces() throws Exception {
+    void nobodyIsInvitedTwice() throws Exception {
         issue(MembershipRole.OWNER);
 
         mockMvc.perform(comoAdministradora(post("/api/v1/condominios/" + condominium + "/invitaciones")
@@ -372,7 +372,7 @@ class InvitationsTests {
 
     @Test
     @DisplayName("no se invita a quien ya es miembro")
-    void noSeInvitaAQuienYaEsMiembro() throws Exception {
+    void someoneWhoIsAlreadyAMemberIsNotInvited() throws Exception {
         memberships.grant(condominium, invitada.id(), Set.of(MembershipRole.OWNER), null, "admin");
 
         mockMvc.perform(comoAdministradora(post("/api/v1/condominios/" + condominium + "/invitaciones")
@@ -385,7 +385,7 @@ class InvitationsTests {
 
     @Test
     @DisplayName("PLATFORM_ADMIN no se invita: su alcance es la plataforma")
-    void elRolDePlataformaNoSeInvita() throws Exception {
+    void thePlatformRoleIsNotInvited() throws Exception {
         // Se comprueba al emitir y no solo al conceder la membresia porque entre emitir y aceptar
         // pasan dias: el error tiene que salirle a quien invita, no a quien pulsa el enlace.
         mockMvc.perform(comoAdministradora(post("/api/v1/condominios/" + condominium + "/invitaciones")
@@ -397,7 +397,7 @@ class InvitationsTests {
 
     @Test
     @DisplayName("una invitacion sin roles no se emite")
-    void sinRolesNoSeEmite() throws Exception {
+    void withoutRolesItIsNotIssued() throws Exception {
         mockMvc.perform(comoAdministradora(post("/api/v1/condominios/" + condominium + "/invitaciones")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"accountId\":\"%s\",\"roles\":[]}".formatted(invitada.id()))))
@@ -409,7 +409,7 @@ class InvitationsTests {
 
     @Test
     @DisplayName("a quien ya participa en otro condominio no se le manda poner contrasena otra vez")
-    void aQuienYaEntroNoSeLePidePonerContrasena() throws Exception {
+    void whoAlreadySignedInIsNotAskedForAPassword() throws Exception {
         // El segundo caso de Seguridad 6.1. Lo que distingue a los dos es tener sujeto del
         // proveedor, que es lo que deja el primer login del #13.
         String token = issue(MembershipRole.OWNER);
@@ -424,7 +424,7 @@ class InvitationsTests {
 
     @Test
     @DisplayName("abrir el enlace dos veces vuelve a mandar el correo y no rompe nada")
-    void abrirDosVecesNoRompeNada() throws Exception {
+    void openingTwiceBreaksNothing() throws Exception {
         // La apertura no consume el token: el correo del proveedor se pierde mas facil que el
         // nuestro, y obligar a pedir un reenvio por eso seria castigar al invitado.
         String token = issue(MembershipRole.OWNER);
@@ -456,7 +456,7 @@ class InvitationsTests {
 
     @Test
     @DisplayName("el listado muestra las vivas y las cerradas, y ninguna lleva el token")
-    void elListadoNoLlevaElToken() throws Exception {
+    void theListingDoesNotCarryTheToken() throws Exception {
         String token = issue(MembershipRole.OWNER);
 
         mockMvc.perform(comoAdministradora(get("/api/v1/condominios/" + condominium + "/invitaciones")))

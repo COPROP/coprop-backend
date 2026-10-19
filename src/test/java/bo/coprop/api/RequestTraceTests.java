@@ -49,7 +49,7 @@ class RequestTraceTests {
     private Logger registroDelControlador;
 
     @BeforeEach
-    void capturarLogs() {
+    void captureLogs() {
         registroDelControlador = (Logger) LoggerFactory.getLogger(ControladorQueRegistra.Endpoints.class);
         capturados.start();
         registroDelControlador.addAppender(capturados);
@@ -57,7 +57,7 @@ class RequestTraceTests {
     }
 
     @AfterEach
-    void soltarLogs() {
+    void releaseLogs() {
         registroDelControlador.detachAppender(capturados);
         capturados.stop();
     }
@@ -65,7 +65,7 @@ class RequestTraceTests {
     @Test
     @WithMockUser
     @DisplayName("las tres lineas de una request comparten traceId, y es el de la cabecera")
-    void todasLasLineasCompartenTraza() throws Exception {
+    void allLinesShareTheTrace() throws Exception {
         MvcResult resultado =
                 mockMvc.perform(get("/api/v1/trazas/varias-lineas")).andReturn();
 
@@ -81,7 +81,7 @@ class RequestTraceTests {
     @Test
     @WithMockUser
     @DisplayName("dos requests distintas no comparten traceId")
-    void dosRequestsNoCompartenTraza() throws Exception {
+    void twoRequestsDoNotShareATrace() throws Exception {
         String primera = mockMvc.perform(get("/api/v1/trazas/varias-lineas"))
                 .andReturn()
                 .getResponse()
@@ -111,7 +111,7 @@ class RequestTraceTests {
             private static final org.slf4j.Logger log = LoggerFactory.getLogger(Endpoints.class);
 
             @GetMapping("/varias-lineas")
-            void variasLineas() {
+            void severalLines() {
                 log.info("primera linea");
                 log.info("segunda linea, newValues de hacer algo");
                 log.info("tercera linea, oldValues de responder");

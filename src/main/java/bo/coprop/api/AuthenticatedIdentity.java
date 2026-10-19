@@ -72,7 +72,7 @@ final class AuthenticatedIdentity extends AbstractAuthenticationToken {
      * Como y cuando se autentico quien hace la peticion, o nada si esta autenticacion no paso por
      * el filtro de identidad.
      *
-     * <p>No revienta como {@link #actorDe}: lo usa la comprobacion de reautenticacion del issue
+     * <p>No revienta como {@link #actorOf}: lo usa la comprobacion de reautenticacion del issue
      * #22, que autoriza, y una autorizacion que no sabe como se autentico quien pregunta tiene que
      * <strong>exigir</strong> el segundo factor, no caerse.
      */

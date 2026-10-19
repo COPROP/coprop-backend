@@ -61,7 +61,7 @@ class MySessionsTests {
     private AccessDoubles.ProveedorDeIdentidadDePrueba proveedor;
 
     @BeforeEach
-    void reiniciarLosDobles() {
+    void restartTheDoubles() {
         // Los dobles son beans del contexto y el contexto se comparte: sin esto, las sesiones de un
         // caso aparecen en la lista del siguiente y el que simula un proveedor caido los hunde.
         bffSessions.reiniciar();
@@ -70,7 +70,7 @@ class MySessionsTests {
 
     @Test
     @DisplayName("la lista junta la sesion del navegador y la del proveedor")
-    void laListaJuntaLasDosMitades() throws Exception {
+    void theListJoinsBothHalves() throws Exception {
         Quien principal = cuentaQueYaEntro();
         Instant ahora = Instant.now();
 
@@ -107,7 +107,7 @@ class MySessionsTests {
 
     @Test
     @DisplayName("ninguna es la actual cuando se pregunta desde la app movil")
-    void desdeLaAppMovilNingunaEsLaActual() throws Exception {
+    void fromTheMobileAppNoneIsTheCurrentOne() throws Exception {
         Quien principal = cuentaQueYaEntro();
         Instant ahora = Instant.now();
         bffSessions.conSesionAbierta(
@@ -122,7 +122,7 @@ class MySessionsTests {
 
     @Test
     @DisplayName("sin ninguna sesion abierta responde 200 con lista vacia, no 404")
-    void sinSesionesLaListaEstaVacia() throws Exception {
+    void withoutSessionsTheListIsEmpty() throws Exception {
         Quien principal = cuentaQueYaEntro();
 
         mockMvc.perform(peticion(HttpMethod.GET, "/api/v1/me/sesiones", principal.token(), null))
@@ -132,12 +132,12 @@ class MySessionsTests {
 
     @Test
     @DisplayName("un proveedor caido devuelve media lista, no un error")
-    void elProveedorCaidoDevuelveMediaLista() throws Exception {
+    void aDownProviderReturnsHalfTheList() throws Exception {
         Quien principal = cuentaQueYaEntro();
         Instant ahora = Instant.now();
         bffSessions.conSesionAbierta(
                 principal.tokenSubject(), new BffSession("del-navegador", ahora, ahora, Duration.ofHours(24)));
-        proveedor.queFalle();
+        proveedor.makeItFail();
 
         // Quien mira esta pantalla esta intentando averiguar si le robaron la cuenta. Dejarle sin
         // respuesta porque Keycloak no contesta no le ayuda a decidir nada; media lista si.
@@ -149,7 +149,7 @@ class MySessionsTests {
 
     @Test
     @DisplayName("el cierre pide las dos puertas con los dos nombres de la cuenta")
-    void elCierrePideLasDosPuertas() throws Exception {
+    void theClosureRequiresBothDoors() throws Exception {
         Quien principal = cuentaQueYaEntro();
         Instant ahora = Instant.now();
         bffSessions.conSesionAbierta(

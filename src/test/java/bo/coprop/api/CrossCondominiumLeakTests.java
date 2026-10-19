@@ -117,7 +117,7 @@ class CrossCondominiumLeakTests {
     private UUID responsableParaCerrar;
 
     @BeforeAll
-    void prepararLosDosCondominios() {
+    void prepareBothCondominiums() {
         propio = altaDeCondominio("FUGA-OWN");
         ajeno = altaDeCondominio("FUGA-AJENO");
 
@@ -408,7 +408,7 @@ class CrossCondominiumLeakTests {
 
     @Test
     @DisplayName("una cuenta sin ninguna membresia tampoco ve el condominio")
-    void sinNingunaMembresiaNoVeNada() throws Exception {
+    void withNoMembershipNothingIsVisible() throws Exception {
         // Es la otra mitad del criterio del issue #13: con cuenta en COPROP pero sin membresia en
         // ningun condominio, se autentica y no ve nada.
         AccountView account = cuentaNueva();
@@ -422,7 +422,7 @@ class CrossCondominiumLeakTests {
 
     @Test
     @DisplayName("sin token la respuesta sigue siendo 401, no el 404 del aislamiento")
-    void sinTokenSigueSiendo401() throws Exception {
+    void withoutATokenItIsStill401() throws Exception {
         // El filtro de condominio no puede adelantarse al de identidad: un 404 aqui taparia que lo
         // que falta es iniciar sesion.
         mockMvc.perform(request(HttpMethod.GET, "/api/v1/condominios/" + ajeno))

@@ -106,7 +106,7 @@ class Invitation {
         return acceptedAt == null && revokedAt == null && expiresAt.isAfter(ahora);
     }
 
-    /** Sella la invitacion. De un solo uso: a partir de aqui {@link #estaViva} dice que no. */
+    /** Sella la invitacion. De un solo uso: a partir de aqui {@link #isLive} dice que no. */
     void accept(Instant at) {
         this.acceptedAt = at;
     }

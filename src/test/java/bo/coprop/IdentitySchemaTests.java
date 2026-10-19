@@ -50,7 +50,7 @@ class IdentitySchemaTests {
 
     @Test
     @DisplayName("RF-03: la misma persona es propietaria en un condominio e inquilina en otro")
-    void laMismaPersonaEsPropietariaEnUnCondominioEInquilinaEnOtro() {
+    void theSamePersonIsOwnerInOneCondominiumAndTenantInAnother() {
         UUID lasPalmas = condominium("1000000001", "Las Palmas");
         UUID villaSol = condominium("1000000002", "Villa Sol");
         UUID enLasPalmas = unit(lasPalmas, "302");
@@ -66,7 +66,7 @@ class IdentitySchemaTests {
 
     @Test
     @DisplayName("el propietario sigue pagando una unidad que alquila, y el inquilino la ocupa")
-    void elPropietarioPagaLoQueElInquilinoOcupa() {
+    void theOwnerPaysForWhatTheTenantOccupies() {
         UUID condominium = condominium("1000000003", "Torre Azul");
         UUID unit = unit(condominium, "501");
         UUID propietaria = person("9000001");
@@ -85,7 +85,7 @@ class IdentitySchemaTests {
 
     @Test
     @DisplayName("una unidad admite varios copropietarios vigentes")
-    void unaUnidadAdmiteVariosCopropietarios() {
+    void aUnitAcceptsSeveralCoOwners() {
         UUID condominium = condominium("1000000004", "Los Pinos");
         UUID unit = unit(condominium, "101");
 
@@ -97,7 +97,7 @@ class IdentitySchemaTests {
 
     @Test
     @DisplayName("la misma persona no figura dos veces como propietaria vigente de una unidad")
-    void laMismaPersonaNoFiguraDosVecesComoPropietaria() {
+    void theSamePersonIsNotListedTwiceAsOwner() {
         UUID condominium = condominium("1000000005", "Mirador");
         UUID unit = unit(condominium, "201");
         UUID person = person("9200001");
@@ -114,7 +114,7 @@ class IdentitySchemaTests {
 
     @Test
     @DisplayName("una persona no puede tener dos cuentas")
-    void unaPersonaNoPuedeTenerDosCuentas() {
+    void aPersonCannotHaveTwoAccounts() {
         UUID person = person("9300001");
         accountOf(person, "primera@coprop.bo");
 
@@ -125,7 +125,7 @@ class IdentitySchemaTests {
 
     @Test
     @DisplayName("no puede haber dos membresias vigentes de la misma cuenta en el mismo condominio")
-    void noPuedeHaberDosMembresiasVigentesEnElMismoCondominio() {
+    void thereCannotBeTwoCurrentMembershipsInTheSameCondominium() {
         UUID condominium = condominium("1000000006", "Alborada");
         UUID account = accountOf(person("9400001"), "duplicada@coprop.bo");
         membership(account, condominium, null);
@@ -137,7 +137,7 @@ class IdentitySchemaTests {
 
     @Test
     @DisplayName("la misma cuenta si puede tener membresia en dos condominios")
-    void laMismaCuentaTieneMembresiaEnDosCondominios() {
+    void theSameAccountHasMembershipInTwoCondominiums() {
         UUID uno = condominium("1000000007", "Sur");
         UUID otro = condominium("1000000008", "Norte");
         UUID account = accountOf(person("9500001"), "dos@coprop.bo");
@@ -150,7 +150,7 @@ class IdentitySchemaTests {
 
     @Test
     @DisplayName("cerrada la membresia se puede volver a entrar al mismo condominio")
-    void cerradaLaMembresiaSePuedeVolverAEntrar() {
+    void withTheMembershipClosedSignInStillWorks() {
         UUID condominium = condominium("1000000009", "Retorno");
         UUID account = accountOf(person("9600001"), "vuelve@coprop.bo");
 
@@ -164,7 +164,7 @@ class IdentitySchemaTests {
 
     @Test
     @DisplayName("una membresia puede llevar varios roles")
-    void unaMembresiaLlevaVariosRoles() {
+    void aMembershipCarriesSeveralRoles() {
         UUID condominium = condominium("1000000010", "Directorio");
         UUID account = accountOf(person("9700001"), "directivo@coprop.bo");
         UUID membership = membership(account, condominium, null);
@@ -177,7 +177,7 @@ class IdentitySchemaTests {
 
     @Test
     @DisplayName("un rol que no esta en el catalogo de Seguridad 3 se rechaza")
-    void unRolFueraDelCatalogoSeRechaza() {
+    void aRoleOutsideTheCatalogIsRejected() {
         UUID condominium = condominium("1000000011", "Catalogo");
         UUID account = accountOf(person("9800001"), "rol@coprop.bo");
         UUID membership = membership(account, condominium, null);
@@ -194,7 +194,7 @@ class IdentitySchemaTests {
 
     @Test
     @DisplayName("un piso no puede declararse de un condominio distinto del de su bloque")
-    void elPisoNoPuedeMentirSobreSuCondominio() {
+    void theFloorCannotLieAboutItsCondominium() {
         UUID propio = condominium("1000000012", "Propio");
         UUID ajeno = condominium("1000000013", "Ajeno");
         UUID block = block(propio, "Torre A");
@@ -211,7 +211,7 @@ class IdentitySchemaTests {
 
     @Test
     @DisplayName("la titularidad no puede apuntar a una unidad de otro condominio")
-    void laTitularidadNoPuedeApuntarAUnaUnidadAjena() {
+    void theOwnershipCannotPointAtAnotherCondominiumsUnit() {
         UUID propio = condominium("1000000014", "Casa propia");
         UUID ajeno = condominium("1000000015", "Casa ajena");
         UUID unidadAjena = unit(ajeno, "77");
@@ -224,7 +224,7 @@ class IdentitySchemaTests {
 
     @Test
     @DisplayName("el piso existente hereda el condominio de su bloque en el backfill")
-    void elPisoHeredaElCondominioDeSuBloque() {
+    void theFloorInheritsTheCondominiumOfItsBlock() {
         UUID condominium = condominium("1000000016", "Backfill");
         UUID block = block(condominium, "Torre B");
         UUID floor = UUID.randomUUID();
@@ -245,7 +245,7 @@ class IdentitySchemaTests {
 
     @Test
     @DisplayName("el responsable general de una unidad no se duplica aunque el concepto sea nulo")
-    void elResponsableGeneralNoSeDuplica() {
+    void theGeneralBillingResponsibleIsNotDuplicated() {
         UUID condominium = condominium("1000000017", "Responsable");
         UUID unit = unit(condominium, "801");
         UUID person = person("9910001");
@@ -260,7 +260,7 @@ class IdentitySchemaTests {
 
     @Test
     @DisplayName("la misma persona responde por conceptos distintos de la misma unidad")
-    void laMismaPersonaRespondePorConceptosDistintos() {
+    void theSamePersonIsResponsibleForDifferentConcepts() {
         UUID condominium = condominium("1000000018", "Conceptos");
         UUID unit = unit(condominium, "802");
         UUID person = person("9920001");
@@ -273,7 +273,7 @@ class IdentitySchemaTests {
 
     @Test
     @DisplayName("el carnet es unico cuando viene, y varias personas pueden no tenerlo")
-    void elCarnetEsUnicoCuandoViene() {
+    void theNationalIdIsUniqueWhenPresent() {
         person(null);
         person(null);
         person("9930001");
@@ -286,7 +286,7 @@ class IdentitySchemaTests {
 
     @Test
     @DisplayName("una cuenta no puede quedar en un estado que no esta en Seguridad 2")
-    void elEstadoDeLaCuentaEstaAcotado() {
+    void theAccountStatusIsConstrained() {
         UUID person = person("9940001");
 
         assertThatThrownBy(() -> jdbc.update(
@@ -302,7 +302,7 @@ class IdentitySchemaTests {
 
     @Test
     @DisplayName("nadie se invita a si mismo")
-    void nadieSeInvitaASiMismo() {
+    void nobodyInvitesThemselves() {
         UUID condominium = condominium("1000000019", "Invitacion");
         UUID account = accountOf(person("9950001"), "solo@coprop.bo");
 

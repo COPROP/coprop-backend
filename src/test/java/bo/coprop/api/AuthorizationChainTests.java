@@ -203,7 +203,7 @@ class AuthorizationChainTests {
     private record Quien(UUID account, UUID person, String autorizacion) {}
 
     @BeforeAll
-    void prepararElEdificioYUnaCuentaPorRol() {
+    void prepareTheBuildingAndOneAccountPerRole() {
         condominium = altaDeCondominio();
         block = units.addBlock(condominium, "Bloque A", "admin").id();
         unidadPropia = altaDeUnidad("CAD-PROPIA");
@@ -821,7 +821,7 @@ class AuthorizationChainTests {
 
     @Test
     @DisplayName("el propietario ve su unidad y la del vecino le responde 404")
-    void elPropietarioSoloVeSuUnidad() throws Exception {
+    void theOwnerOnlySeesTheirUnit() throws Exception {
         // Es el criterio del issue, con el estado de cuenta sustituido por lo que hay en M1: las
         // dos unidades son del MISMO condominio y el propietario tiene membresia activa en el, asi
         // que el 404 no lo pone el filtro del #17 sino la relacion con el recurso. Es la unica
@@ -837,7 +837,7 @@ class AuthorizationChainTests {
 
     @Test
     @DisplayName("al administrador del condominio las dos unidades le responden igual")
-    void elAdministradorVeLasDos() throws Exception {
+    void theAdminSeesBoth() throws Exception {
         // El control del caso anterior. Sin esto, una unidad mal sembrada daria 404 a todo el mundo
         // y el 404 del propietario no probaria nada.
         String administrador = principal(CONDO_ADMIN).autorizacion();
@@ -848,7 +848,7 @@ class AuthorizationChainTests {
 
     @Test
     @DisplayName("sobre la unidad ajena el alcance propio da 404 y el rol sin permiso da 403")
-    void laNegativaDistingueElRolDelRecurso() throws Exception {
+    void theRefusalDistinguishesTheRoleFromTheResource() throws Exception {
         // Las dos negativas sobre el MISMO endpoint y el MISMO recurso, que es donde se ve que no
         // son intercambiables: a quien le falta el permiso se le dice que le falta, y a quien lo
         // tiene sobre lo suyo se le dice que esto no existe. Al reves, el 403 del propietario
@@ -870,7 +870,7 @@ class AuthorizationChainTests {
 
     @Test
     @DisplayName("responder por los cobros de una unidad tambien es tenerla")
-    void elResponsableDePagoTambienLaTiene() throws Exception {
+    void theBillingResponsibleAlsoHasIt() throws Exception {
         // La tercera relacion, que es la que se olvida: el propietario que alquilo ya no ocupa, y
         // si solo contara la ocupacion se quedaria sin ver la unidad por la que sigue pagando.
         // Seguridad 7.2 la nombra explicitamente --"inquilino responsable vigente del servicio"--.
@@ -888,7 +888,7 @@ class AuthorizationChainTests {
 
     @Test
     @DisplayName("cada uno ve su propia persona y su propia cuenta sin administrar nada")
-    void loPropioSeVeSinAdministrarNada() throws Exception {
+    void yourOwnIsVisibleWithoutManagingAnything() throws Exception {
         // Un propietario no administra ningun condominio, asi que por la matriz no le toca ninguna
         // de las dos consultas. Lo propio es la excepcion, y hace falta: sin ella la cabecera
         // Location del alta de su cuenta apuntaria a una ruta que a el le responde 403.
@@ -907,7 +907,7 @@ class AuthorizationChainTests {
 
     @Test
     @DisplayName("la relacion con la unidad no se hereda entre condominios")
-    void laRelacionNoCruzaCondominios() throws Exception {
+    void theRelationDoesNotCrossCondominiums() throws Exception {
         // El propietario de la unidad de un edificio pide, en otro edificio donde tambien es
         // miembro, una unidad con la que no tiene relacion. La consulta de la relacion lleva el
         // condominio, asi que no empareja; si no lo llevara, bastaria ser propietario en cualquier
@@ -937,7 +937,7 @@ class AuthorizationChainTests {
 
     @Test
     @DisplayName("la rejilla declara los siete roles en cada endpoint")
-    void laRejillaNoDejaCeldasSinDeclarar() {
+    void theGridLeavesNoCellUndeclared() {
         // El guardian de este test. Una fila que se olvide de un rol lo dejaria sin probar y la
         // rejilla pasaria igual; es el mismo descuido que en el #16 dejo un permiso de menos en
         // CONDO_ADMIN, y lo cazo justo el test que exigia las columnas completas.

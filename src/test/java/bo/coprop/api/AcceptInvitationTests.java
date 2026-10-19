@@ -75,7 +75,7 @@ class AcceptInvitationTests {
 
     @Test
     @DisplayName("quien entra con el correo de la invitacion cae en su cuenta y no en una nueva")
-    void aceptarVinculaLaCuentaQueYaExistia() throws Exception {
+    void acceptingLinksTheAccountThatAlreadyExisted() throws Exception {
         UUID condominium = altaDeCondominio();
 
         // Quien invita: administradora con membresia, porque invitar exige poder conceder roles.

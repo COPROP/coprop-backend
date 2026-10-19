@@ -46,7 +46,7 @@ class CondominiumControllerTests {
     @Test
     @WithMockUser(username = "emma", roles = "PLATFORM_ADMIN")
     @DisplayName("el alta devuelve 201 con la cabecera Location y el condominio creado")
-    void elAltaDevuelve201() throws Exception {
+    void theRegistrationReturns201() throws Exception {
         mockMvc.perform(post("/api/v1/condominios")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -62,7 +62,7 @@ class CondominiumControllerTests {
     @Test
     @WithMockUser(username = "emma", roles = "PLATFORM_ADMIN")
     @DisplayName("un dia de emision fuera de rango da 422 en problem+json, con el campo senalado")
-    void elDiaFueraDeRangoDa422() throws Exception {
+    void aDayOutOfRangeGives422() throws Exception {
         String conDia31 = ALTA_VALIDA.replace("\"issueDay\":1", "\"issueDay\":31");
 
         mockMvc.perform(post("/api/v1/condominios")
@@ -78,7 +78,7 @@ class CondominiumControllerTests {
     @Test
     @WithMockUser(username = "emma", roles = "CONDO_ADMIN")
     @DisplayName("consultar uno que no existe da 404 con su codigo, no un 500")
-    void elQueNoExisteDa404() throws Exception {
+    void theNonExistentOneGives404() throws Exception {
         mockMvc.perform(get("/api/v1/condominios/" + UUID.randomUUID()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
@@ -86,7 +86,7 @@ class CondominiumControllerTests {
 
     @Test
     @DisplayName("sin autenticar no se puede dar de alta un condominio")
-    void sinAutenticarNoSePuedeDarDeAlta() throws Exception {
+    void withoutAuthenticatingNothingCanBeRegistered() throws Exception {
         mockMvc.perform(post("/api/v1/condominios")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -98,7 +98,7 @@ class CondominiumControllerTests {
     @Test
     @WithMockUser(username = "emma", roles = "PLATFORM_ADMIN")
     @DisplayName("una zona horaria que no existe se rechaza en el alta, no meses newValues")
-    void laZonaHorariaInventadaDa422() throws Exception {
+    void anInventedTimeZoneGives422() throws Exception {
         // Sin la barra baja no es una zona IANA. El analisis 12.2 calcula los vencimientos y la
         // mora en la zona del condominio, asi que esto se tiene que parar aqui.
         String conZonaMala = ALTA_VALIDA.replace("America/La_Paz", "America/LaPaz");

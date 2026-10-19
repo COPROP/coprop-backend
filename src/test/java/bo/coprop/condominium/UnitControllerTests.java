@@ -41,7 +41,7 @@ class UnitControllerTests {
     private UUID lasPalmas;
 
     @BeforeEach
-    void darDeAltaUnCondominio() {
+    void registerACondominium() {
         lasPalmas = condominiums
                 .register(
                         new NewCondominium(
@@ -59,7 +59,7 @@ class UnitControllerTests {
 
     @Test
     @DisplayName("el alta de una unidad devuelve 201 con su identificador")
-    void elAltaDevuelve201() throws Exception {
+    void theRegistrationReturns201() throws Exception {
         mockMvc.perform(post("/api/v1/condominios/{id}/unidades", lasPalmas)
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -71,7 +71,7 @@ class UnitControllerTests {
 
     @Test
     @DisplayName("el alta masiva crea el lote entero en una llamada")
-    void elAltaMasivaCreaElLote() throws Exception {
+    void theBatchRegistrationCreatesTheBatch() throws Exception {
         String batch =
                 """
                 {"units":[
@@ -92,7 +92,7 @@ class UnitControllerTests {
 
     @Test
     @DisplayName("un codigo repetido sale como regla de negocio en problem+json, no como un 500")
-    void elCodigoRepetidoDa422() throws Exception {
+    void aRepeatedCodeGives422() throws Exception {
         mockMvc.perform(post("/api/v1/condominios/{id}/unidades", lasPalmas)
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
@@ -108,7 +108,7 @@ class UnitControllerTests {
 
     @Test
     @DisplayName("una alicuota por encima de 100 la para la validacion, no la base")
-    void laAlicuotaFueraDeRangoDa422() throws Exception {
+    void anAliquotOutOfRangeGives422() throws Exception {
         String imposible = """
                 {"code":"302","type":"APARTMENT","aliquot":"150.0"}
                 """;
@@ -124,7 +124,7 @@ class UnitControllerTests {
 
     @Test
     @DisplayName("dar de alta en un condominio que no existe da 404")
-    void enUnCondominioInexistenteDa404() throws Exception {
+    void inANonExistentCondominiumItGives404() throws Exception {
         mockMvc.perform(post("/api/v1/condominios/{id}/unidades", UUID.randomUUID())
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -135,7 +135,7 @@ class UnitControllerTests {
 
     @Test
     @DisplayName("una unidad se consulta por la ruta de su condominio")
-    void laUnidadSeConsultaPorSuRuta() throws Exception {
+    void theUnitIsQueriedByItsRoute() throws Exception {
         UnitView propia = units.register(lasPalmas, body("302"), "emma");
 
         mockMvc.perform(get("/api/v1/condominios/{id}/unidades/{unitId}", lasPalmas, propia.id()))
@@ -145,7 +145,7 @@ class UnitControllerTests {
 
     @Test
     @DisplayName("la unidad de otro condominio da 404 desde la ruta de este, no la devuelve")
-    void laUnidadAjenaDa404() throws Exception {
+    void theOtherCondominiumsUnitGives404() throws Exception {
         UUID villaSol = condominiums
                 .register(
                         new NewCondominium("Villa Sol", "9999999999", CondominiumType.HOUSES, "America/La_Paz", 1, 15),

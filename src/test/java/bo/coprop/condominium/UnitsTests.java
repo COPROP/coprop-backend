@@ -34,7 +34,7 @@ class UnitsTests {
     private UUID lasPalmas;
 
     @BeforeEach
-    void darDeAltaUnCondominio() {
+    void registerACondominium() {
         lasPalmas = condominiums
                 .register(
                         new NewCondominium(
@@ -57,7 +57,7 @@ class UnitsTests {
 
     @Test
     @DisplayName("una unidad se da de alta activa y conserva su alicuota sin redondear")
-    void seDaDeAltaActiva() {
+    void itIsRegisteredActive() {
         UnitView created = units.register(lasPalmas, unit("302"), "emma");
 
         assertThat(created.id()).isNotNull();
@@ -70,7 +70,7 @@ class UnitsTests {
 
     @Test
     @DisplayName("el codigo es unico dentro del condominio")
-    void elCodigoEsUnicoEnElCondominio() {
+    void theCodeIsUniqueWithinTheCondominium() {
         units.register(lasPalmas, unit("302"), "emma");
 
         assertThatThrownBy(() -> units.register(lasPalmas, unit("302"), "emma"))
@@ -80,7 +80,7 @@ class UnitsTests {
 
     @Test
     @DisplayName("pero el mismo codigo si puede repetirse en otro condominio")
-    void elMismoCodigoValeEnOtroCondominio() {
+    void theSameCodeIsValidInAnotherCondominium() {
         units.register(lasPalmas, unit("302"), "emma");
         UUID otroCondominio = villaSol();
 
@@ -92,14 +92,14 @@ class UnitsTests {
 
     @Test
     @DisplayName("una unidad no puede existir sin condominio")
-    void noPuedeExistirSinCondominio() {
+    void itCannotExistWithoutACondominium() {
         assertThatThrownBy(() -> units.register(UUID.randomUUID(), unit("302"), "emma"))
                 .isInstanceOf(ResourceNotFound.class);
     }
 
     @Test
     @DisplayName("una unidad de otro condominio no se encuentra, aunque se sepa su identificador")
-    void laUnidadDeOtroCondominioNoSeEncuentra() {
+    void aUnitFromAnotherCondominiumIsNotFound() {
         UnitView ajena = units.register(villaSol(), unit("302"), "emma");
 
         // 404 y no 403: distinguirlos diria que esa unidad existe en algun sitio (Seguridad 7.1).
@@ -108,7 +108,7 @@ class UnitsTests {
 
     @Test
     @DisplayName("tampoco se le puede colgar un piso a una torre de otro condominio")
-    void noSePuedeAnadirUnPisoAUnaTorreAjena() {
+    void aFloorCannotBeAddedToAnotherCondominiumsTower() {
         BlockView torreAjena = units.addBlock(villaSol(), "Torre A", "emma");
 
         assertThatThrownBy(() -> units.addFloor(lasPalmas, torreAjena.id(), 3, "emma"))
@@ -117,7 +117,7 @@ class UnitsTests {
 
     @Test
     @DisplayName("el alta masiva crea todas de una vez")
-    void elAltaMasivaCreaTodas() {
+    void theBatchRegistrationCreatesThemAll() {
         List<UnitView> created = units.registerAll(lasPalmas, List.of(unit("301"), unit("302"), unit("303")), "emma");
 
         assertThat(created).hasSize(3).extracting(UnitView::code).containsExactly("301", "302", "303");
@@ -125,7 +125,7 @@ class UnitsTests {
 
     @Test
     @DisplayName("el alta masiva es todo o nada: si una falla no entra ninguna")
-    void elAltaMasivaEsTodoONada() {
+    void theBatchRegistrationIsAllOrNothing() {
         units.register(lasPalmas, unit("301"), "emma");
 
         assertThatThrownBy(() -> units.registerAll(lasPalmas, List.of(unit("302"), unit("301")), "emma"))
@@ -139,7 +139,7 @@ class UnitsTests {
 
     @Test
     @DisplayName("el lote avisa de sus propios codigos repetidos, diciendo cual")
-    void elLoteNoPuedeRepetirCodigos() {
+    void theBatchCannotRepeatCodes() {
         assertThatThrownBy(() -> units.registerAll(lasPalmas, List.of(unit("301"), unit("301")), "emma"))
                 .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("301");
@@ -161,7 +161,7 @@ class UnitsTests {
 
     @Test
     @DisplayName("la jerarquia es opcional: una unidad puede no tener bloque ni piso")
-    void laJerarquiaEsOpcional() {
+    void theHierarchyIsOptional() {
         UnitView suelta = units.register(lasPalmas, unit("Casa 7"), "emma");
 
         assertThat(suelta.blockId()).isNull();
@@ -170,7 +170,7 @@ class UnitsTests {
 
     @Test
     @DisplayName("una unidad puede colgar de un bloque y un piso de ese bloque")
-    void laUnidadCuelgaDeSuBloqueYPiso() {
+    void theUnitHangsFromItsBlockAndFloor() {
         BlockView torre = units.addBlock(lasPalmas, "Torre A", "emma");
         FloorView tercero = units.addFloor(lasPalmas, torre.id(), 3, "emma");
 
@@ -185,7 +185,7 @@ class UnitsTests {
 
     @Test
     @DisplayName("una unidad no puede colgar de un bloque de otro condominio")
-    void noPuedeColgarDeUnBloqueAjeno() {
+    void itCannotHangFromAnotherCondominiumsBlock() {
         BlockView torreAjena = units.addBlock(villaSol(), "Torre A", "emma");
 
         assertThatThrownBy(() -> units.register(
@@ -198,7 +198,7 @@ class UnitsTests {
 
     @Test
     @DisplayName("indicar piso sin bloque se rechaza: un piso siempre cuelga de un bloque")
-    void elPisoNecesitaBloque() {
+    void theFloorNeedsABlock() {
         BlockView torre = units.addBlock(lasPalmas, "Torre A", "emma");
         FloorView tercero = units.addFloor(lasPalmas, torre.id(), 3, "emma");
 
@@ -212,7 +212,7 @@ class UnitsTests {
 
     @Test
     @DisplayName("un bloque no puede repetir nombre dentro del condominio")
-    void elNombreDeBloqueEsUnico() {
+    void theBlockNameIsUnique() {
         units.addBlock(lasPalmas, "Torre A", "emma");
 
         assertThatThrownBy(() -> units.addBlock(lasPalmas, "Torre A", "emma")).isInstanceOf(BusinessRuleViolated.class);

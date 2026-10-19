@@ -69,14 +69,14 @@ class MembershipsTests {
      * cerro ninguna sesion" pasarian o fallarian segun el orden en que JUnit corriera la clase.
      */
     @BeforeEach
-    void dejarLosDoblesLimpios() {
+    void resetTheDoubles() {
         sessions.reiniciar();
         proveedor.reiniciar();
     }
 
     @Test
     @DisplayName("una membresia se concede activa y con sus roles")
-    void seConcedeActivaYConSusRoles() {
+    void itIsGrantedActiveAndWithItsRoles() {
         UUID condominium = condominium("2000000001");
         UUID account = accountOf("uno@coprop.bo", "7000001");
 
@@ -92,7 +92,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("no se pueden crear dos membresias vigentes de la misma cuenta en el mismo condominio")
-    void noDosMembresiasVigentesEnElMismoCondominio() {
+    void noTwoCurrentMembershipsInTheSameCondominium() {
         UUID condominium = condominium("2000000002");
         UUID account = accountOf("dos@coprop.bo", "7000002");
         memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
@@ -104,7 +104,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("la misma cuenta si puede tener membresia en dos condominios")
-    void laMismaCuentaEnDosCondominios() {
+    void theSameAccountInTwoCondominiums() {
         UUID uno = condominium("2000000003");
         UUID otro = condominium("2000000004");
         UUID account = accountOf("tres@coprop.bo", "7000003");
@@ -119,7 +119,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("una membresia puede llevar varios roles: propietario que tambien es directivo")
-    void unaMembresiaLlevaVariosRoles() {
+    void aMembershipCarriesSeveralRoles() {
         UUID condominium = condominium("2000000005");
         UUID account = accountOf("cuatro@coprop.bo", "7000004");
 
@@ -131,7 +131,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("una membresia sin roles se rechaza: no autorizaria nada")
-    void unaMembresiaSinRolesSeRechaza() {
+    void aMembershipWithoutRolesIsRejected() {
         UUID condominium = condominium("2000000006");
         UUID account = accountOf("cinco@coprop.bo", "7000005");
 
@@ -142,7 +142,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("nadie se invita a si mismo")
-    void nadieSeInvitaASiMismo() {
+    void nobodyInvitesThemselves() {
         UUID condominium = condominium("2000000007");
         UUID account = accountOf("seis@coprop.bo", "7000006");
 
@@ -154,7 +154,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("no se concede membresia a una cuenta que no existe")
-    void noSeConcedeACuentaInexistente() {
+    void itIsNotGrantedToANonExistentAccount() {
         UUID condominium = condominium("2000000008");
 
         assertThatThrownBy(() ->
@@ -164,7 +164,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("la membresia de otro condominio no se encuentra: 404 y no 403")
-    void laMembresiaDeOtroCondominioNoSeEncuentra() {
+    void aMembershipFromAnotherCondominiumIsNotFound() {
         UUID propio = condominium("2000000009");
         UUID ajeno = condominium("2000000010");
         UUID account = accountOf("siete@coprop.bo", "7000007");
@@ -175,7 +175,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("sin membresia vigente, consultarla devuelve nulo en vez de fallar")
-    void sinMembresiaDevuelveNulo() {
+    void withoutMembershipItReturnsNull() {
         UUID condominium = condominium("2000000011");
         UUID account = accountOf("ocho@coprop.bo", "7000008");
 
@@ -186,7 +186,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("se listan solo las membresias vigentes del condominio")
-    void seListanLasVigentesDelCondominio() {
+    void theCurrentOnesOfTheCondominiumAreListed() {
         UUID condominium = condominium("2000000012");
         UUID otro = condominium("2000000013");
         UUID una = accountOf("nueve@coprop.bo", "7000009");
@@ -218,7 +218,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("la baja cierra la fila y no la borra: lo historico se conserva")
-    void laBajaCierraLaFilaYNoLaBorra() {
+    void theTerminationClosesTheRowAndDoesNotDeleteIt() {
         UUID condominium = condominium("2000000015");
         UUID account = accountOf("doce@coprop.bo", "7000012");
         MembershipView concedida = memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
@@ -239,7 +239,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("tras la baja se puede volver a entrar: el indice parcial lo deja pasar")
-    void trasLaBajaSePuedeVolverAEntrar() {
+    void afterTerminationSignInStillWorks() {
         UUID condominium = condominium("2000000016");
         UUID account = accountOf("trece@coprop.bo", "7000013");
         MembershipView primera = memberships.grant(condominium, account, Set.of(MembershipRole.TENANT), null, "admin");
@@ -255,7 +255,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("dar de baja dos veces es un conflicto de estado, no un recurso que no existe")
-    void laBajaDosVecesEsConflicto() {
+    void terminatingTwiceIsAConflict() {
         UUID condominium = condominium("2000000017");
         UUID account = accountOf("catorce@coprop.bo", "7000014");
         MembershipView concedida = memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
@@ -268,7 +268,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("nadie se da de baja a si mismo: se quedaria sin la pantalla para volver")
-    void nadieSeDaDeBajaASiMismo() {
+    void nobodyTerminatesThemselves() {
         UUID condominium = condominium("2000000018");
         UUID account = accountOf("quince@coprop.bo", "7000015");
         MembershipView suya =
@@ -281,7 +281,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("un condominio no se queda sin su ultimo administrador")
-    void noSeDaDeBajaAlUltimoAdministrador() {
+    void theLastAdminIsNotTerminated() {
         UUID condominium = condominium("2000000019");
         UUID admin = accountOf("dieciseis@coprop.bo", "7000016");
         MembershipView unica = memberships.grant(condominium, admin, Set.of(MembershipRole.CONDO_ADMIN), null, "emma");
@@ -297,7 +297,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("con dos administradores si se puede dar de baja a uno")
-    void conDosAdministradoresSiSePuedeDarDeBajaAUno() {
+    void withTwoAdminsOneCanBeTerminated() {
         UUID condominium = condominium("2000000020");
         UUID uno = accountOf("diecisiete@coprop.bo", "7000017");
         UUID otro = accountOf("dieciocho@coprop.bo", "7000018");
@@ -311,7 +311,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("una membresia suspendida sigue abierta y deja de dar acceso")
-    void laSuspensionNoCierraLaFila() {
+    void theSuspensionDoesNotCloseTheRow() {
         UUID condominium = condominium("2000000021");
         UUID account = accountOf("diecinueve@coprop.bo", "7000019");
         MembershipView concedida = memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
@@ -329,7 +329,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("la reactivacion devuelve el acceso y los roles siguen intactos")
-    void laReactivacionDevuelveElAcceso() {
+    void reinstatementRestoresAccess() {
         UUID condominium = condominium("2000000022");
         UUID account = accountOf("veinte@coprop.bo", "7000020");
         MembershipView concedida = memberships.grant(
@@ -344,7 +344,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("no se suspende dos veces ni se reactiva algo que no esta suspendido")
-    void lasTransicionesImposiblesSonConflictos() {
+    void theImpossibleTransitionsAreConflicts() {
         UUID condominium = condominium("2000000023");
         UUID account = accountOf("veintiuno@coprop.bo", "7000021");
         MembershipView concedida = memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
@@ -362,7 +362,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("una baja no se deshace: una membresia cerrada no se reactiva")
-    void unaBajaNoSeReactiva() {
+    void aTerminatedOneIsNotReinstated() {
         UUID condominium = condominium("2000000024");
         UUID account = accountOf("veintidos@coprop.bo", "7000022");
         MembershipView concedida = memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
@@ -375,7 +375,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("la membresia de otro condominio no se da de baja desde aqui: 404 y no 403")
-    void noSeDaDeBajaLaDeOtroCondominio() {
+    void anotherCondominiumsIsNotTerminated() {
         UUID propio = condominium("2000000025");
         UUID ajeno = condominium("2000000026");
         UUID account = accountOf("veintitres@coprop.bo", "7000023");
@@ -387,7 +387,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("la baja de la ultima membresia cierra las sesiones de esa cuenta")
-    void laBajaDeLaUltimaCierraLasSesiones() {
+    void terminatingTheLastOneClosesTheSessions() {
         UUID condominium = condominium("2000000027");
         UUID account = accountOf("veinticuatro@coprop.bo", "7000024");
         MembershipView unica = memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
@@ -402,7 +402,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("una baja no cierra sesiones si le queda otro condominio: la sesion no es de uno")
-    void laBajaNoCierraSesionesSiLeQuedaOtroCondominio() {
+    void terminationDoesNotCloseSessionsIfAnotherCondominiumRemains() {
         UUID uno = condominium("2000000028");
         UUID otro = condominium("2000000029");
         UUID account = accountOf("veinticinco@coprop.bo", "7000025");
@@ -418,7 +418,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("una suspension que la deja sin condominios tambien le cierra las sesiones")
-    void laSuspensionDeLaUltimaCierraLasSesiones() {
+    void suspendingTheLastOneClosesTheSessions() {
         UUID condominium = condominium("2000000030");
         UUID account = accountOf("veintiseis@coprop.bo", "7000026");
         MembershipView unica = memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
@@ -430,11 +430,11 @@ class MembershipsTests {
 
     @Test
     @DisplayName("un proveedor de identidad caido NO deshace la baja")
-    void unProveedorCaidoNoDeshaceLaBaja() {
+    void aDownProviderDoesNotUndoTheTermination() {
         UUID condominium = condominium("2000000031");
         UUID account = accountOf("veintisiete@coprop.bo", "7000027");
         MembershipView unica = memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
-        proveedor.queFalle();
+        proveedor.makeItFail();
 
         MembershipView dada = memberships.revoke(condominium, unica.id(), "se mudo", "admin");
 
@@ -488,7 +488,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("el cambio sustituye los roles por los que llegan, sin cerrar la membresia")
-    void elCambioSustituyeLosRoles() {
+    void theChangeReplacesTheRoles() {
         UUID condominium = condominium("2000000034");
         UUID account = accountOf("treinta@coprop.bo", "7000030");
         MembershipView suya = memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
@@ -527,7 +527,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("no se le quita CONDO_ADMIN al ultimo administrador del condominio")
-    void noSeQuitaElUltimoAdministrador() {
+    void theLastAdminIsNotRemoved() {
         UUID condominium = condominium("2000000036");
         UUID account = accountOf("treintaydos@coprop.bo", "7000032");
         MembershipView unica =
@@ -543,7 +543,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("si queda otro administrador, quitarle CONDO_ADMIN si se puede")
-    void conOtroAdministradorSiSePuede() {
+    void withAnotherAdminItIsAllowed() {
         UUID condominium = condominium("2000000037");
         UUID unaCuenta = accountOf("treintaytres@coprop.bo", "7000033");
         UUID otraCuenta = accountOf("treintaycuatro@coprop.bo", "7000034");
@@ -559,7 +559,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("nadie se cambia los roles a si mismo")
-    void nadieSeCambiaLosRolesASiMismo() {
+    void nobodyChangesTheirOwnRoles() {
         UUID condominium = condominium("2000000038");
         UUID account = accountOf("treintaycinco@coprop.bo", "7000035");
         MembershipView suya = memberships.grant(
@@ -581,7 +581,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("el cambio no es la puerta de atras de PLATFORM_ADMIN, ni deja una membresia sin roles")
-    void elCambioNoAdmiteNiPlataformaNiVacio() {
+    void theChangeAcceptsNeitherPlatformNorEmpty() {
         UUID condominium = condominium("2000000039");
         UUID account = accountOf("treintayseis@coprop.bo", "7000036");
         MembershipView suya = memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
@@ -601,7 +601,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("a una membresia dada de baja no se le cambian los roles")
-    void unaMembresiaCerradaNoCambiaDeRoles() {
+    void aClosedMembershipDoesNotChangeRoles() {
         UUID condominium = condominium("2000000040");
         UUID account = accountOf("treintaysiete@coprop.bo", "7000037");
         MembershipView suya = memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
@@ -616,7 +616,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("la membresia de otro condominio no cambia de roles desde aqui: 404 y no 403")
-    void laDeOtroCondominioNoCambia() {
+    void theOneFromAnotherCondominiumDoesNotChange() {
         UUID propio = condominium("2000000041");
         UUID ajeno = condominium("2000000042");
         UUID account = accountOf("treintayocho@coprop.bo", "7000038");
@@ -629,7 +629,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("retirar un rol administrativo le cierra las sesiones, aunque siga en el condominio")
-    void retirarUnRolAdministrativoCierraLasSesiones() {
+    void removingAnAdminRoleClosesTheSessions() {
         UUID condominium = condominium("2000000043");
         UUID account = accountOf("treintaynueve@coprop.bo", "7000039");
         MembershipView suya = memberships.grant(
@@ -647,7 +647,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("anadir un rol administrativo no cierra ninguna sesion")
-    void anadirUnRolNoCierraSesiones() {
+    void addingARoleDoesNotCloseSessions() {
         UUID condominium = condominium("2000000044");
         UUID account = accountOf("cuarenta@coprop.bo", "7000040");
         MembershipView suya =
@@ -667,7 +667,7 @@ class MembershipsTests {
 
     @Test
     @DisplayName("cambiar entre roles que no son administrativos no cierra ninguna sesion")
-    void cambiarEntreRolesNoAdministrativosNoCierraSesiones() {
+    void changingBetweenNonAdminRolesDoesNotCloseSessions() {
         UUID condominium = condominium("2000000045");
         UUID account = accountOf("cuarentayuno@coprop.bo", "7000041");
         MembershipView suya = memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
