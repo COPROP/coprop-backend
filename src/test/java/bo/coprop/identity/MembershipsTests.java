@@ -221,19 +221,19 @@ class MembershipsTests {
     void theTerminationClosesTheRowAndDoesNotDeleteIt() {
         UUID condominium = condominium("2000000015");
         UUID account = accountOf("doce@coprop.bo", "7000012");
-        MembershipView concedida = memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
+        MembershipView granted = memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
 
-        MembershipView dada = memberships.revoke(condominium, concedida.id(), "se mudo de edificio", "admin");
+        MembershipView given = memberships.revoke(condominium, granted.id(), "se mudo de edificio", "admin");
 
-        assertThat(dada.validTo()).isEqualTo(AHORA);
-        assertThat(dada.grantsAccess()).isFalse();
+        assertThat(given.validTo()).isEqualTo(AHORA);
+        assertThat(given.grantsAccess()).isFalse();
         // El estado no se toca: la fila sigue diciendo como estaba cuando se la dio de baja.
-        assertThat(dada.status()).isEqualTo(MembershipStatus.ACTIVE);
+        assertThat(given.status()).isEqualTo(MembershipStatus.ACTIVE);
         // Ya no es vigente, pero la fila esta: el segundo criterio del issue.
         assertThat(memberships.ofCondominium(condominium)).isEmpty();
         assertThat(memberships.allOfCondominium(condominium))
                 .extracting(MembershipView::id)
-                .containsExactly(concedida.id());
+                .containsExactly(granted.id());
         assertThat(memberships.of(condominium, account)).isNull();
     }
 
@@ -242,12 +242,12 @@ class MembershipsTests {
     void afterTerminationSignInStillWorks() {
         UUID condominium = condominium("2000000016");
         UUID account = accountOf("trece@coprop.bo", "7000013");
-        MembershipView primera = memberships.grant(condominium, account, Set.of(MembershipRole.TENANT), null, "admin");
-        memberships.revoke(condominium, primera.id(), "fin de contrato", "admin");
+        MembershipView first = memberships.grant(condominium, account, Set.of(MembershipRole.TENANT), null, "admin");
+        memberships.revoke(condominium, first.id(), "fin de contrato", "admin");
 
         MembershipView segunda = memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
 
-        assertThat(segunda.id()).isNotEqualTo(primera.id());
+        assertThat(segunda.id()).isNotEqualTo(first.id());
         assertThat(memberships.of(condominium, account)).isNotNull();
         // Las dos filas, la de antes y la de ahora. Por eso el padron completo puede repetir cuenta.
         assertThat(memberships.allOfCondominium(condominium)).hasSize(2);
@@ -258,10 +258,10 @@ class MembershipsTests {
     void terminatingTwiceIsAConflict() {
         UUID condominium = condominium("2000000017");
         UUID account = accountOf("catorce@coprop.bo", "7000014");
-        MembershipView concedida = memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
-        memberships.revoke(condominium, concedida.id(), "se mudo", "admin");
+        MembershipView granted = memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
+        memberships.revoke(condominium, granted.id(), "se mudo", "admin");
 
-        assertThatThrownBy(() -> memberships.revoke(condominium, concedida.id(), "otra vez", "admin"))
+        assertThatThrownBy(() -> memberships.revoke(condominium, granted.id(), "otra vez", "admin"))
                 .isInstanceOf(StateConflict.class)
                 .hasMessageContaining("dada de baja");
     }
@@ -304,9 +304,9 @@ class MembershipsTests {
         MembershipView delUno = memberships.grant(condominium, uno, Set.of(MembershipRole.CONDO_ADMIN), null, "emma");
         memberships.grant(condominium, otro, Set.of(MembershipRole.CONDO_ADMIN), null, "emma");
 
-        MembershipView dada = memberships.revoke(condominium, delUno.id(), "cambio de administracion", "emma");
+        MembershipView given = memberships.revoke(condominium, delUno.id(), "cambio de administracion", "emma");
 
-        assertThat(dada.validTo()).isEqualTo(AHORA);
+        assertThat(given.validTo()).isEqualTo(AHORA);
     }
 
     @Test
@@ -314,13 +314,13 @@ class MembershipsTests {
     void theSuspensionDoesNotCloseTheRow() {
         UUID condominium = condominium("2000000021");
         UUID account = accountOf("diecinueve@coprop.bo", "7000019");
-        MembershipView concedida = memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
+        MembershipView granted = memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
 
-        MembershipView suspendida = memberships.suspend(condominium, concedida.id(), "cuota impaga", "admin");
+        MembershipView suspended = memberships.suspend(condominium, granted.id(), "cuota impaga", "admin");
 
-        assertThat(suspendida.status()).isEqualTo(MembershipStatus.SUSPENDED);
-        assertThat(suspendida.validTo()).isNull();
-        assertThat(suspendida.grantsAccess()).isFalse();
+        assertThat(suspended.status()).isEqualTo(MembershipStatus.SUSPENDED);
+        assertThat(suspended.validTo()).isNull();
+        assertThat(suspended.grantsAccess()).isFalse();
         // Sigue siendo del condominio: es lo que la distingue de una baja. El filtro de aislamiento
         // es quien la rechaza, mirando el estado.
         assertThat(memberships.ofCondominium(condominium)).hasSize(1);
@@ -332,14 +332,14 @@ class MembershipsTests {
     void reinstatementRestoresAccess() {
         UUID condominium = condominium("2000000022");
         UUID account = accountOf("veinte@coprop.bo", "7000020");
-        MembershipView concedida = memberships.grant(
+        MembershipView granted = memberships.grant(
                 condominium, account, Set.of(MembershipRole.OWNER, MembershipRole.BOARD), null, "admin");
-        memberships.suspend(condominium, concedida.id(), "cuota impaga", "admin");
+        memberships.suspend(condominium, granted.id(), "cuota impaga", "admin");
 
-        MembershipView reactivada = memberships.reinstate(condominium, concedida.id(), "pago al dia", "admin");
+        MembershipView reinstated = memberships.reinstate(condominium, granted.id(), "pago al dia", "admin");
 
-        assertThat(reactivada.grantsAccess()).isTrue();
-        assertThat(reactivada.roles()).containsExactlyInAnyOrder(MembershipRole.OWNER, MembershipRole.BOARD);
+        assertThat(reinstated.grantsAccess()).isTrue();
+        assertThat(reinstated.roles()).containsExactlyInAnyOrder(MembershipRole.OWNER, MembershipRole.BOARD);
     }
 
     @Test
@@ -347,15 +347,15 @@ class MembershipsTests {
     void theImpossibleTransitionsAreConflicts() {
         UUID condominium = condominium("2000000023");
         UUID account = accountOf("veintiuno@coprop.bo", "7000021");
-        MembershipView concedida = memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
+        MembershipView granted = memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
 
-        assertThatThrownBy(() -> memberships.reinstate(condominium, concedida.id(), "por si acaso", "admin"))
+        assertThatThrownBy(() -> memberships.reinstate(condominium, granted.id(), "por si acaso", "admin"))
                 .isInstanceOf(StateConflict.class)
                 .hasMessageContaining("no esta suspendida");
 
-        memberships.suspend(condominium, concedida.id(), "cuota impaga", "admin");
+        memberships.suspend(condominium, granted.id(), "cuota impaga", "admin");
 
-        assertThatThrownBy(() -> memberships.suspend(condominium, concedida.id(), "otra vez", "admin"))
+        assertThatThrownBy(() -> memberships.suspend(condominium, granted.id(), "otra vez", "admin"))
                 .isInstanceOf(StateConflict.class)
                 .hasMessageContaining("ya esta suspendida");
     }
@@ -365,10 +365,10 @@ class MembershipsTests {
     void aTerminatedOneIsNotReinstated() {
         UUID condominium = condominium("2000000024");
         UUID account = accountOf("veintidos@coprop.bo", "7000022");
-        MembershipView concedida = memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
-        memberships.revoke(condominium, concedida.id(), "se mudo", "admin");
+        MembershipView granted = memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
+        memberships.revoke(condominium, granted.id(), "se mudo", "admin");
 
-        assertThatThrownBy(() -> memberships.reinstate(condominium, concedida.id(), "que vuelva", "admin"))
+        assertThatThrownBy(() -> memberships.reinstate(condominium, granted.id(), "que vuelva", "admin"))
                 .isInstanceOf(StateConflict.class)
                 .hasMessageContaining("membresia nueva");
     }
@@ -396,7 +396,7 @@ class MembershipsTests {
 
         // La cuenta nunca entro, asi que no tiene sujeto del proveedor y el unico nombre con el que
         // puede haber sesion es su identificador.
-        assertThat(sessions.cerradas()).containsExactly(Set.of(account.toString()));
+        assertThat(sessions.closed()).containsExactly(Set.of(account.toString()));
         assertThat(proveedor.aQuienSeLeCerraronSesiones()).containsExactly("veinticuatro@coprop.bo");
     }
 
@@ -412,7 +412,7 @@ class MembershipsTests {
         memberships.revoke(uno, enUno.id(), "vendio ese departamento", "admin");
 
         // Seguridad 6.3: la baja afecta solo a ese condominio. Cerrarle la sesion lo echaria del otro.
-        assertThat(sessions.cerradas()).isEmpty();
+        assertThat(sessions.closed()).isEmpty();
         assertThat(proveedor.aQuienSeLeCerraronSesiones()).isEmpty();
     }
 
@@ -425,7 +425,7 @@ class MembershipsTests {
 
         memberships.suspend(condominium, unica.id(), "cuota impaga", "admin");
 
-        assertThat(sessions.cerradas()).containsExactly(Set.of(account.toString()));
+        assertThat(sessions.closed()).containsExactly(Set.of(account.toString()));
     }
 
     @Test
@@ -436,12 +436,12 @@ class MembershipsTests {
         MembershipView unica = memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
         proveedor.makeItFail();
 
-        MembershipView dada = memberships.revoke(condominium, unica.id(), "se mudo", "admin");
+        MembershipView given = memberships.revoke(condominium, unica.id(), "se mudo", "admin");
 
         // Es la decision contraria a la del correo de la invitacion (#18), y por eso se prueba: ahi
         // el correo era la operacion, y aqui el acceso ya lo corta el filtro en la siguiente
         // peticion. Deshacer la baja dejaria a la persona dentro del condominio.
-        assertThat(dada.validTo()).isEqualTo(AHORA);
+        assertThat(given.validTo()).isEqualTo(AHORA);
         assertThat(memberships.of(condominium, account)).isNull();
     }
 
@@ -493,20 +493,20 @@ class MembershipsTests {
         UUID account = accountOf("treinta@coprop.bo", "7000030");
         MembershipView suya = memberships.grant(condominium, account, Set.of(MembershipRole.OWNER), null, "admin");
 
-        MembershipView cambiada = memberships.changeRoles(
+        MembershipView changed = memberships.changeRoles(
                 condominium,
                 suya.id(),
                 Set.of(MembershipRole.BOARD, MembershipRole.TENANT),
                 "entro al directorio",
                 "admin");
 
-        assertThat(cambiada.roles()).containsExactlyInAnyOrder(MembershipRole.BOARD, MembershipRole.TENANT);
+        assertThat(changed.roles()).containsExactlyInAnyOrder(MembershipRole.BOARD, MembershipRole.TENANT);
         // La fila es la MISMA y sigue abierta: un cambio de rol no es una baja. Si cerrara y abriera
         // otra, el padron del #19 mostraria una baja que nadie dio.
-        assertThat(cambiada.id()).isEqualTo(suya.id());
-        assertThat(cambiada.validTo()).isNull();
-        assertThat(cambiada.validFrom()).isEqualTo(suya.validFrom());
-        assertThat(memberships.of(condominium, account)).isEqualTo(cambiada);
+        assertThat(changed.id()).isEqualTo(suya.id());
+        assertThat(changed.validTo()).isNull();
+        assertThat(changed.validFrom()).isEqualTo(suya.validFrom());
+        assertThat(memberships.of(condominium, account)).isEqualTo(changed);
     }
 
     @Test
@@ -641,7 +641,7 @@ class MembershipsTests {
         // Seguridad 8 pide revocar las sesiones al retirar un rol administrativo, y la regla es
         // distinta de la de la baja: aqui la cuenta SIGUE teniendo a donde entrar y se le cierran
         // igual. Lo que caduco no es el acceso, es el nivel de confianza de esa sesion.
-        assertThat(sessions.cerradas()).containsExactly(Set.of(account.toString()));
+        assertThat(sessions.closed()).containsExactly(Set.of(account.toString()));
         assertThat(proveedor.aQuienSeLeCerraronSesiones()).containsExactly("treintaynueve@coprop.bo");
     }
 
@@ -662,7 +662,7 @@ class MembershipsTests {
 
         // Solo cuando se QUITA. Cerrarle la sesion a quien acaba de recibir un rol seria echarle de
         // la pantalla en la que esta trabajando sin que haya perdido nada.
-        assertThat(sessions.cerradas()).isEmpty();
+        assertThat(sessions.closed()).isEmpty();
     }
 
     @Test
@@ -674,7 +674,7 @@ class MembershipsTests {
 
         memberships.changeRoles(condominium, suya.id(), Set.of(MembershipRole.TENANT), "ahora alquila", "admin");
 
-        assertThat(sessions.cerradas()).isEmpty();
+        assertThat(sessions.closed()).isEmpty();
     }
 
     @Test

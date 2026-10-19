@@ -47,7 +47,7 @@ class IdentityControllerTests {
     @WithMockUser(username = "emma", roles = "CONDO_ADMIN")
     @DisplayName("el alta de persona devuelve 201 con Location y la persona creada")
     void registeringAPersonReturns201() throws Exception {
-        mockMvc.perform(post("/api/v1/personas")
+        mockMvc.perform(post("/api/v1/people")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(PERSONA))
@@ -62,7 +62,7 @@ class IdentityControllerTests {
     @WithMockUser(username = "emma", roles = "CONDO_ADMIN")
     @DisplayName("el alta de una persona que ya existe tambien devuelve 201, para no delatarla")
     void aRepeatedRegistrationAlsoReturns201() throws Exception {
-        mockMvc.perform(post("/api/v1/personas")
+        mockMvc.perform(post("/api/v1/people")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(PERSONA))
@@ -70,7 +70,7 @@ class IdentityControllerTests {
 
         // Un 200 para "ya existia" y un 201 para "la cree" le diria al administrador de un
         // condominio que esa persona esta en otro. Decision 7.
-        mockMvc.perform(post("/api/v1/personas")
+        mockMvc.perform(post("/api/v1/people")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(PERSONA))
@@ -83,31 +83,31 @@ class IdentityControllerTests {
     void aBlankNameGives422() throws Exception {
         String sinNombre = PERSONA.replace("\"firstNames\":\"Emma\"", "\"firstNames\":\"\"");
 
-        mockMvc.perform(post("/api/v1/personas")
+        mockMvc.perform(post("/api/v1/people")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(sinNombre))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.codigo").value("VALIDACION"))
-                .andExpect(jsonPath("$.errores[0].field").value("firstNames"));
+                .andExpect(jsonPath("$.code").value("VALIDATION"))
+                .andExpect(jsonPath("$.errors[0].field").value("firstNames"));
     }
 
     @Test
     @WithMockUser(username = "emma", roles = "CONDO_ADMIN")
     @DisplayName("una persona que no existe da 404 en problem+json")
     void aPersonWhoDoesNotExistGives404() throws Exception {
-        mockMvc.perform(get("/api/v1/personas/" + UUID.randomUUID()))
+        mockMvc.perform(get("/api/v1/people/" + UUID.randomUUID()))
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 
     @Test
     @WithMockUser(username = "emma", roles = "CONDO_ADMIN")
     @DisplayName("la cuenta se abre invitada y su Location apunta a una ruta que responde")
     void theAccountIsOpenedAndItsLocationResponds() throws Exception {
-        String personaId = idDe(mockMvc.perform(post("/api/v1/personas")
+        String personaId = idDe(mockMvc.perform(post("/api/v1/people")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(PERSONA))
@@ -115,19 +115,19 @@ class IdentityControllerTests {
                 .getResponse()
                 .getContentAsString());
 
-        String cuentaId = idDe(mockMvc.perform(post("/api/v1/personas/" + personaId + "/cuenta")
+        String cuentaId = idDe(mockMvc.perform(post("/api/v1/people/" + personaId + "/account")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"emma@coprop.bo\"}"))
                 .andExpect(status().isCreated())
-                .andExpect(header().string("Location", org.hamcrest.Matchers.startsWith("/api/v1/cuentas/")))
+                .andExpect(header().string("Location", org.hamcrest.Matchers.startsWith("/api/v1/accounts/")))
                 .andReturn()
                 .getResponse()
                 .getContentAsString());
 
         // Lo que el PR #72 tuvo que corregir en el alta de unidades: que Location no apunte al
         // vacio. Se sigue la cabecera de verdad en vez de confiar en que este bien formada.
-        mockMvc.perform(get("/api/v1/cuentas/" + cuentaId))
+        mockMvc.perform(get("/api/v1/accounts/" + cuentaId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("INVITED"))
                 .andExpect(jsonPath("$.mfaEnabled").value(false));
@@ -137,7 +137,7 @@ class IdentityControllerTests {
     @WithMockUser(username = "emma", roles = "CONDO_ADMIN")
     @DisplayName("un correo mal formado da 422")
     void aMalformedEmailGives422() throws Exception {
-        String personaId = idDe(mockMvc.perform(post("/api/v1/personas")
+        String personaId = idDe(mockMvc.perform(post("/api/v1/people")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(PERSONA))
@@ -145,25 +145,25 @@ class IdentityControllerTests {
                 .getResponse()
                 .getContentAsString());
 
-        mockMvc.perform(post("/api/v1/personas/" + personaId + "/cuenta")
+        mockMvc.perform(post("/api/v1/people/" + personaId + "/account")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"no-es-un-email\"}"))
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.codigo").value("VALIDACION"));
+                .andExpect(jsonPath("$.code").value("VALIDATION"));
     }
 
     @Test
     @WithMockUser(username = "emma", roles = "CONDO_ADMIN")
     @DisplayName("una membresia sin roles da 422, no un error de dominio")
     void aMembershipWithoutRolesGives422() throws Exception {
-        mockMvc.perform(post("/api/v1/condominios/" + UUID.randomUUID() + "/membresias")
+        mockMvc.perform(post("/api/v1/condominiums/" + UUID.randomUUID() + "/memberships")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"accountId\":\"%s\",\"roles\":[]}".formatted(UUID.randomUUID())))
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.codigo").value("VALIDACION"))
-                .andExpect(jsonPath("$.errores[0].field").value("roles"));
+                .andExpect(jsonPath("$.code").value("VALIDATION"))
+                .andExpect(jsonPath("$.errors[0].field").value("roles"));
     }
 
     @Test
@@ -171,41 +171,41 @@ class IdentityControllerTests {
     @DisplayName("un rol fuera del catalogo da 422 y dice cuales se admiten")
     void anUnknownRoleGives422() throws Exception {
         // El JSON esta bien formado; lo que no se admite es el valor, asi que el cliente recibe lo
-        // mismo que en cualquier otra validacion: 422, VALIDACION y el campo para marcar. Antes
+        // mismo que en cualquier otra validacion: 422, VALIDATION y el campo para marcar. Antes
         // daba 400 y sin codigo, porque Jackson falla antes de que haya objeto que validar.
-        mockMvc.perform(post("/api/v1/condominios/" + UUID.randomUUID() + "/membresias")
+        mockMvc.perform(post("/api/v1/condominiums/" + UUID.randomUUID() + "/memberships")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"accountId\":\"%s\",\"roles\":[\"JEFE\"]}".formatted(UUID.randomUUID())))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.codigo").value("VALIDACION"))
-                .andExpect(jsonPath("$.errores[0].field").value("roles[0]"))
-                .andExpect(jsonPath("$.errores[0].code").value("VALOR_NO_ADMITIDO"))
-                .andExpect(jsonPath("$.errores[0].message").value(org.hamcrest.Matchers.containsString("OWNER")));
+                .andExpect(jsonPath("$.code").value("VALIDATION"))
+                .andExpect(jsonPath("$.errors[0].field").value("roles[0]"))
+                .andExpect(jsonPath("$.errors[0].code").value("VALUE_NOT_ALLOWED"))
+                .andExpect(jsonPath("$.errors[0].message").value(org.hamcrest.Matchers.containsString("OWNER")));
     }
 
     @Test
     @WithMockUser(username = "emma", roles = "CONDO_ADMIN")
     @DisplayName("una cuenta que no existe da 404 al conceder membresia")
     void aNonExistentAccountGives404() throws Exception {
-        mockMvc.perform(post("/api/v1/condominios/" + UUID.randomUUID() + "/membresias")
+        mockMvc.perform(post("/api/v1/condominiums/" + UUID.randomUUID() + "/memberships")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"accountId\":\"%s\",\"roles\":[\"OWNER\"]}".formatted(UUID.randomUUID())))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 
     @Test
     @DisplayName("sin autenticar, los endpoints de identidad dan 401 con su codigo")
     void withoutAuthenticatingItGives401() throws Exception {
-        mockMvc.perform(post("/api/v1/personas")
+        mockMvc.perform(post("/api/v1/people")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(PERSONA))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.codigo").value("NO_AUTENTICADO"));
+                .andExpect(jsonPath("$.code").value("NOT_AUTHENTICATED"));
     }
 
     private static String idDe(String cuerpoJson) {

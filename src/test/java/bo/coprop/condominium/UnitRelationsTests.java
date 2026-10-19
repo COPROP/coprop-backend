@@ -43,17 +43,17 @@ class UnitRelationsTests {
     private final JdbcTemplate jdbc;
     private final Condominiums condominiums;
     private final Units units;
-    private final UnitRelations relaciones;
+    private final UnitRelations relations;
 
     UnitRelationsTests(
             @Autowired DataSource dataSource,
             @Autowired Condominiums condominiums,
             @Autowired Units units,
-            @Autowired UnitRelations relaciones) {
+            @Autowired UnitRelations relations) {
         this.jdbc = new JdbcTemplate(dataSource);
         this.condominiums = condominiums;
         this.units = units;
-        this.relaciones = relaciones;
+        this.relations = relations;
     }
 
     @Test
@@ -65,14 +65,14 @@ class UnitRelationsTests {
         UUID enVillaSol = unit(villaSol, "A-1");
         UUID person = person("6000001");
 
-        relaciones.grantOwnership(lasPalmas, enLasPalmas, person, MITAD, "admin");
-        relaciones.grantOccupancy(villaSol, enVillaSol, person, OccupancyRole.TENANT, "admin");
+        relations.grantOwnership(lasPalmas, enLasPalmas, person, MITAD, "admin");
+        relations.grantOccupancy(villaSol, enVillaSol, person, OccupancyRole.TENANT, "admin");
 
-        assertThat(relaciones.unitsOwnedBy(lasPalmas, person)).containsExactly(enLasPalmas);
-        assertThat(relaciones.unitsOccupiedBy(villaSol, person)).containsExactly(enVillaSol);
+        assertThat(relations.unitsOwnedBy(lasPalmas, person)).containsExactly(enLasPalmas);
+        assertThat(relations.unitsOccupiedBy(villaSol, person)).containsExactly(enVillaSol);
         // Y cada condominio solo ve lo suyo.
-        assertThat(relaciones.unitsOwnedBy(villaSol, person)).isEmpty();
-        assertThat(relaciones.unitsOccupiedBy(lasPalmas, person)).isEmpty();
+        assertThat(relations.unitsOwnedBy(villaSol, person)).isEmpty();
+        assertThat(relations.unitsOccupiedBy(lasPalmas, person)).isEmpty();
     }
 
     @Test
@@ -80,18 +80,18 @@ class UnitRelationsTests {
     void theTenantOccupiesAndTheOwnerPays() {
         UUID condominium = condominium("Torre Azul", "3000000003");
         UUID unit = unit(condominium, "501");
-        UUID propietaria = person("6000002");
+        UUID owner = person("6000002");
         UUID inquilino = person("6000003");
 
-        relaciones.grantOwnership(condominium, unit, propietaria, new BigDecimal("100.000000"), "admin");
-        relaciones.grantOccupancy(condominium, unit, inquilino, OccupancyRole.TENANT, "admin");
-        relaciones.assignBilling(condominium, unit, propietaria, null, "admin");
+        relations.grantOwnership(condominium, unit, owner, new BigDecimal("100.000000"), "admin");
+        relations.grantOccupancy(condominium, unit, inquilino, OccupancyRole.TENANT, "admin");
+        relations.assignBilling(condominium, unit, owner, null, "admin");
 
-        assertThat(relaciones.unitsOccupiedBy(condominium, inquilino)).containsExactly(unit);
-        assertThat(relaciones.unitsBilledTo(condominium, propietaria)).containsExactly(unit);
+        assertThat(relations.unitsOccupiedBy(condominium, inquilino)).containsExactly(unit);
+        assertThat(relations.unitsBilledTo(condominium, owner)).containsExactly(unit);
         // El inquilino ocupa y no paga; la propietaria paga y no ocupa.
-        assertThat(relaciones.unitsBilledTo(condominium, inquilino)).isEmpty();
-        assertThat(relaciones.unitsOccupiedBy(condominium, propietaria)).isEmpty();
+        assertThat(relations.unitsBilledTo(condominium, inquilino)).isEmpty();
+        assertThat(relations.unitsOccupiedBy(condominium, owner)).isEmpty();
     }
 
     @Test
@@ -102,10 +102,10 @@ class UnitRelationsTests {
         UUID una = person("6000004");
         UUID otra = person("6000005");
 
-        relaciones.grantOwnership(condominium, unit, una, MITAD, "admin");
-        relaciones.grantOwnership(condominium, unit, otra, MITAD, "admin");
+        relations.grantOwnership(condominium, unit, una, MITAD, "admin");
+        relations.grantOwnership(condominium, unit, otra, MITAD, "admin");
 
-        assertThat(relaciones.ownersOf(condominium, unit))
+        assertThat(relations.ownersOf(condominium, unit))
                 .extracting(OwnershipView::personId)
                 .containsExactlyInAnyOrder(una, otra);
     }
@@ -116,9 +116,9 @@ class UnitRelationsTests {
         UUID condominium = condominium("Mirador", "3000000005");
         UUID unit = unit(condominium, "201");
         UUID person = person("6000006");
-        relaciones.grantOwnership(condominium, unit, person, MITAD, "admin");
+        relations.grantOwnership(condominium, unit, person, MITAD, "admin");
 
-        assertThatThrownBy(() -> relaciones.grantOwnership(condominium, unit, person, MITAD, "admin"))
+        assertThatThrownBy(() -> relations.grantOwnership(condominium, unit, person, MITAD, "admin"))
                 .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("ya es propietaria vigente");
     }
@@ -133,14 +133,13 @@ class UnitRelationsTests {
 
         // Es la razon de que estas relaciones vivan en este modulo: desde identity no se podria
         // comprobar, y la ruta de un condominio serviria para colgar titularidades de otro.
-        assertThatThrownBy(() -> relaciones.grantOwnership(propio, unidadAjena, person, MITAD, "admin"))
+        assertThatThrownBy(() -> relations.grantOwnership(propio, unidadAjena, person, MITAD, "admin"))
                 .isInstanceOf(ResourceNotFound.class);
-        assertThatThrownBy(
-                        () -> relaciones.grantOccupancy(propio, unidadAjena, person, OccupancyRole.RESIDENT, "admin"))
+        assertThatThrownBy(() -> relations.grantOccupancy(propio, unidadAjena, person, OccupancyRole.RESIDENT, "admin"))
                 .isInstanceOf(ResourceNotFound.class);
-        assertThatThrownBy(() -> relaciones.assignBilling(propio, unidadAjena, person, null, "admin"))
+        assertThatThrownBy(() -> relations.assignBilling(propio, unidadAjena, person, null, "admin"))
                 .isInstanceOf(ResourceNotFound.class);
-        assertThatThrownBy(() -> relaciones.ownersOf(propio, unidadAjena)).isInstanceOf(ResourceNotFound.class);
+        assertThatThrownBy(() -> relations.ownersOf(propio, unidadAjena)).isInstanceOf(ResourceNotFound.class);
     }
 
     @Test
@@ -149,9 +148,9 @@ class UnitRelationsTests {
         UUID condominium = condominium("Responsable", "3000000008");
         UUID unit = unit(condominium, "801");
         UUID person = person("6000008");
-        relaciones.assignBilling(condominium, unit, person, null, "admin");
+        relations.assignBilling(condominium, unit, person, null, "admin");
 
-        assertThatThrownBy(() -> relaciones.assignBilling(condominium, unit, person, null, "admin"))
+        assertThatThrownBy(() -> relations.assignBilling(condominium, unit, person, null, "admin"))
                 .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("ya responde");
     }
@@ -163,11 +162,11 @@ class UnitRelationsTests {
         UUID unit = unit(condominium, "802");
         UUID person = person("6000009");
 
-        relaciones.assignBilling(condominium, unit, person, UUID.randomUUID(), "admin");
-        relaciones.assignBilling(condominium, unit, person, UUID.randomUUID(), "admin");
+        relations.assignBilling(condominium, unit, person, UUID.randomUUID(), "admin");
+        relations.assignBilling(condominium, unit, person, UUID.randomUUID(), "admin");
 
         // La unidad sale una sola vez aunque haya dos responsabilidades.
-        assertThat(relaciones.unitsBilledTo(condominium, person)).containsExactly(unit);
+        assertThat(relations.unitsBilledTo(condominium, person)).containsExactly(unit);
     }
 
     @Test
@@ -176,9 +175,9 @@ class UnitRelationsTests {
         UUID condominium = condominium("Ocupacion", "3000000010");
         UUID unit = unit(condominium, "901");
         UUID person = person("6000010");
-        relaciones.grantOccupancy(condominium, unit, person, OccupancyRole.RESIDENT, "admin");
+        relations.grantOccupancy(condominium, unit, person, OccupancyRole.RESIDENT, "admin");
 
-        assertThatThrownBy(() -> relaciones.grantOccupancy(condominium, unit, person, OccupancyRole.TENANT, "admin"))
+        assertThatThrownBy(() -> relations.grantOccupancy(condominium, unit, person, OccupancyRole.TENANT, "admin"))
                 .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("ya ocupa");
     }
@@ -190,7 +189,7 @@ class UnitRelationsTests {
         UUID unit = unit(condominium, "1001");
         UUID person = person("6000011");
 
-        relaciones.grantOwnership(condominium, unit, person, MITAD, "emma");
+        relations.grantOwnership(condominium, unit, person, MITAD, "emma");
 
         assertThat(eventos.ofType(OwnershipGranted.class))
                 .containsExactly(new OwnershipGranted(condominium, unit, person, MITAD, "emma", AHORA));
@@ -205,17 +204,17 @@ class UnitRelationsTests {
         UUID unit = unit(condominium, "1101");
         UUID vende = person("6000012");
         UUID compra = person("6000013");
-        relaciones.grantOwnership(condominium, unit, vende, ALL, "admin");
+        relations.grantOwnership(condominium, unit, vende, ALL, "admin");
 
-        OwnershipView delComprador = relaciones.transferOwnership(condominium, unit, vende, compra, "admin");
+        OwnershipView delComprador = relations.transferOwnership(condominium, unit, vende, compra, "admin");
 
         // El primer criterio del issue, sobre la unidad: el propietario anterior deja de verla.
-        assertThat(relaciones.isRelatedTo(condominium, unit, vende)).isFalse();
-        assertThat(relaciones.isRelatedTo(condominium, unit, compra)).isTrue();
+        assertThat(relations.isRelatedTo(condominium, unit, vende)).isFalse();
+        assertThat(relations.isRelatedTo(condominium, unit, compra)).isTrue();
         // El comprador recibe el porcentaje del vendedor, no uno nuevo.
         assertThat(delComprador.share()).isEqualByComparingTo(ALL);
         assertThat(delComprador.validTo()).isNull();
-        assertThat(relaciones.ownersOf(condominium, unit))
+        assertThat(relations.ownersOf(condominium, unit))
                 .extracting(OwnershipView::personId)
                 .containsExactly(compra);
     }
@@ -227,18 +226,18 @@ class UnitRelationsTests {
         UUID unit = unit(condominium, "1102");
         UUID vende = person("6000014");
         UUID compra = person("6000015");
-        relaciones.grantOwnership(condominium, unit, vende, ALL, "admin");
-        relaciones.grantOccupancy(condominium, unit, vende, OccupancyRole.RESIDENT, "admin");
-        relaciones.assignBilling(condominium, unit, vende, null, "admin");
+        relations.grantOwnership(condominium, unit, vende, ALL, "admin");
+        relations.grantOccupancy(condominium, unit, vende, OccupancyRole.RESIDENT, "admin");
+        relations.assignBilling(condominium, unit, vende, null, "admin");
 
-        relaciones.transferOwnership(condominium, unit, vende, compra, "admin");
+        relations.transferOwnership(condominium, unit, vende, compra, "admin");
 
         // Si quedara una sola abierta, el vendedor seguiria viendo lo que ya no es suyo: las tres
         // cuentan por igual en isRelatedTo.
-        assertThat(relaciones.unitsOwnedBy(condominium, vende)).isEmpty();
-        assertThat(relaciones.unitsOccupiedBy(condominium, vende)).isEmpty();
-        assertThat(relaciones.unitsBilledTo(condominium, vende)).isEmpty();
-        assertThat(relaciones.relatedTo(condominium, vende)).isEmpty();
+        assertThat(relations.unitsOwnedBy(condominium, vende)).isEmpty();
+        assertThat(relations.unitsOccupiedBy(condominium, vende)).isEmpty();
+        assertThat(relations.unitsBilledTo(condominium, vende)).isEmpty();
+        assertThat(relations.relatedTo(condominium, vende)).isEmpty();
     }
 
     @Test
@@ -249,12 +248,12 @@ class UnitRelationsTests {
         UUID vende = person("6000016");
         UUID compra = person("6000017");
         UUID inquilino = person("6000018");
-        relaciones.grantOwnership(condominium, unit, vende, ALL, "admin");
-        relaciones.grantOccupancy(condominium, unit, inquilino, OccupancyRole.TENANT, "admin");
+        relations.grantOwnership(condominium, unit, vende, ALL, "admin");
+        relations.grantOccupancy(condominium, unit, inquilino, OccupancyRole.TENANT, "admin");
 
-        relaciones.transferOwnership(condominium, unit, vende, compra, "admin");
+        relations.transferOwnership(condominium, unit, vende, compra, "admin");
 
-        assertThat(relaciones.unitsOccupiedBy(condominium, inquilino)).containsExactly(unit);
+        assertThat(relations.unitsOccupiedBy(condominium, inquilino)).containsExactly(unit);
     }
 
     @Test
@@ -264,16 +263,16 @@ class UnitRelationsTests {
         UUID unit = unit(condominium, "1104");
         UUID vende = person("6000019");
         UUID compra = person("6000020");
-        relaciones.grantOwnership(condominium, unit, vende, ALL, "admin");
+        relations.grantOwnership(condominium, unit, vende, ALL, "admin");
 
-        relaciones.transferOwnership(condominium, unit, vende, compra, "admin");
+        relations.transferOwnership(condominium, unit, vende, compra, "admin");
 
         // El segundo criterio del issue: lo historico se conserva, y con fechas, que es lo que hace
         // falta para dar el comprobante de su epoca que pide Seguridad 6.2.
-        assertThat(relaciones.ownershipHistoryOf(condominium, unit))
+        assertThat(relations.ownershipHistoryOf(condominium, unit))
                 .extracting(OwnershipView::personId)
                 .containsExactlyInAnyOrder(vende, compra);
-        assertThat(relaciones.ownershipHistoryOf(condominium, unit))
+        assertThat(relations.ownershipHistoryOf(condominium, unit))
                 .filteredOn(ownership -> ownership.personId().equals(vende))
                 .singleElement()
                 .satisfies(delVendedor -> {
@@ -281,7 +280,7 @@ class UnitRelationsTests {
                     assertThat(delVendedor.validTo()).isEqualTo(AHORA);
                 });
         // Y el listado de hoy sigue trayendo solo al dueño actual.
-        assertThat(relaciones.ownersOf(condominium, unit)).hasSize(1);
+        assertThat(relations.ownersOf(condominium, unit)).hasSize(1);
     }
 
     @Test
@@ -290,17 +289,17 @@ class UnitRelationsTests {
         UUID condominium = condominium("Imposibles", "3000000016");
         UUID unit = unit(condominium, "1105");
         UUID dueno = person("6000021");
-        UUID copropietaria = person("6000022");
+        UUID coOwner = person("6000022");
         UUID ajena = person("6000023");
-        relaciones.grantOwnership(condominium, unit, dueno, MITAD, "admin");
-        relaciones.grantOwnership(condominium, unit, copropietaria, MITAD, "admin");
+        relations.grantOwnership(condominium, unit, dueno, MITAD, "admin");
+        relations.grantOwnership(condominium, unit, coOwner, MITAD, "admin");
 
-        assertThatThrownBy(() -> relaciones.transferOwnership(condominium, unit, ajena, dueno, "admin"))
+        assertThatThrownBy(() -> relations.transferOwnership(condominium, unit, ajena, dueno, "admin"))
                 .isInstanceOf(ResourceNotFound.class);
-        assertThatThrownBy(() -> relaciones.transferOwnership(condominium, unit, dueno, copropietaria, "admin"))
+        assertThatThrownBy(() -> relations.transferOwnership(condominium, unit, dueno, coOwner, "admin"))
                 .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("titularidad por titularidad");
-        assertThatThrownBy(() -> relaciones.transferOwnership(condominium, unit, dueno, dueno, "admin"))
+        assertThatThrownBy(() -> relations.transferOwnership(condominium, unit, dueno, dueno, "admin"))
                 .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("su propio dueño");
     }
@@ -311,14 +310,14 @@ class UnitRelationsTests {
         UUID condominium = condominium("Mudanza", "3000000017");
         UUID unit = unit(condominium, "1106");
         UUID inquilino = person("6000024");
-        relaciones.grantOccupancy(condominium, unit, inquilino, OccupancyRole.TENANT, "admin");
+        relations.grantOccupancy(condominium, unit, inquilino, OccupancyRole.TENANT, "admin");
 
-        relaciones.endOccupancy(condominium, unit, inquilino, "admin");
+        relations.endOccupancy(condominium, unit, inquilino, "admin");
 
-        assertThat(relaciones.isRelatedTo(condominium, unit, inquilino)).isFalse();
+        assertThat(relations.isRelatedTo(condominium, unit, inquilino)).isFalse();
         // Y se puede volver a registrar: la fila cerrada no bloquea una nueva.
-        relaciones.grantOccupancy(condominium, unit, inquilino, OccupancyRole.RESIDENT, "admin");
-        assertThat(relaciones.isRelatedTo(condominium, unit, inquilino)).isTrue();
+        relations.grantOccupancy(condominium, unit, inquilino, OccupancyRole.RESIDENT, "admin");
+        assertThat(relations.isRelatedTo(condominium, unit, inquilino)).isTrue();
     }
 
     @Test
@@ -328,16 +327,16 @@ class UnitRelationsTests {
         UUID unit = unit(condominium, "1107");
         UUID person = person("6000025");
         UUID agua = UUID.randomUUID();
-        relaciones.assignBilling(condominium, unit, person, null, "admin");
-        relaciones.assignBilling(condominium, unit, person, agua, "admin");
+        relations.assignBilling(condominium, unit, person, null, "admin");
+        relations.assignBilling(condominium, unit, person, agua, "admin");
 
-        relaciones.endBilling(condominium, unit, person, null, "admin");
+        relations.endBilling(condominium, unit, person, null, "admin");
 
         // Sigue respondiendo por el agua: son filas distintas y responden por cosas distintas.
-        assertThat(relaciones.unitsBilledTo(condominium, person)).containsExactly(unit);
+        assertThat(relations.unitsBilledTo(condominium, person)).containsExactly(unit);
 
-        relaciones.endBilling(condominium, unit, person, agua, "admin");
-        assertThat(relaciones.unitsBilledTo(condominium, person)).isEmpty();
+        relations.endBilling(condominium, unit, person, agua, "admin");
+        assertThat(relations.unitsBilledTo(condominium, person)).isEmpty();
     }
 
     @Test
@@ -349,13 +348,13 @@ class UnitRelationsTests {
         UUID unidadAjena = unit(ajeno, "1109");
         UUID person = person("6000026");
 
-        assertThatThrownBy(() -> relaciones.endOccupancy(propio, unit, person, "admin"))
+        assertThatThrownBy(() -> relations.endOccupancy(propio, unit, person, "admin"))
                 .isInstanceOf(ResourceNotFound.class);
-        assertThatThrownBy(() -> relaciones.endBilling(propio, unit, person, null, "admin"))
+        assertThatThrownBy(() -> relations.endBilling(propio, unit, person, null, "admin"))
                 .isInstanceOf(ResourceNotFound.class);
-        assertThatThrownBy(() -> relaciones.endOccupancy(propio, unidadAjena, person, "admin"))
+        assertThatThrownBy(() -> relations.endOccupancy(propio, unidadAjena, person, "admin"))
                 .isInstanceOf(ResourceNotFound.class);
-        assertThatThrownBy(() -> relaciones.ownershipHistoryOf(propio, unidadAjena))
+        assertThatThrownBy(() -> relations.ownershipHistoryOf(propio, unidadAjena))
                 .isInstanceOf(ResourceNotFound.class);
     }
 
@@ -366,10 +365,10 @@ class UnitRelationsTests {
         UUID unit = unit(condominium, "1110");
         UUID vende = person("6000027");
         UUID compra = person("6000028");
-        relaciones.grantOwnership(condominium, unit, vende, ALL, "admin");
-        relaciones.grantOccupancy(condominium, unit, vende, OccupancyRole.RESIDENT, "admin");
+        relations.grantOwnership(condominium, unit, vende, ALL, "admin");
+        relations.grantOccupancy(condominium, unit, vende, OccupancyRole.RESIDENT, "admin");
 
-        relaciones.transferOwnership(condominium, unit, vende, compra, "emma");
+        relations.transferOwnership(condominium, unit, vende, compra, "emma");
 
         // Dos relaciones cerradas: la titularidad y la ocupacion. Va en el evento porque es lo que
         // explica que el vendedor perdiera el acceso.

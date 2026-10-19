@@ -32,7 +32,7 @@ public class ReauthenticationRequired extends DomainError {
     private final Duration validity;
 
     public ReauthenticationRequired(String message, Duration validity) {
-        super(ErrorCode.REAUTENTICACION_REQUERIDA, message);
+        super(ErrorCode.REAUTHENTICATION_REQUIRED, message);
         this.validity = validity;
     }
 

@@ -55,9 +55,9 @@ class AuditController {
      * listado completo que la paginacion existe para evitar, y lo hace desde la primera vez que
      * alguien lo prueba.
      */
-    private static final int TAMANO_POR_DEFECTO = 50;
+    private static final int DEFAULT_SIZE = 50;
 
-    private static final int TAMANO_MAXIMO = 200;
+    private static final int MAX_SIZE = 200;
 
     private final AuditTrail auditTrail;
 
@@ -79,16 +79,16 @@ class AuditController {
      * @param hasta exclusive, para que dos rangos contiguos no repitan una fila
      */
     @PreAuthorize("@authorization.can(authentication, 'VIEW_AUDIT_LOG')")
-    @GetMapping("/condominios/{condominiumId}/auditoria")
+    @GetMapping("/condominiums/{condominiumId}/audit-log")
     PagedResponse<AuditEntryView> consultar(
             @PathVariable UUID condominiumId,
             @RequestParam(required = false) @Nullable @Size(max = 100) String actor,
             @RequestParam(required = false) @Nullable @Size(max = 40) String entity,
-            @RequestParam(required = false) @Nullable Instant desde,
+            @RequestParam(required = false) @Nullable Instant from,
             @RequestParam(required = false) @Nullable Instant until,
             @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "" + TAMANO_POR_DEFECTO) @Min(1) @Max(TAMANO_MAXIMO) int tamano) {
-        return auditTrail.ofCondominium(condominiumId, actor, entity, desde, until, page, tamano);
+            @RequestParam(defaultValue = "" + DEFAULT_SIZE) @Min(1) @Max(MAX_SIZE) int size) {
+        return auditTrail.ofCondominium(condominiumId, actor, entity, from, until, page, size);
     }
 
     /**
@@ -103,14 +103,14 @@ class AuditController {
      * no como se piden.
      */
     @PreAuthorize("@authorization.can(authentication, 'VIEW_AUDIT_LOG')")
-    @GetMapping("/auditoria")
+    @GetMapping("/audit-log")
     PagedResponse<AuditEntryView> consultarLaDePlataforma(
             @RequestParam(required = false) @Nullable @Size(max = 100) String actor,
             @RequestParam(required = false) @Nullable @Size(max = 40) String entity,
-            @RequestParam(required = false) @Nullable Instant desde,
+            @RequestParam(required = false) @Nullable Instant from,
             @RequestParam(required = false) @Nullable Instant until,
             @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "" + TAMANO_POR_DEFECTO) @Min(1) @Max(TAMANO_MAXIMO) int tamano) {
-        return auditTrail.ofPlatform(actor, entity, desde, until, page, tamano);
+            @RequestParam(defaultValue = "" + DEFAULT_SIZE) @Min(1) @Max(MAX_SIZE) int size) {
+        return auditTrail.ofPlatform(actor, entity, from, until, page, size);
     }
 }

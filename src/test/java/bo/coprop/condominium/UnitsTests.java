@@ -147,7 +147,7 @@ class UnitsTests {
 
     @Test
     @DisplayName("el alta masiva publica un solo evento, con el actor y las unidades creadas")
-    void elAltaMasivaQuedaAuditada(PublishedEvents eventos) {
+    void theBatchRegistrationIsAudited(PublishedEvents eventos) {
         List<UnitView> created = units.registerAll(lasPalmas, List.of(unit("301"), unit("302")), "emma");
 
         assertThat(eventos.ofType(UnitsRegistered.class)).singleElement().satisfies(evento -> {
@@ -172,15 +172,15 @@ class UnitsTests {
     @DisplayName("una unidad puede colgar de un bloque y un piso de ese bloque")
     void theUnitHangsFromItsBlockAndFloor() {
         BlockView torre = units.addBlock(lasPalmas, "Torre A", "emma");
-        FloorView tercero = units.addFloor(lasPalmas, torre.id(), 3, "emma");
+        FloorView third = units.addFloor(lasPalmas, torre.id(), 3, "emma");
 
         UnitView created = units.register(
                 lasPalmas,
-                new NewUnit("A-302", UnitType.APARTMENT, new BigDecimal("1.250000"), null, torre.id(), tercero.id()),
+                new NewUnit("A-302", UnitType.APARTMENT, new BigDecimal("1.250000"), null, torre.id(), third.id()),
                 "emma");
 
         assertThat(created.blockId()).isEqualTo(torre.id());
-        assertThat(created.floorId()).isEqualTo(tercero.id());
+        assertThat(created.floorId()).isEqualTo(third.id());
     }
 
     @Test
@@ -200,11 +200,11 @@ class UnitsTests {
     @DisplayName("indicar piso sin bloque se rechaza: un piso siempre cuelga de un bloque")
     void theFloorNeedsABlock() {
         BlockView torre = units.addBlock(lasPalmas, "Torre A", "emma");
-        FloorView tercero = units.addFloor(lasPalmas, torre.id(), 3, "emma");
+        FloorView third = units.addFloor(lasPalmas, torre.id(), 3, "emma");
 
         assertThatThrownBy(() -> units.register(
                         lasPalmas,
-                        new NewUnit("302", UnitType.APARTMENT, new BigDecimal("1.0"), null, null, tercero.id()),
+                        new NewUnit("302", UnitType.APARTMENT, new BigDecimal("1.0"), null, null, third.id()),
                         "emma"))
                 .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("bloque");

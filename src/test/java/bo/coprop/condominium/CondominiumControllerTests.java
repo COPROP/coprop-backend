@@ -47,7 +47,7 @@ class CondominiumControllerTests {
     @WithMockUser(username = "emma", roles = "PLATFORM_ADMIN")
     @DisplayName("el alta devuelve 201 con la cabecera Location y el condominio creado")
     void theRegistrationReturns201() throws Exception {
-        mockMvc.perform(post("/api/v1/condominios")
+        mockMvc.perform(post("/api/v1/condominiums")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(ALTA_VALIDA))
@@ -65,34 +65,34 @@ class CondominiumControllerTests {
     void aDayOutOfRangeGives422() throws Exception {
         String conDia31 = ALTA_VALIDA.replace("\"issueDay\":1", "\"issueDay\":31");
 
-        mockMvc.perform(post("/api/v1/condominios")
+        mockMvc.perform(post("/api/v1/condominiums")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(conDia31))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.codigo").value("VALIDACION"))
-                .andExpect(jsonPath("$.errores[0].field").value("issueDay"));
+                .andExpect(jsonPath("$.code").value("VALIDATION"))
+                .andExpect(jsonPath("$.errors[0].field").value("issueDay"));
     }
 
     @Test
     @WithMockUser(username = "emma", roles = "CONDO_ADMIN")
     @DisplayName("consultar uno que no existe da 404 con su codigo, no un 500")
     void theNonExistentOneGives404() throws Exception {
-        mockMvc.perform(get("/api/v1/condominios/" + UUID.randomUUID()))
+        mockMvc.perform(get("/api/v1/condominiums/" + UUID.randomUUID()))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 
     @Test
     @DisplayName("sin autenticar no se puede dar de alta un condominio")
     void withoutAuthenticatingNothingCanBeRegistered() throws Exception {
-        mockMvc.perform(post("/api/v1/condominios")
+        mockMvc.perform(post("/api/v1/condominiums")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(ALTA_VALIDA))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.codigo").value("NO_AUTENTICADO"));
+                .andExpect(jsonPath("$.code").value("NOT_AUTHENTICATED"));
     }
 
     @Test
@@ -103,12 +103,12 @@ class CondominiumControllerTests {
         // mora en la zona del condominio, asi que esto se tiene que parar aqui.
         String conZonaMala = ALTA_VALIDA.replace("America/La_Paz", "America/LaPaz");
 
-        mockMvc.perform(post("/api/v1/condominios")
+        mockMvc.perform(post("/api/v1/condominiums")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(conZonaMala))
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.codigo").value("VALIDACION"))
-                .andExpect(jsonPath("$.errores[0].field").value("timeZone"));
+                .andExpect(jsonPath("$.code").value("VALIDATION"))
+                .andExpect(jsonPath("$.errors[0].field").value("timeZone"));
     }
 }

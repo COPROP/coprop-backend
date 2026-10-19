@@ -27,7 +27,7 @@ public record InvitationIssued(
         UUID accountId,
         Set<MembershipRole> roles,
         Instant expiresAt,
-        boolean reenviada,
+        boolean resent,
         String actor,
         Instant occurredAt)
         implements AuditableEvent {
@@ -39,7 +39,7 @@ public record InvitationIssued(
      */
     @Override
     public String action() {
-        return reenviada ? "INVITATION_RESENT" : "INVITATION_ISSUED";
+        return resent ? "INVITATION_RESENT" : "INVITATION_ISSUED";
     }
 
     @Override

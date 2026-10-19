@@ -78,20 +78,20 @@ class SessionValidityFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest peticion, HttpServletResponse response, FilterChain cadena)
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain cadena)
             throws ServletException, IOException {
         // Sin sesion no hay nada que gobernar: una ruta publica, o el propio login antes de crearla.
         // Nunca se crea una aqui --getSession(false)--: crear sesiones es cosa de oauth2Login, y
         // hacerlo en un filtro le daria cookie a cualquiera que pase por una ruta publica.
-        HttpSession session = peticion.getSession(false);
+        HttpSession session = request.getSession(false);
         Authentication principal = SecurityContextHolder.getContext().getAuthentication();
         if (session == null || principal == null) {
-            cadena.doFilter(peticion, response);
+            cadena.doFilter(request, response);
             return;
         }
         var actor = actorOf(principal);
         if (actor == null) {
-            cadena.doFilter(peticion, response);
+            cadena.doFilter(request, response);
             return;
         }
 
@@ -106,24 +106,24 @@ class SessionValidityFilter extends OncePerRequestFilter {
             session.invalidate();
             SecurityContextHolder.clearContext();
             problemas.escribir(
-                    peticion,
+                    request,
                     response,
-                    ErrorCode.NO_AUTENTICADO,
+                    ErrorCode.NOT_AUTHENTICATED,
                     "Tu sesion alcanzo su duracion maxima. Vuelve a iniciar sesion.");
             return;
         }
 
-        Duration inactividad = inactividadDe(principal, actor.accountId());
-        if (session.getMaxInactiveInterval() != (int) inactividad.toSeconds()) {
+        Duration inactivity = inactividadDe(principal, actor.accountId());
+        if (session.getMaxInactiveInterval() != (int) inactivity.toSeconds()) {
             // Solo cuando cambia. Tocarlo en cada peticion marcaria la sesion como sucia y la
             // escribiria en la base aunque no hubiera cambiado nada.
-            session.setMaxInactiveInterval((int) inactividad.toSeconds());
+            session.setMaxInactiveInterval((int) inactivity.toSeconds());
             log.debug(
                     "La sesion de la cuenta {} pasa a {} minutos de inactividad.",
                     actor.accountId(),
-                    inactividad.toMinutes());
+                    inactivity.toMinutes());
         }
-        cadena.doFilter(peticion, response);
+        cadena.doFilter(request, response);
     }
 
     /**
@@ -139,7 +139,7 @@ class SessionValidityFilter extends OncePerRequestFilter {
     private Duration inactividadDe(Authentication principal, UUID accountId) {
         String deLaPlataforma = "ROLE_" + MembershipRole.PLATFORM_ADMIN.name();
         boolean managesThePlatform = principal.getAuthorities().stream()
-                .anyMatch(autoridad -> deLaPlataforma.equals(autoridad.getAuthority()));
+                .anyMatch(authority -> deLaPlataforma.equals(authority.getAuthority()));
         if (managesThePlatform) {
             return ADMINISTRATIVA;
         }

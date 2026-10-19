@@ -204,7 +204,7 @@ class SessionValidityTests {
         assertThat(session.isInvalid()).isTrue();
         assertThat(response.getStatus()).isEqualTo(401);
         assertThat(response.getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
-        assertThat(response.getContentAsString()).contains("NO_AUTENTICADO");
+        assertThat(response.getContentAsString()).contains("NOT_AUTHENTICATED");
     }
 
     @Test
@@ -227,7 +227,7 @@ class SessionValidityTests {
     @Test
     @DisplayName("una sesion de una hora, sin usar durante sesenta y un minutos, ya no existe")
     void anAdminIdleForAnHourIsLockedOut() {
-        String id = sesionGuardada(Duration.ofHours(1), Duration.ofMinutes(61));
+        String id = storedSession(Duration.ofHours(1), Duration.ofMinutes(61));
 
         // Es el criterio del issue, contra la tabla de verdad: Spring Session no devuelve una
         // sesion caducada, asi que la siguiente peticion de ese navegador llega sin identidad y la
@@ -240,7 +240,7 @@ class SessionValidityTests {
     void theOwnerIsNotLeftOut() {
         // El control de la anterior. Sin el, la suite pasaria igual con las dos duraciones puestas
         // en una hora, que es precisamente el error que el criterio distingue.
-        String id = sesionGuardada(Duration.ofHours(24), Duration.ofMinutes(61));
+        String id = storedSession(Duration.ofHours(24), Duration.ofMinutes(61));
 
         assertThat(repositorio.findById(id)).isNotNull();
     }
@@ -252,8 +252,8 @@ class SessionValidityTests {
      *
      * @return su identificador
      */
-    private String sesionGuardada(Duration inactividad, Duration sinUsarse) {
-        return guardar(repositorio, inactividad, sinUsarse);
+    private String storedSession(Duration inactivity, Duration sinUsarse) {
+        return guardar(repositorio, inactivity, sinUsarse);
     }
 
     /**
@@ -262,9 +262,9 @@ class SessionValidityTests {
      * maniobra que {@code BffSessionsTests}, y por el mismo motivo.
      */
     private static <S extends Session> String guardar(
-            SessionRepository<S> repositorio, Duration inactividad, Duration sinUsarse) {
+            SessionRepository<S> repositorio, Duration inactivity, Duration sinUsarse) {
         S session = repositorio.createSession();
-        session.setMaxInactiveInterval(inactividad);
+        session.setMaxInactiveInterval(inactivity);
         session.setLastAccessedTime(Instant.now().minus(sinUsarse));
         repositorio.save(session);
         return session.getId();
@@ -281,15 +281,15 @@ class SessionValidityTests {
             throws Exception {
         var identity = new AuthenticatedIdentity(
                 new AuthenticatedIdentity.Actor(account.id(), account.personId()),
-                AuthenticatedIdentity.Autenticacion.DESCONOCIDA,
+                AuthenticatedIdentity.AuthenticationFacts.DESCONOCIDA,
                 authorities);
         SecurityContextHolder.getContext().setAuthentication(identity);
 
-        var peticion = new MockHttpServletRequest("GET", "/api/v1/me");
+        var request = new MockHttpServletRequest("GET", "/api/v1/me");
         var session = new MockHttpSession();
-        peticion.setSession(session);
+        request.setSession(session);
 
-        new SessionValidityFilter(memberships, problemas, clock).doFilter(peticion, response, new MockFilterChain());
+        new SessionValidityFilter(memberships, problemas, clock).doFilter(request, response, new MockFilterChain());
         return session;
     }
 

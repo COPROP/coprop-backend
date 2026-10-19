@@ -42,14 +42,14 @@ class ErrorHandler extends ResponseEntityExceptionHandler {
     record ApiFieldError(String field, String code, String message) {}
 
     @ExceptionHandler(DomainError.class)
-    ResponseEntity<ProblemDetail> manejarDominio(DomainError error, HttpServletRequest peticion) {
+    ResponseEntity<ProblemDetail> manejarDominio(DomainError error, HttpServletRequest request) {
         // getMessage() es @Nullable por contrato de Throwable, aunque nuestros constructores lo
         // exijan: nada impide que una subclase futura pase null.
-        ProblemDetail problema = ProblemCatalog.problema(
+        ProblemDetail problem = ProblemCatalog.problem(
                 error.code(),
                 requireNonNullElse(error.getMessage(), "La operacion fue rechazada."),
-                peticion.getRequestURI());
-        return ResponseEntity.status(ProblemCatalog.statusOf(error.code())).body(problema);
+                request.getRequestURI());
+        return ResponseEntity.status(ProblemCatalog.statusOf(error.code())).body(problem);
     }
 
     /**
@@ -70,17 +70,17 @@ class ErrorHandler extends ResponseEntityExceptionHandler {
      * obligaria a la SPA y a la app movil a leer cosas distintas ante la misma negativa.
      */
     @ExceptionHandler(ReauthenticationRequired.class)
-    ResponseEntity<ProblemDetail> manejarReautenticacion(ReauthenticationRequired error, HttpServletRequest peticion) {
-        ProblemDetail problema = ProblemCatalog.problema(
+    ResponseEntity<ProblemDetail> handleReauthentication(ReauthenticationRequired error, HttpServletRequest request) {
+        ProblemDetail problem = ProblemCatalog.problem(
                 error.code(),
                 requireNonNullElse(error.getMessage(), "Hace falta confirmar tu identidad."),
-                peticion.getRequestURI());
+                request.getRequestURI());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .header(
                         HttpHeaders.WWW_AUTHENTICATE,
                         "Bearer error=\"insufficient_user_authentication\", error_description=\"se requiere un segundo factor recent\", max_age="
                                 + error.validity().toSeconds())
-                .body(problema);
+                .body(problem);
     }
 
     /**
@@ -88,10 +88,10 @@ class ErrorHandler extends ResponseEntityExceptionHandler {
      * ocurre antes, en la cadena de filtros, la atiende la configuracion de seguridad.
      */
     @ExceptionHandler(AccessDeniedException.class)
-    ResponseEntity<ProblemDetail> handleAccessDenied(AccessDeniedException error, HttpServletRequest peticion) {
-        ProblemDetail problema = ProblemCatalog.problema(
-                ErrorCode.SIN_PERMISO, "Tu rol no alcanza para esta operacion.", peticion.getRequestURI());
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(problema);
+    ResponseEntity<ProblemDetail> handleAccessDenied(AccessDeniedException error, HttpServletRequest request) {
+        ProblemDetail problem = ProblemCatalog.problem(
+                ErrorCode.NO_PERMISSION, "Tu rol no alcanza para esta operacion.", request.getRequestURI());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(problem);
     }
 
     /**
@@ -99,13 +99,13 @@ class ErrorHandler extends ResponseEntityExceptionHandler {
      * nombres de tabla o fragmentos de consulta. Al log si va entero, con su traceId.
      */
     @ExceptionHandler(Exception.class)
-    ResponseEntity<ProblemDetail> manejarNoPrevisto(Exception error, HttpServletRequest peticion) {
-        log.error("Error no previsto atendiendo {}", peticion.getRequestURI(), error);
-        ProblemDetail problema = ProblemCatalog.problema(
-                ErrorCode.INTERNO,
+    ResponseEntity<ProblemDetail> manejarNoPrevisto(Exception error, HttpServletRequest request) {
+        log.error("Error no previsto atendiendo {}", request.getRequestURI(), error);
+        ProblemDetail problem = ProblemCatalog.problem(
+                ErrorCode.INTERNAL,
                 "Ocurrio un error inesperado. Si vuelve a pasar, reporta el traceId.",
-                peticion.getRequestURI());
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(problema);
+                request.getRequestURI());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(problem);
     }
 
     /**
@@ -114,14 +114,14 @@ class ErrorHandler extends ResponseEntityExceptionHandler {
      */
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
-            MethodArgumentNotValidException error, HttpHeaders cabeceras, HttpStatusCode status, WebRequest peticion) {
-        List<ApiFieldError> campos = error.getBindingResult().getFieldErrors().stream()
+            MethodArgumentNotValidException error, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        List<ApiFieldError> fields = error.getBindingResult().getFieldErrors().stream()
                 .map(ErrorHandler::aErrorDeCampo)
                 .toList();
-        ProblemDetail problema =
-                ProblemCatalog.problema(ErrorCode.VALIDACION, "Revisa los campos indicados.", rutaDe(peticion));
-        problema.setProperty("errores", campos);
-        return ResponseEntity.unprocessableContent().body(problema);
+        ProblemDetail problem =
+                ProblemCatalog.problem(ErrorCode.VALIDATION, "Revisa los campos indicados.", rutaDe(request));
+        problem.setProperty("errors", fields);
+        return ResponseEntity.unprocessableContent().body(problem);
     }
 
     /**
@@ -135,9 +135,9 @@ class ErrorHandler extends ResponseEntityExceptionHandler {
      *   <li>El JSON es correcto pero un valor no se admite --un enum que no existe, un UUID mal
      *       escrito--. Jackson falla antes de que haya objeto que validar, pero el cliente
      *       necesita exactamente lo mismo que en cualquier otra validacion: <strong>422</strong>,
-     *       {@code VALIDACION} y la lista de campos para marcar el formulario.
+     *       {@code VALIDATION} y la lista de campos para marcar el formulario.
      *   <li>El JSON esta roto y no hay campo que señalar: <strong>400</strong> y
-     *       {@code CUERPO_ILEGIBLE}.
+     *       {@code UNREADABLE_BODY}.
      * </ul>
      *
      * <p>El RFC 9110 reserva el 400 para el cuerpo mal formado y el 422 para el bien formado que
@@ -146,19 +146,19 @@ class ErrorHandler extends ResponseEntityExceptionHandler {
      */
     @Override
     protected ResponseEntity<Object> handleHttpMessageNotReadable(
-            HttpMessageNotReadableException error, HttpHeaders cabeceras, HttpStatusCode status, WebRequest peticion) {
-        if (error.getCause() instanceof MismatchedInputException desajuste) {
-            ProblemDetail problema =
-                    ProblemCatalog.problema(ErrorCode.VALIDACION, "Revisa los campos indicados.", rutaDe(peticion));
-            problema.setProperty("errores", List.of(aErrorDeCampo(desajuste)));
-            return ResponseEntity.unprocessableContent().body(problema);
+            HttpMessageNotReadableException error, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        if (error.getCause() instanceof MismatchedInputException mismatch) {
+            ProblemDetail problem =
+                    ProblemCatalog.problem(ErrorCode.VALIDATION, "Revisa los campos indicados.", rutaDe(request));
+            problem.setProperty("errors", List.of(aErrorDeCampo(mismatch)));
+            return ResponseEntity.unprocessableContent().body(problem);
         }
 
         // Sin detalle del fallo: el mensaje de Jackson lleva el fragmento de JSON que no pudo
         // leer, y devolverlo seria hacer eco de lo que mando el cliente.
-        ProblemDetail problema =
-                ProblemCatalog.problema(ErrorCode.CUERPO_ILEGIBLE, "El cuerpo no es JSON valido.", rutaDe(peticion));
-        return ResponseEntity.badRequest().body(problema);
+        ProblemDetail problem =
+                ProblemCatalog.problem(ErrorCode.UNREADABLE_BODY, "El cuerpo no es JSON valido.", rutaDe(request));
+        return ResponseEntity.badRequest().body(problem);
     }
 
     /**
@@ -168,18 +168,18 @@ class ErrorHandler extends ResponseEntityExceptionHandler {
      * clase destino y el fragmento del cuerpo. Para un enum si se enumeran los valores admitidos,
      * que son parte del contrato --el cliente los manda-- y es lo que de verdad necesita saber.
      */
-    private static ApiFieldError aErrorDeCampo(MismatchedInputException desajuste) {
-        String field = rutaDe(desajuste);
-        if (desajuste instanceof InvalidFormatException format) {
+    private static ApiFieldError aErrorDeCampo(MismatchedInputException mismatch) {
+        String field = rutaDe(mismatch);
+        if (mismatch instanceof InvalidFormatException format) {
             Class<?> destino = format.getTargetType();
             if (destino != null && destino.isEnum()) {
-                String admitidos = Arrays.stream(destino.getEnumConstants())
+                String allowed = Arrays.stream(destino.getEnumConstants())
                         .map(valor -> ((Enum<?>) valor).name())
                         .collect(Collectors.joining(", "));
-                return new ApiFieldError(field, "VALOR_NO_ADMITIDO", "Valores admitidos: " + admitidos + ".");
+                return new ApiFieldError(field, "VALUE_NOT_ALLOWED", "Valores admitidos: " + allowed + ".");
             }
         }
-        return new ApiFieldError(field, "FORMATO", "El valor no tiene el formato esperado.");
+        return new ApiFieldError(field, "FORMAT", "El valor no tiene el formato esperado.");
     }
 
     /**
@@ -187,20 +187,20 @@ class ErrorHandler extends ResponseEntityExceptionHandler {
      * {@link FieldError#getField()}: nombres separados por punto e indices entre corchetes, por
      * ejemplo {@code unidades[0].code}. Vacia si Jackson no supo donde estaba.
      */
-    private static String rutaDe(MismatchedInputException desajuste) {
-        StringBuilder ruta = new StringBuilder();
-        for (var referencia : desajuste.getPath()) {
-            String name = referencia.getPropertyName();
+    private static String rutaDe(MismatchedInputException mismatch) {
+        StringBuilder path = new StringBuilder();
+        for (var reference : mismatch.getPath()) {
+            String name = reference.getPropertyName();
             if (name != null) {
-                if (!ruta.isEmpty()) {
-                    ruta.append('.');
+                if (!path.isEmpty()) {
+                    path.append('.');
                 }
-                ruta.append(name);
-            } else if (referencia.getIndex() >= 0) {
-                ruta.append('[').append(referencia.getIndex()).append(']');
+                path.append(name);
+            } else if (reference.getIndex() >= 0) {
+                path.append('[').append(reference.getIndex()).append(']');
             }
         }
-        return ruta.toString();
+        return path.toString();
     }
 
     /**
@@ -208,14 +208,14 @@ class ErrorHandler extends ResponseEntityExceptionHandler {
      * rechazo no viene de una anotacion, y el mensaje cuando no hay plantilla resuelta. El cliente
      * ramifica por el codigo, asi que es mejor un valor explicito que un hueco en el JSON.
      */
-    private static ApiFieldError aErrorDeCampo(FieldError fallo) {
+    private static ApiFieldError aErrorDeCampo(FieldError failure) {
         return new ApiFieldError(
-                fallo.getField(),
-                requireNonNullElse(fallo.getCode(), "INVALIDO"),
-                requireNonNullElse(fallo.getDefaultMessage(), "El valor no es valido."));
+                failure.getField(),
+                requireNonNullElse(failure.getCode(), "INVALID"),
+                requireNonNullElse(failure.getDefaultMessage(), "El valor no es valido."));
     }
 
-    private static String rutaDe(WebRequest peticion) {
-        return peticion.getDescription(false).replaceFirst("^uri=", "");
+    private static String rutaDe(WebRequest request) {
+        return request.getDescription(false).replaceFirst("^uri=", "");
     }
 }

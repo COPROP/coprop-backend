@@ -34,22 +34,22 @@ public class JsonLogLayout implements StructuredLogFormatter<ILoggingEvent> {
 
         // El MDC entero, enmascarado: asi una clave nueva (condominiumId, actorId) aparece en los
         // logs sin tocar esta clase.
-        for (Map.Entry<String, String> entrada : evento.getMDCPropertyMap().entrySet()) {
-            field(json, entrada.getKey(), Masker.valueOf(entrada.getKey(), entrada.getValue()), false);
+        for (Map.Entry<String, String> entry : evento.getMDCPropertyMap().entrySet()) {
+            field(json, entry.getKey(), Masker.valueOf(entry.getKey(), entry.getValue()), false);
         }
 
-        IThrowableProxy fallo = evento.getThrowableProxy();
-        if (fallo != null) {
-            field(json, "error.type", fallo.getClassName(), false);
-            field(json, "error.message", Masker.mask(fallo.getMessage()), false);
-            field(json, "error.stack_trace", Masker.mask(ThrowableProxyUtil.asString(fallo)), false);
+        IThrowableProxy failure = evento.getThrowableProxy();
+        if (failure != null) {
+            field(json, "error.type", failure.getClassName(), false);
+            field(json, "error.message", Masker.mask(failure.getMessage()), false);
+            field(json, "error.stack_trace", Masker.mask(ThrowableProxyUtil.asString(failure)), false);
         }
         json.append("}\n");
         return json.toString();
     }
 
-    private static void field(StringBuilder json, String key, @Nullable String valor, boolean primero) {
-        if (!primero) {
+    private static void field(StringBuilder json, String key, @Nullable String valor, boolean first) {
+        if (!first) {
             json.append(',');
         }
         json.append('"');

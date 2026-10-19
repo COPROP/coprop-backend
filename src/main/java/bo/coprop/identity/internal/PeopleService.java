@@ -45,9 +45,9 @@ class PeopleService implements People {
         // distintos, que es mucho peor que duplicar uno.
         String carnet = body.nationalId();
         if (carnet != null) {
-            var yaRegistrada = people.findByNationalId(carnet);
-            if (yaRegistrada.isPresent()) {
-                return view(yaRegistrada.get());
+            var alreadyRegistered = people.findByNationalId(carnet);
+            if (alreadyRegistered.isPresent()) {
+                return view(alreadyRegistered.get());
             }
         }
 

@@ -39,7 +39,7 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>Se prueba contra un controlador de mentira a proposito: el contrato tiene que valer antes de
  * que exista el primer endpoint de verdad, que es justamente el motivo del issue.
  */
-@Import({TestcontainersConfiguration.class, ApiContractTests.ControladorDePrueba.class})
+@Import({TestcontainersConfiguration.class, ApiContractTests.TestController.class})
 @SpringBootTest
 @AutoConfigureMockMvc
 class ApiContractTests {
@@ -51,58 +51,58 @@ class ApiContractTests {
     @WithMockUser
     @DisplayName("la validacion devuelve 422 con la lista de campos, no el 400 de Spring")
     void validationReturns422WithTheFieldList() throws Exception {
-        mockMvc.perform(post("/api/v1/pruebas/validacion")
+        mockMvc.perform(post("/api/v1/tests/validation")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"numero\":\"\"}"))
+                        .content("{\"number\":\"\"}"))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.codigo").value("VALIDACION"))
-                .andExpect(jsonPath("$.errores[0].field").value("numero"))
-                .andExpect(jsonPath("$.errores[0].code").value("NotBlank"));
+                .andExpect(jsonPath("$.code").value("VALIDATION"))
+                .andExpect(jsonPath("$.errors[0].field").value("number"))
+                .andExpect(jsonPath("$.errors[0].code").value("NotBlank"));
     }
 
     @Test
     @WithMockUser
     @DisplayName("un recurso inexistente devuelve 404 con su codigo estable")
     void resourceNotFoundReturns404() throws Exception {
-        mockMvc.perform(get("/api/v1/pruebas/no-encontrado"))
+        mockMvc.perform(get("/api/v1/tests/not-found"))
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"))
-                .andExpect(jsonPath("$.type").value("https://coprop.bo/errores/no-encontrado"));
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"))
+                .andExpect(jsonPath("$.type").value("https://coprop.bo/errors/not-found"));
     }
 
     @Test
     @WithMockUser
     @DisplayName("un choque con el estado actual devuelve 409 y una regla violada 422")
     void conflictAndRuleAreDistinguished() throws Exception {
-        mockMvc.perform(get("/api/v1/pruebas/conflicto"))
+        mockMvc.perform(get("/api/v1/tests/conflict"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.codigo").value("CONFLICTO"));
+                .andExpect(jsonPath("$.code").value("CONFLICT"));
 
-        mockMvc.perform(get("/api/v1/pruebas/regla"))
+        mockMvc.perform(get("/api/v1/tests/rule"))
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.codigo").value("REGLA_DE_NEGOCIO"));
+                .andExpect(jsonPath("$.code").value("BUSINESS_RULE"));
     }
 
     @Test
     @WithMockUser
     @DisplayName("un fallo no previsto devuelve 500 sin filtrar el mensaje de la excepcion")
     void anUnexpectedErrorDoesNotLeakTheDetail() throws Exception {
-        mockMvc.perform(get("/api/v1/pruebas/estalla"))
+        mockMvc.perform(get("/api/v1/tests/blows-up"))
                 .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.codigo").value("INTERNO"))
+                .andExpect(jsonPath("$.code").value("INTERNAL"))
                 .andExpect(jsonPath("$.detail").value(not(containsString("tabla_secreta"))));
     }
 
     @Test
     @DisplayName("sin autenticar devuelve 401 en problem+json, no un cuerpo vacio")
     void withoutAuthenticatingItReturns401InProblemJson() throws Exception {
-        mockMvc.perform(get("/api/v1/pruebas/no-encontrado"))
+        mockMvc.perform(get("/api/v1/tests/not-found"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.codigo").value("NO_AUTENTICADO"));
+                .andExpect(jsonPath("$.code").value("NOT_AUTHENTICATED"));
     }
 
     /**
@@ -129,9 +129,9 @@ class ApiContractTests {
     @WithMockUser
     @DisplayName("el prefijo de version lo pone la configuracion, no el controlador")
     void theVersionPrefixIsAppliedOnItsOwn() throws Exception {
-        mockMvc.perform(get("/pruebas/no-encontrado")).andExpect(status().isNotFound());
-        mockMvc.perform(get("/api/v1/pruebas/no-encontrado"))
-                .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
+        mockMvc.perform(get("/tests/not-found")).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/v1/tests/not-found"))
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 
     @Test
@@ -141,14 +141,14 @@ class ApiContractTests {
         // Antes este caso no pasaba por ningun manejador nuestro: contestaba
         // ResponseEntityExceptionHandler y el cuerpo salia sin codigo, contra lo que promete el
         // contrato. Tanto, que el interceptor del frontend tiene que inventarse uno cuando falta.
-        mockMvc.perform(post("/api/v1/pruebas/enum")
+        mockMvc.perform(post("/api/v1/tests/enum")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{esto no es json"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.codigo").value("CUERPO_ILEGIBLE"))
-                .andExpect(jsonPath("$.type").value("https://coprop.bo/errores/cuerpo-ilegible"))
+                .andExpect(jsonPath("$.code").value("UNREADABLE_BODY"))
+                .andExpect(jsonPath("$.type").value("https://coprop.bo/errors/unreadable-body"))
                 // Sin eco de lo que mando el cliente ni del fragmento que Jackson no supo leer.
                 .andExpect(jsonPath("$.detail").value(not(containsString("esto no es json"))));
     }
@@ -159,38 +159,38 @@ class ApiContractTests {
     void anUnacceptableEnumGives422() throws Exception {
         // El JSON esta bien formado, asi que el 422 es el estado correcto (RFC 9110) y el cliente
         // recibe la misma forma que en cualquier otra validacion: campo, codigo y mensaje.
-        mockMvc.perform(post("/api/v1/pruebas/enum")
+        mockMvc.perform(post("/api/v1/tests/enum")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"color\":\"AZUL\"}"))
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.codigo").value("VALIDACION"))
-                .andExpect(jsonPath("$.errores[0].field").value("color"))
-                .andExpect(jsonPath("$.errores[0].code").value("VALOR_NO_ADMITIDO"))
-                .andExpect(jsonPath("$.errores[0].message").value(containsString("ROJO, VERDE")))
+                .andExpect(jsonPath("$.code").value("VALIDATION"))
+                .andExpect(jsonPath("$.errors[0].field").value("color"))
+                .andExpect(jsonPath("$.errors[0].code").value("VALUE_NOT_ALLOWED"))
+                .andExpect(jsonPath("$.errors[0].message").value(containsString("ROJO, VERDE")))
                 // El nombre de la clase destino no sale: es ruido para el cliente.
-                .andExpect(jsonPath("$.errores[0].message").value(not(containsString("Color"))));
+                .andExpect(jsonPath("$.errors[0].message").value(not(containsString("Color"))));
     }
 
     @Test
     @WithMockUser
     @DisplayName("un tipo que no encaja da 422 y señala el campo, aunque no sea un enum")
     void aTypeThatDoesNotFitGives422() throws Exception {
-        mockMvc.perform(post("/api/v1/pruebas/validacion")
+        mockMvc.perform(post("/api/v1/tests/validation")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"numero\":{}}"))
+                        .content("{\"number\":{}}"))
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.codigo").value("VALIDACION"))
-                .andExpect(jsonPath("$.errores[0].field").value("numero"))
-                .andExpect(jsonPath("$.errores[0].code").value("FORMATO"));
+                .andExpect(jsonPath("$.code").value("VALIDATION"))
+                .andExpect(jsonPath("$.errors[0].field").value("number"))
+                .andExpect(jsonPath("$.errors[0].code").value("FORMAT"));
     }
 
     @Test
     @WithMockUser
     @DisplayName("el traceId viaja en la cabecera y dentro del cuerpo del error")
     void theTraceIdTravelsInTheResponse() throws Exception {
-        mockMvc.perform(get("/api/v1/pruebas/no-encontrado").header("X-Trace-Id", "abc-123"))
+        mockMvc.perform(get("/api/v1/tests/not-found").header("X-Trace-Id", "abc-123"))
                 .andExpect(header().string("X-Trace-Id", "abc-123"))
                 .andExpect(jsonPath("$.traceId").value("abc-123"));
     }
@@ -202,37 +202,37 @@ class ApiContractTests {
      * {@code @Bean} la duplicaria y el mapeo saldria ambiguo.
      */
     @TestConfiguration(proxyBeanMethods = false)
-    static class ControladorDePrueba {
+    static class TestController {
 
         @ApiController
         @RestController
-        @RequestMapping("/pruebas")
+        @RequestMapping("/tests")
         static class Endpoints {
 
-            record Entrada(@NotBlank String numero) {}
+            record Entry(@NotBlank String number) {}
 
-            @GetMapping("/no-encontrado")
+            @GetMapping("/not-found")
             void notFound() {
                 throw ResourceNotFound.de("Unidad", 7);
             }
 
-            @GetMapping("/conflicto")
+            @GetMapping("/conflict")
             void conflict() {
                 throw new StateConflict("La obligacion ya estaba pagada.");
             }
 
-            @GetMapping("/regla")
+            @GetMapping("/rule")
             void rule() {
                 throw new BusinessRuleViolated("No se puede pagar un mes mas nuevo primero.");
             }
 
-            @GetMapping("/estalla")
+            @GetMapping("/blows-up")
             void itBlowsUp() {
                 throw new IllegalStateException("fallo al leer tabla_secreta");
             }
 
-            @PostMapping("/validacion")
-            void validacion(@Valid @RequestBody Entrada entrada) {}
+            @PostMapping("/validation")
+            void validation(@Valid @RequestBody Entry entry) {}
 
             /** Para los dos caminos del cuerpo ilegible: un enum y un desajuste de tipo. */
             enum Color {
@@ -240,10 +240,10 @@ class ApiContractTests {
                 VERDE
             }
 
-            record EntradaConEnum(Color color) {}
+            record EnumEntry(Color color) {}
 
             @PostMapping("/enum")
-            void conEnum(@Valid @RequestBody EntradaConEnum entrada) {}
+            void conEnum(@Valid @RequestBody EnumEntry entry) {}
         }
     }
 }

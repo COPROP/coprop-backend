@@ -30,7 +30,7 @@ public record PlatformAdminGranted(UUID accountId, @Nullable UUID grantedBy, Ins
      * Nulo: el alcance de este rol es la plataforma y no cuelga de ningun condominio.
      *
      * <p>Es la razon de que la consulta de auditoria de un condominio no lo liste. Quien audita la
-     * plataforma entera lo hace por {@code GET /api/v1/auditoria}, que llego con el issue
+     * plataforma entera lo hace por {@code GET /api/v1/audit-log}, que llego con el issue
      * <strong>#20</strong> junto a la operacion de concederlo a otra cuenta.
      */
     @Override

@@ -9,7 +9,7 @@ package bo.coprop.shared;
 public class ResourceNotFound extends DomainError {
 
     public ResourceNotFound(String message) {
-        super(ErrorCode.NO_ENCONTRADO, message);
+        super(ErrorCode.NOT_FOUND, message);
     }
 
     /** Mensaje uniforme para el caso corriente: {@code de("Unidad", id)}. */

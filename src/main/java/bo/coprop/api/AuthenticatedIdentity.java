@@ -36,13 +36,13 @@ final class AuthenticatedIdentity extends AbstractAuthenticationToken {
     private static final long serialVersionUID = 1L;
 
     private final Actor actor;
-    private final Autenticacion autenticacion;
+    private final AuthenticationFacts authentication;
 
     AuthenticatedIdentity(
-            Actor actor, Autenticacion autenticacion, Collection<? extends GrantedAuthority> authorities) {
+            Actor actor, AuthenticationFacts authentication, Collection<? extends GrantedAuthority> authorities) {
         super(authorities);
         this.actor = actor;
-        this.autenticacion = autenticacion;
+        this.authentication = authentication;
         setAuthenticated(true);
     }
 
@@ -64,8 +64,8 @@ final class AuthenticatedIdentity extends AbstractAuthenticationToken {
     }
 
     /** Como y cuando se autentico, para quien ya tiene la identidad en la mano. */
-    Autenticacion autenticacion() {
-        return autenticacion;
+    AuthenticationFacts authentication() {
+        return authentication;
     }
 
     /**
@@ -76,8 +76,8 @@ final class AuthenticatedIdentity extends AbstractAuthenticationToken {
      * #22, que autoriza, y una autorizacion que no sabe como se autentico quien pregunta tiene que
      * <strong>exigir</strong> el segundo factor, no caerse.
      */
-    static @Nullable Autenticacion autenticacionDe(Authentication principal) {
-        return principal instanceof AuthenticatedIdentity identity ? identity.autenticacion : null;
+    static @Nullable AuthenticationFacts authenticationFactsOf(Authentication principal) {
+        return principal instanceof AuthenticatedIdentity identity ? identity.authentication : null;
     }
 
     /**
@@ -129,12 +129,12 @@ final class AuthenticatedIdentity extends AbstractAuthenticationToken {
      * @param metodos el {@code amr}: con que lo hizo. {@code otp} y {@code hwk} son los dos que
      *     Seguridad 7.3 acepta como segundo factor
      */
-    record Autenticacion(@Nullable Instant cuando, Set<String> metodos) implements Serializable {
+    record AuthenticationFacts(@Nullable Instant cuando, Set<String> metodos) implements Serializable {
 
         /** Una autenticacion de la que no se sabe nada: ni cuando fue ni con que. */
-        static final Autenticacion DESCONOCIDA = new Autenticacion(null, Set.of());
+        static final AuthenticationFacts DESCONOCIDA = new AuthenticationFacts(null, Set.of());
 
-        Autenticacion {
+        AuthenticationFacts {
             metodos = Set.copyOf(metodos);
         }
     }

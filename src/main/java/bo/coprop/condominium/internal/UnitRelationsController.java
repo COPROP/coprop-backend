@@ -46,24 +46,24 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @ApiController
 @RestController
-@RequestMapping("/condominios/{condominiumId}/unidades/{unitId}")
+@RequestMapping("/condominiums/{condominiumId}/units/{unitId}")
 class UnitRelationsController {
 
-    private final UnitRelations relaciones;
+    private final UnitRelations relations;
 
-    UnitRelationsController(UnitRelations relaciones) {
-        this.relaciones = relaciones;
+    UnitRelationsController(UnitRelations relations) {
+        this.relations = relations;
     }
 
     @PreAuthorize("@authorization.can(authentication, 'MANAGE_UNITS')")
-    @PostMapping("/propietarios")
+    @PostMapping("/owners")
     ResponseEntity<OwnershipView> registerOwner(
             @PathVariable UUID condominiumId,
             @PathVariable UUID unitId,
             @Valid @RequestBody NewOwner body,
             Principal principal) {
         OwnershipView created =
-                relaciones.grantOwnership(condominiumId, unitId, body.personId(), body.share(), principal.getName());
+                relations.grantOwnership(condominiumId, unitId, body.personId(), body.share(), principal.getName());
         return ResponseEntity.status(201).body(created);
     }
 
@@ -80,32 +80,32 @@ class UnitRelationsController {
      * <strong>403</strong>, porque ahi lo que falla es el rol y no el recurso.
      */
     @PreAuthorize("@access.canOnUnit(authentication, 'VIEW_ACCOUNT_STATEMENT', #condominiumId, #unitId)")
-    @GetMapping("/propietarios")
+    @GetMapping("/owners")
     List<OwnershipView> owners(@PathVariable UUID condominiumId, @PathVariable UUID unitId) {
-        return relaciones.ownersOf(condominiumId, unitId);
+        return relations.ownersOf(condominiumId, unitId);
     }
 
     @PreAuthorize("@authorization.can(authentication, 'MANAGE_UNITS')")
-    @PostMapping("/ocupantes")
+    @PostMapping("/occupants")
     ResponseEntity<OccupancyView> registerOccupant(
             @PathVariable UUID condominiumId,
             @PathVariable UUID unitId,
             @Valid @RequestBody NewOccupant body,
             Principal principal) {
         OccupancyView created =
-                relaciones.grantOccupancy(condominiumId, unitId, body.personId(), body.role(), principal.getName());
+                relations.grantOccupancy(condominiumId, unitId, body.personId(), body.role(), principal.getName());
         return ResponseEntity.status(201).body(created);
     }
 
     @PreAuthorize("@authorization.can(authentication, 'MANAGE_UNITS')")
-    @PostMapping("/responsables-de-pago")
+    @PostMapping("/billing-responsibles")
     ResponseEntity<BillingResponsibilityView> asignarResponsable(
             @PathVariable UUID condominiumId,
             @PathVariable UUID unitId,
             @Valid @RequestBody NewBillingResponsible body,
             Principal principal) {
         BillingResponsibilityView created =
-                relaciones.assignBilling(condominiumId, unitId, body.personId(), body.conceptId(), principal.getName());
+                relations.assignBilling(condominiumId, unitId, body.personId(), body.conceptId(), principal.getName());
         return ResponseEntity.status(201).body(created);
     }
 
@@ -122,9 +122,9 @@ class UnitRelationsController {
      * juntarla con la otra consulta.
      */
     @PreAuthorize("@authorization.can(authentication, 'MANAGE_UNITS')")
-    @GetMapping("/propietarios/historico")
+    @GetMapping("/owners/history")
     List<OwnershipView> ownersHistory(@PathVariable UUID condominiumId, @PathVariable UUID unitId) {
-        return relaciones.ownershipHistoryOf(condominiumId, unitId);
+        return relations.ownershipHistoryOf(condominiumId, unitId);
     }
 
     /**
@@ -138,13 +138,13 @@ class UnitRelationsController {
      * <p>Responde la titularidad del comprador, que es lo unico que queda abierto al terminar.
      */
     @PreAuthorize("@authorization.can(authentication, 'MANAGE_UNITS')")
-    @PostMapping("/transferencia")
+    @PostMapping("/transfer")
     OwnershipView transferir(
             @PathVariable UUID condominiumId,
             @PathVariable UUID unitId,
-            @Valid @RequestBody Transferencia venta,
+            @Valid @RequestBody Transfer venta,
             Principal principal) {
-        return relaciones.transferOwnership(
+        return relations.transferOwnership(
                 condominiumId, unitId, venta.fromPersonId(), venta.toPersonId(), principal.getName());
     }
 
@@ -156,13 +156,13 @@ class UnitRelationsController {
      * Responde 204 por lo mismo: no hay nada vigente que devolver.
      */
     @PreAuthorize("@authorization.can(authentication, 'MANAGE_UNITS')")
-    @DeleteMapping("/ocupantes/{personId}")
+    @DeleteMapping("/occupants/{personId}")
     ResponseEntity<Void> endOccupancy(
             @PathVariable UUID condominiumId,
             @PathVariable UUID unitId,
             @PathVariable UUID personId,
             Principal principal) {
-        relaciones.endOccupancy(condominiumId, unitId, personId, principal.getName());
+        relations.endOccupancy(condominiumId, unitId, personId, principal.getName());
         return ResponseEntity.noContent().build();
     }
 
@@ -174,14 +174,14 @@ class UnitRelationsController {
      *     distintas y responden por cosas distintas
      */
     @PreAuthorize("@authorization.can(authentication, 'MANAGE_UNITS')")
-    @DeleteMapping("/responsables-de-pago/{personId}")
+    @DeleteMapping("/billing-responsibles/{personId}")
     ResponseEntity<Void> endBillingResponsibility(
             @PathVariable UUID condominiumId,
             @PathVariable UUID unitId,
             @PathVariable UUID personId,
             @RequestParam(required = false) @Nullable UUID conceptId,
             Principal principal) {
-        relaciones.endBilling(condominiumId, unitId, personId, conceptId, principal.getName());
+        relations.endBilling(condominiumId, unitId, personId, conceptId, principal.getName());
         return ResponseEntity.noContent().build();
     }
 
@@ -193,7 +193,7 @@ class UnitRelationsController {
      *     el porcentaje no viaja aqui: una venta parcial cambia el reparto de la unidad y se
      *     registra titularidad por titularidad
      */
-    record Transferencia(@NotNull UUID fromPersonId, @NotNull UUID toPersonId) {}
+    record Transfer(@NotNull UUID fromPersonId, @NotNull UUID toPersonId) {}
 
     /**
      * @param share porcentaje de copropiedad. Seis decimales, igual que la alicuota de la unidad y

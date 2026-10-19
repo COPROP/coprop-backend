@@ -81,7 +81,7 @@ class InvitationsTests {
     private UUID administradora;
 
     /** La cuenta invitada, recien abierta y sin haber entrado nunca. */
-    private AccountView invitada;
+    private AccountView invited;
 
     @BeforeEach
     void prepareTheCondominiumAndBothAccounts() {
@@ -102,7 +102,7 @@ class InvitationsTests {
         administradora = cuentaDeLaAdministradora.id();
         memberships.grant(condominium, administradora, Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
 
-        invitada = cuentaNueva();
+        invited = cuentaNueva();
     }
 
     private static String nitNuevo() {
@@ -116,19 +116,19 @@ class InvitationsTests {
 
     // --- Lo que hace la administradora ------------------------------------------------------
 
-    private MockHttpServletRequestBuilder comoAdministradora(MockHttpServletRequestBuilder peticion) {
-        return peticion.with(csrf()).with(user(administradora.toString()).roles("CONDO_ADMIN"));
+    private MockHttpServletRequestBuilder comoAdministradora(MockHttpServletRequestBuilder request) {
+        return request.with(csrf()).with(user(administradora.toString()).roles("CONDO_ADMIN"));
     }
 
     private String issue(MembershipRole... roles) throws Exception {
         String cuerpo = "{\"accountId\":\"%s\",\"roles\":[%s]}"
                 .formatted(
-                        invitada.id(),
+                        invited.id(),
                         java.util.Arrays.stream(roles)
                                 .map(rol -> "\"" + rol.name() + "\"")
                                 .collect(java.util.stream.Collectors.joining(",")));
 
-        mockMvc.perform(comoAdministradora(post("/api/v1/condominios/" + condominium + "/invitaciones")
+        mockMvc.perform(comoAdministradora(post("/api/v1/condominiums/" + condominium + "/invitations")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(cuerpo)))
                 .andExpect(status().isCreated());
@@ -137,20 +137,20 @@ class InvitationsTests {
     }
 
     private String tokenDelCorreo() {
-        return buzon.ultimoTokenPara(invitada.email())
+        return buzon.ultimoTokenPara(invited.email())
                 .orElseThrow(() -> new AssertionError("No llego ningun correo con enlace a %s. Enviados: %s"
-                        .formatted(invitada.email(), buzon.enviados())));
+                        .formatted(invited.email(), buzon.sent())));
     }
 
     private MockHttpServletRequestBuilder opening(String token) {
-        return post("/api/v1/invitaciones/apertura")
+        return post("/api/v1/invitations/opening")
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"token\":\"%s\"}".formatted(token));
     }
 
-    private MockHttpServletRequestBuilder aceptacion(String token, UUID account) {
-        return post("/api/v1/invitaciones/aceptacion")
+    private MockHttpServletRequestBuilder acceptance(String token, UUID account) {
+        return post("/api/v1/invitations/acceptance")
                 .with(csrf())
                 .with(user(account.toString()))
                 .contentType(MediaType.APPLICATION_JSON)
@@ -165,7 +165,7 @@ class InvitationsTests {
         String token = issue(MembershipRole.OWNER, MembershipRole.BOARD);
 
         // Antes de aceptar no hay membresia: la invitacion no mete a nadie, solo le abre la puerta.
-        assertThat(memberships.of(condominium, invitada.id())).isNull();
+        assertThat(memberships.of(condominium, invited.id())).isNull();
 
         // Se abre SIN autenticar: quien acaba de recibir el enlace no tiene con que entrar.
         mockMvc.perform(opening(token))
@@ -174,20 +174,20 @@ class InvitationsTests {
                 // Esta cuenta nunca entro, asi que no tiene credencial en el proveedor.
                 .andExpect(jsonPath("$.credentialSent").value(true));
 
-        assertThat(proveedor.preparados()).contains(invitada.email());
+        assertThat(proveedor.prepared()).contains(invited.email());
 
-        mockMvc.perform(aceptacion(token, invitada.id()))
+        mockMvc.perform(acceptance(token, invited.id()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.acceptedAt").isNotEmpty());
 
-        MembershipView nacida = java.util.Objects.requireNonNull(
-                memberships.of(condominium, invitada.id()), "Aceptar la invitacion no dejo ninguna membresia.");
-        assertThat(nacida.status()).isEqualTo(MembershipStatus.ACTIVE);
+        MembershipView born = java.util.Objects.requireNonNull(
+                memberships.of(condominium, invited.id()), "Aceptar la invitacion no dejo ninguna membresia.");
+        assertThat(born.status()).isEqualTo(MembershipStatus.ACTIVE);
         // Los roles son los que llevaba la invitacion, no unos por defecto.
-        assertThat(nacida.roles()).containsExactlyInAnyOrder(MembershipRole.OWNER, MembershipRole.BOARD);
+        assertThat(born.roles()).containsExactlyInAnyOrder(MembershipRole.OWNER, MembershipRole.BOARD);
         // Y queda registrado quien invito, que es lo que la bitacora del #21 necesita para
         // reconstruir por que esta persona esta dentro.
-        assertThat(nacida.accountId()).isEqualTo(invitada.id());
+        assertThat(born.accountId()).isEqualTo(invited.id());
     }
 
     @Test
@@ -196,13 +196,13 @@ class InvitationsTests {
         // La mitad de este issue del segundo criterio. La otra --que entrar con Google caiga en la
         // misma cuenta-- la hace cumplir el primer login del #13, vinculando por correo verificado.
         String token = issue(MembershipRole.OWNER);
-        UUID personaAntes = invitada.personId();
+        UUID personaAntes = invited.personId();
 
-        mockMvc.perform(aceptacion(token, invitada.id())).andExpect(status().isOk());
+        mockMvc.perform(acceptance(token, invited.id())).andExpect(status().isOk());
 
-        AccountView newValues = people.findAccount(invitada.id());
+        AccountView newValues = people.findAccount(invited.id());
         assertThat(newValues.personId()).isEqualTo(personaAntes);
-        assertThat(newValues.email()).isEqualTo(invitada.email());
+        assertThat(newValues.email()).isEqualTo(invited.email());
     }
 
     @Test
@@ -210,13 +210,13 @@ class InvitationsTests {
     void theEmailCarriesALinkToTheWeb() throws Exception {
         issue(MembershipRole.OWNER);
 
-        List<InvitationDoubles.CorreoDePrueba.Enviado> enviados = buzon.enviados();
-        assertThat(enviados).hasSize(1);
-        assertThat(enviados.get(0).destinatario()).isEqualTo(invitada.email());
+        List<InvitationDoubles.CorreoDePrueba.Sent> sent = buzon.sent();
+        assertThat(sent).hasSize(1);
+        assertThat(sent.get(0).recipient()).isEqualTo(invited.email());
         // La pagina es la que sabe que mostrar en cada caso y la que manda al login; una ruta de la
         // API obligaria al backend a devolver redirecciones y a conocer las rutas de la SPA.
-        assertThat(enviados.get(0).cuerpo()).contains("http://localhost:4200/invitaciones/");
-        assertThat(enviados.get(0).cuerpo()).doesNotContain("/api/v1");
+        assertThat(sent.get(0).cuerpo()).contains("http://localhost:4200/invitations/");
+        assertThat(sent.get(0).cuerpo()).doesNotContain("/api/v1");
     }
 
     // --- El primer criterio: un token que no sirve no activa nada ---------------------------
@@ -225,11 +225,11 @@ class InvitationsTests {
     @DisplayName("un token ya usado no vuelve a servir")
     void aUsedTokenDoesNotWorkAgain() throws Exception {
         String token = issue(MembershipRole.OWNER);
-        mockMvc.perform(aceptacion(token, invitada.id())).andExpect(status().isOk());
+        mockMvc.perform(acceptance(token, invited.id())).andExpect(status().isOk());
 
-        mockMvc.perform(aceptacion(token, invitada.id()))
+        mockMvc.perform(acceptance(token, invited.id()))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 
     @Test
@@ -240,10 +240,10 @@ class InvitationsTests {
         // Siete dias y un minuto. Con un Instant.now() dentro del servicio, este test no existiria.
         clock.adelantar(Duration.ofDays(7).plusMinutes(1));
 
-        mockMvc.perform(aceptacion(token, invitada.id()))
+        mockMvc.perform(acceptance(token, invited.id()))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
-        assertThat(memberships.of(condominium, invitada.id())).isNull();
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+        assertThat(memberships.of(condominium, invited.id())).isNull();
     }
 
     @Test
@@ -254,7 +254,7 @@ class InvitationsTests {
 
         clock.adelantar(Duration.ofDays(7).minusMinutes(1));
 
-        mockMvc.perform(aceptacion(token, invitada.id())).andExpect(status().isOk());
+        mockMvc.perform(acceptance(token, invited.id())).andExpect(status().isOk());
     }
 
     @Test
@@ -264,14 +264,14 @@ class InvitationsTests {
         UUID invitation = invitations.ofCondominium(condominium).get(0).id();
 
         mockMvc.perform(comoAdministradora(
-                        post("/api/v1/condominios/" + condominium + "/invitaciones/" + invitation + "/revocacion")))
+                        post("/api/v1/condominiums/" + condominium + "/invitations/" + invitation + "/revocation")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.revokedAt").isNotEmpty());
 
-        mockMvc.perform(aceptacion(token, invitada.id()))
+        mockMvc.perform(acceptance(token, invited.id()))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
-        assertThat(memberships.of(condominium, invitada.id())).isNull();
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+        assertThat(memberships.of(condominium, invited.id())).isNull();
     }
 
     @Test
@@ -281,7 +281,7 @@ class InvitationsTests {
         // tokens cuales existieron.
         mockMvc.perform(opening("estonoesuntoken"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 
     @Test
@@ -291,12 +291,12 @@ class InvitationsTests {
         AccountView ajena = cuentaNueva();
 
         // 404 y no 403: un 403 confirmaria que ese enlace es bueno, solo que no para quien lo trae.
-        mockMvc.perform(aceptacion(token, ajena.id()))
+        mockMvc.perform(acceptance(token, ajena.id()))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
 
         // Y el enlace sigue sirviendo para su dueña: el intento ajeno no lo consumio.
-        mockMvc.perform(aceptacion(token, invitada.id())).andExpect(status().isOk());
+        mockMvc.perform(acceptance(token, invited.id())).andExpect(status().isOk());
     }
 
     // --- Reenvio y revocacion ---------------------------------------------------------------
@@ -305,18 +305,18 @@ class InvitationsTests {
     @DisplayName("al reenviar, el enlace anterior deja de servir")
     void onResendThePreviousOneStopsWorking() throws Exception {
         String viejo = issue(MembershipRole.OWNER);
-        UUID primera = invitations.ofCondominium(condominium).get(0).id();
+        UUID first = invitations.ofCondominium(condominium).get(0).id();
 
         mockMvc.perform(comoAdministradora(
-                        post("/api/v1/condominios/" + condominium + "/invitaciones/" + primera + "/reenvio")))
+                        post("/api/v1/condominiums/" + condominium + "/invitations/" + first + "/resend")))
                 .andExpect(status().isCreated());
 
         String body = tokenDelCorreo();
         assertThat(body).isNotEqualTo(viejo);
 
         // Dos enlaces vivos a la vez serian dos accesos y solo uno controlado.
-        mockMvc.perform(aceptacion(viejo, invitada.id())).andExpect(status().isNotFound());
-        mockMvc.perform(aceptacion(body, invitada.id())).andExpect(status().isOk());
+        mockMvc.perform(acceptance(viejo, invited.id())).andExpect(status().isNotFound());
+        mockMvc.perform(acceptance(body, invited.id())).andExpect(status().isOk());
     }
 
     @Test
@@ -326,14 +326,14 @@ class InvitationsTests {
         // lo hace posible es que el indice parcial considere abierta una fila vencida, asi que el
         // reenvio la revoca antes de emitir la nueva.
         issue(MembershipRole.OWNER);
-        UUID primera = invitations.ofCondominium(condominium).get(0).id();
+        UUID first = invitations.ofCondominium(condominium).get(0).id();
         clock.adelantar(Duration.ofDays(8));
 
         mockMvc.perform(comoAdministradora(
-                        post("/api/v1/condominios/" + condominium + "/invitaciones/" + primera + "/reenvio")))
+                        post("/api/v1/condominiums/" + condominium + "/invitations/" + first + "/resend")))
                 .andExpect(status().isCreated());
 
-        mockMvc.perform(aceptacion(tokenDelCorreo(), invitada.id())).andExpect(status().isOk());
+        mockMvc.perform(acceptance(tokenDelCorreo(), invited.id())).andExpect(status().isOk());
     }
 
     @Test
@@ -341,19 +341,19 @@ class InvitationsTests {
     void anAcceptedOneIsNeitherRevokedNorResent() throws Exception {
         String token = issue(MembershipRole.OWNER);
         UUID invitation = invitations.ofCondominium(condominium).get(0).id();
-        mockMvc.perform(aceptacion(token, invitada.id())).andExpect(status().isOk());
+        mockMvc.perform(acceptance(token, invited.id())).andExpect(status().isOk());
 
         // La membresia ya existe: lo que hay que hacer es darla de baja, que es el issue #19.
         // Revocar la invitacion no la quitaria y dejaria creer que si.
         mockMvc.perform(comoAdministradora(
-                        post("/api/v1/condominios/" + condominium + "/invitaciones/" + invitation + "/revocacion")))
+                        post("/api/v1/condominiums/" + condominium + "/invitations/" + invitation + "/revocation")))
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.codigo").value("REGLA_DE_NEGOCIO"));
+                .andExpect(jsonPath("$.code").value("BUSINESS_RULE"));
 
         mockMvc.perform(comoAdministradora(
-                        post("/api/v1/condominios/" + condominium + "/invitaciones/" + invitation + "/reenvio")))
+                        post("/api/v1/condominiums/" + condominium + "/invitations/" + invitation + "/resend")))
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.codigo").value("REGLA_DE_NEGOCIO"));
+                .andExpect(jsonPath("$.code").value("BUSINESS_RULE"));
     }
 
     // --- Lo que no se puede invitar ---------------------------------------------------------
@@ -363,24 +363,24 @@ class InvitationsTests {
     void nobodyIsInvitedTwice() throws Exception {
         issue(MembershipRole.OWNER);
 
-        mockMvc.perform(comoAdministradora(post("/api/v1/condominios/" + condominium + "/invitaciones")
+        mockMvc.perform(comoAdministradora(post("/api/v1/condominiums/" + condominium + "/invitations")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"accountId\":\"%s\",\"roles\":[\"OWNER\"]}".formatted(invitada.id()))))
+                        .content("{\"accountId\":\"%s\",\"roles\":[\"OWNER\"]}".formatted(invited.id()))))
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.codigo").value("REGLA_DE_NEGOCIO"));
+                .andExpect(jsonPath("$.code").value("BUSINESS_RULE"));
     }
 
     @Test
     @DisplayName("no se invita a quien ya es miembro")
     void someoneWhoIsAlreadyAMemberIsNotInvited() throws Exception {
-        memberships.grant(condominium, invitada.id(), Set.of(MembershipRole.OWNER), null, "admin");
+        memberships.grant(condominium, invited.id(), Set.of(MembershipRole.OWNER), null, "admin");
 
-        mockMvc.perform(comoAdministradora(post("/api/v1/condominios/" + condominium + "/invitaciones")
+        mockMvc.perform(comoAdministradora(post("/api/v1/condominiums/" + condominium + "/invitations")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"accountId\":\"%s\",\"roles\":[\"OWNER\"]}".formatted(invitada.id()))))
+                        .content("{\"accountId\":\"%s\",\"roles\":[\"OWNER\"]}".formatted(invited.id()))))
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.codigo").value("REGLA_DE_NEGOCIO"));
-        assertThat(buzon.enviados()).isEmpty();
+                .andExpect(jsonPath("$.code").value("BUSINESS_RULE"));
+        assertThat(buzon.sent()).isEmpty();
     }
 
     @Test
@@ -388,21 +388,21 @@ class InvitationsTests {
     void thePlatformRoleIsNotInvited() throws Exception {
         // Se comprueba al emitir y no solo al conceder la membresia porque entre emitir y aceptar
         // pasan dias: el error tiene que salirle a quien invita, no a quien pulsa el enlace.
-        mockMvc.perform(comoAdministradora(post("/api/v1/condominios/" + condominium + "/invitaciones")
+        mockMvc.perform(comoAdministradora(post("/api/v1/condominiums/" + condominium + "/invitations")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"accountId\":\"%s\",\"roles\":[\"PLATFORM_ADMIN\"]}".formatted(invitada.id()))))
+                        .content("{\"accountId\":\"%s\",\"roles\":[\"PLATFORM_ADMIN\"]}".formatted(invited.id()))))
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.codigo").value("REGLA_DE_NEGOCIO"));
+                .andExpect(jsonPath("$.code").value("BUSINESS_RULE"));
     }
 
     @Test
     @DisplayName("una invitacion sin roles no se emite")
     void withoutRolesItIsNotIssued() throws Exception {
-        mockMvc.perform(comoAdministradora(post("/api/v1/condominios/" + condominium + "/invitaciones")
+        mockMvc.perform(comoAdministradora(post("/api/v1/condominiums/" + condominium + "/invitations")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"accountId\":\"%s\",\"roles\":[]}".formatted(invitada.id()))))
+                        .content("{\"accountId\":\"%s\",\"roles\":[]}".formatted(invited.id()))))
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.codigo").value("VALIDACION"));
+                .andExpect(jsonPath("$.code").value("VALIDATION"));
     }
 
     // --- La credencial del proveedor de identidad -------------------------------------------
@@ -413,13 +413,13 @@ class InvitationsTests {
         // El segundo caso de Seguridad 6.1. Lo que distingue a los dos es tener sujeto del
         // proveedor, que es lo que deja el primer login del #13.
         String token = issue(MembershipRole.OWNER);
-        marcarComoYaVinculada(invitada.id());
+        markAsAlreadyLinked(invited.id());
 
         mockMvc.perform(opening(token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.credentialSent").value(false));
 
-        assertThat(proveedor.preparados()).doesNotContain(invitada.email());
+        assertThat(proveedor.prepared()).doesNotContain(invited.email());
     }
 
     @Test
@@ -432,8 +432,8 @@ class InvitationsTests {
         mockMvc.perform(opening(token)).andExpect(status().isOk());
         mockMvc.perform(opening(token)).andExpect(status().isOk());
 
-        assertThat(proveedor.vecesQueSePreparo(invitada.email())).isEqualTo(2);
-        mockMvc.perform(aceptacion(token, invitada.id())).andExpect(status().isOk());
+        assertThat(proveedor.vecesQueSePreparo(invited.email())).isEqualTo(2);
+        mockMvc.perform(acceptance(token, invited.id())).andExpect(status().isOk());
     }
 
     /**
@@ -443,7 +443,7 @@ class InvitationsTests {
      * es lo que prueba {@code ApiAuthenticationTests}. Aqui lo unico que hace falta es el estado
      * resultante.
      */
-    private void marcarComoYaVinculada(UUID account) {
+    private void markAsAlreadyLinked(UUID account) {
         new org.springframework.jdbc.core.JdbcTemplate(fuenteDeDatos)
                 .update(
                         "update user_account set idp_subject = ?, status = ? where id = ?",
@@ -459,10 +459,10 @@ class InvitationsTests {
     void theListingDoesNotCarryTheToken() throws Exception {
         String token = issue(MembershipRole.OWNER);
 
-        mockMvc.perform(comoAdministradora(get("/api/v1/condominios/" + condominium + "/invitaciones")))
+        mockMvc.perform(comoAdministradora(get("/api/v1/condominiums/" + condominium + "/invitations")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].accountId").value(invitada.id().toString()))
+                .andExpect(jsonPath("$[0].accountId").value(invited.id().toString()))
                 // Un administrador que pudiera leer el token podria entrar como el invitado.
                 .andExpect(result -> {
                     String cuerpo = result.getResponse().getContentAsString();

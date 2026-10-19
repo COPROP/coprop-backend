@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @ApiController
 @RestController
-@RequestMapping("/cuentas")
+@RequestMapping("/accounts")
 class AccountController {
 
     private final People people;

@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Lo que devuelve {@code GET /api/v1/parametricas}: las enumeraciones del dominio. Issue #89.
+ * Lo que devuelve {@code GET /api/v1/catalogs}: las enumeraciones del dominio. Issue #89.
  *
  * <p>Existe porque el catalogo es fijo en el MVP y la alternativa era que el cliente copiara los
  * valores a mano. Una copia se desincroniza en cuanto se añade un valor, y nadie se entera hasta que

@@ -26,12 +26,12 @@ import org.springframework.web.bind.annotation.RestController;
  * <p><strong>No recibe ningun identificador.</strong> Todo lo que necesita sale de la identidad que
  * dejo el filtro: pedir la cuenta en la ruta convertiria "mi perfil" en "el perfil de quien yo diga"
  * y haria falta decidir quien puede verlo. La consulta de una cuenta por identificador ya existe y
- * es otra cosa: {@code GET /api/v1/cuentas/{accountId}}.
+ * es otra cosa: {@code GET /api/v1/accounts/{accountId}}.
  *
  * <p><strong>Sin {@code @PreAuthorize}, a proposito.</strong> No hay un permiso de la matriz que
  * encaje porque no hay nada que autorizar: lo unico que devuelve es lo propio de quien pregunta, y
  * quien no tiene cuenta ya no llego hasta aqui --el filtro de identidad responde 403
- * {@code SIN_CUENTA}--. Exigir un permiso dejaria sin perfil justo a quien acaba de entrar y
+ * {@code NO_ACCOUNT}--. Exigir un permiso dejaria sin perfil justo a quien acaba de entrar y
  * todavia no tiene membresia en ninguna parte.
  *
  * <p><strong>Devuelve 200 con la lista vacia a quien no tiene ninguna membresia activa</strong>, y
@@ -51,19 +51,19 @@ class MeController {
     private final Identities identities;
     private final Memberships memberships;
     private final Condominiums condominiums;
-    private final UnitRelations relaciones;
+    private final UnitRelations relations;
 
     MeController(
             People people,
             Identities identities,
             Memberships memberships,
             Condominiums condominiums,
-            UnitRelations relaciones) {
+            UnitRelations relations) {
         this.people = people;
         this.identities = identities;
         this.memberships = memberships;
         this.condominiums = condominiums;
-        this.relaciones = relaciones;
+        this.relations = relations;
     }
 
     @GetMapping
@@ -99,6 +99,6 @@ class MeController {
     private MyProfile.MyCondominium ofTheMembership(MembershipView membership, UUID person) {
         UUID condominium = membership.condominiumId();
         return new MyProfile.MyCondominium(
-                condominiums.find(condominium), membership.roles(), relaciones.relatedTo(condominium, person));
+                condominiums.find(condominium), membership.roles(), relations.relatedTo(condominium, person));
     }
 }

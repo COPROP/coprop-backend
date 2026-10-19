@@ -49,7 +49,7 @@ class OidcConfiguration {
     }
 
     @Bean
-    ClientRegistrationRepository registrosDeCliente() {
+    ClientRegistrationRepository clientRecords() {
         return new InMemoryClientRegistrationRepository(List.of(clienteWeb()));
     }
 

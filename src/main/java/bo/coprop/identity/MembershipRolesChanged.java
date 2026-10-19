@@ -34,7 +34,7 @@ public record MembershipRolesChanged(
         Set<MembershipRole> beforeTheRoles,
         Set<MembershipRole> roles,
         String reason,
-        boolean concentraFunciones,
+        boolean concentratesDuties,
         boolean closedSessions,
         String actor,
         Instant occurredAt)
@@ -69,7 +69,7 @@ public record MembershipRolesChanged(
                 "motivo",
                 reason,
                 "concentraFunciones",
-                String.valueOf(concentraFunciones),
+                String.valueOf(concentratesDuties),
                 "sesionesCerradas",
                 String.valueOf(closedSessions));
     }

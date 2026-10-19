@@ -16,10 +16,10 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 class RoutesConfiguration implements WebMvcConfigurer {
 
     /** Analisis 5.4 define las rutas sin version; el prefijo se acordo al resolver el issue #5. */
-    static final String PREFIJO_DE_VERSION = "/api/v1";
+    static final String VERSION_PREFIX = "/api/v1";
 
     @Override
     public void configurePathMatch(PathMatchConfigurer configurador) {
-        configurador.addPathPrefix(PREFIJO_DE_VERSION, HandlerTypePredicate.forAnnotation(ApiController.class));
+        configurador.addPathPrefix(VERSION_PREFIX, HandlerTypePredicate.forAnnotation(ApiController.class));
     }
 }

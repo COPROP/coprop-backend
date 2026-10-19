@@ -64,12 +64,12 @@ class AccessControl {
      */
     private static final String MANAGE_UNITS = "MANAGE_UNITS";
 
-    private final Authorization autorizacion;
-    private final UnitRelations relaciones;
+    private final Authorization authorizationCheck;
+    private final UnitRelations relations;
 
-    AccessControl(Authorization autorizacion, UnitRelations relaciones) {
-        this.autorizacion = autorizacion;
-        this.relaciones = relaciones;
+    AccessControl(Authorization authorizationCheck, UnitRelations relations) {
+        this.authorizationCheck = authorizationCheck;
+        this.relations = relations;
     }
 
     /**
@@ -88,7 +88,7 @@ class AccessControl {
      *     es
      */
     public boolean canOnUnit(Authentication principal, String permission, UUID condominiumId, UUID unitId) {
-        return switch (autorizacion.scopeOf(principal, permission)) {
+        return switch (authorizationCheck.scopeOf(principal, permission)) {
             case ALL -> true;
             case OWN -> requireItIsTheirs(principal, condominiumId, unitId, permission);
             case NONE -> false;
@@ -112,7 +112,7 @@ class AccessControl {
      * @throws ResourceNotFound si no administra unidades y esta no es suya
      */
     public boolean canViewUnit(Authentication principal, UUID condominiumId, UUID unitId) {
-        if (autorizacion.scopeOf(principal, MANAGE_UNITS) == Scope.ALL) {
+        if (authorizationCheck.scopeOf(principal, MANAGE_UNITS) == Scope.ALL) {
             return true;
         }
         return requireItIsTheirs(principal, condominiumId, unitId, "ver la unidad");
@@ -133,7 +133,7 @@ class AccessControl {
      * la respuesta cambia con el recurso.
      */
     public boolean canViewPerson(Authentication principal, UUID personId) {
-        return isTheirPerson(principal, personId) || autorizacion.canInAnyCondominium(principal, MANAGE_UNITS);
+        return isTheirPerson(principal, personId) || authorizationCheck.canInAnyCondominium(principal, MANAGE_UNITS);
     }
 
     /**
@@ -145,7 +145,7 @@ class AccessControl {
      * {@code GET /api/v1/me} y no pide ningun identificador.
      */
     public boolean canViewAccount(Authentication principal, UUID accountId) {
-        return isTheirAccount(principal, accountId) || autorizacion.canInAnyCondominium(principal, MANAGE_UNITS);
+        return isTheirAccount(principal, accountId) || authorizationCheck.canInAnyCondominium(principal, MANAGE_UNITS);
     }
 
     /**
@@ -154,15 +154,15 @@ class AccessControl {
      * <p>Se registra en el log porque es una negativa que el cliente recibe como "no existe": sin
      * esta linea, un propietario que dice que no ve su unidad obliga a reproducirlo a ciegas.
      */
-    private boolean requireItIsTheirs(Authentication principal, UUID condominiumId, UUID unitId, String operacion) {
+    private boolean requireItIsTheirs(Authentication principal, UUID condominiumId, UUID unitId, String operation) {
         UUID person = personOf(principal);
-        if (person != null && relaciones.isRelatedTo(condominiumId, unitId, person)) {
+        if (person != null && relations.isRelatedTo(condominiumId, unitId, person)) {
             return true;
         }
         log.info(
                 "La cuenta {} pidio {} sobre la unidad {} del condominio {} sin relacion vigente con ella; se responde 404.",
                 principal.getName(),
-                operacion,
+                operation,
                 unitId,
                 condominiumId);
         throw ResourceNotFound.de("la unidad", unitId);

@@ -9,40 +9,40 @@ package bo.coprop.shared;
  */
 public enum ErrorCode {
     /** La entrada no cumple las restricciones declaradas. Viaja con la lista de campos. */
-    VALIDACION,
+    VALIDATION,
 
     /**
      * El cuerpo de la peticion no se pudo leer: no es JSON valido.
      *
-     * <p>Se separa de {@link #VALIDACION} porque son problemas distintos y el cliente hace cosas
+     * <p>Se separa de {@link #VALIDATION} porque son problemas distintos y el cliente hace cosas
      * distintas. Un cuerpo mal formado es un defecto del cliente y no tiene campos que señalar;
      * un valor inadmisible dentro de un JSON correcto si los tiene, y sale como
-     * {@code VALIDACION} con su lista. El RFC 9110 reserva el 400 para lo primero y el 422 para
+     * {@code VALIDATION} con su lista. El RFC 9110 reserva el 400 para lo primero y el 422 para
      * lo segundo.
      */
-    CUERPO_ILEGIBLE,
+    UNREADABLE_BODY,
 
     /**
      * El recurso no existe. Tambien cubre el acceso a un condominio sin membresia activa: se
      * responde lo mismo que si no existiera, para no revelar que condominios hay (Seguridad 7.2).
      */
-    NO_ENCONTRADO,
+    NOT_FOUND,
 
     /** Transicion de estado invalida o choque de concurrencia. */
-    CONFLICTO,
+    CONFLICT,
 
     /** La peticion esta bien formada, pero una regla del dominio la rechaza. */
-    REGLA_DE_NEGOCIO,
+    BUSINESS_RULE,
 
     /** No hay identidad: falta el token o no es valido. */
-    NO_AUTENTICADO,
+    NOT_AUTHENTICATED,
 
     /**
      * Hay identidad y el rol alcanza, pero la operacion es sensible y la autenticacion no es lo
      * bastante fuerte ni lo bastante reciente (Seguridad 7.3).
      *
-     * <p>Es distinto de {@link #NO_AUTENTICADO} --ahi no hay sesion y aqui si-- y distinto de
-     * {@link #SIN_PERMISO} --ahi el rol no alcanza y aqui alcanza--. Lo que falta no es quien es ni
+     * <p>Es distinto de {@link #NOT_AUTHENTICATED} --ahi no hay sesion y aqui si-- y distinto de
+     * {@link #NO_PERMISSION} --ahi el rol no alcanza y aqui alcanza--. Lo que falta no es quien es ni
      * que puede, sino <strong>cuando y como</strong> lo demostro: el cliente no tiene que mandar al
      * usuario al login ni decirle que pida permiso, sino pedirle su segundo factor y repetir la
      * misma operacion.
@@ -52,15 +52,15 @@ public enum ErrorCode {
      * el 401 es el estado que lleva un desafio de autenticacion, y aqui lo que se desafia es el
      * nivel de la autenticacion, no su existencia.
      */
-    REAUTENTICACION_REQUERIDA,
+    REAUTHENTICATION_REQUIRED,
 
     /** Hay identidad y membresia activa, pero el rol no alcanza. */
-    SIN_PERMISO,
+    NO_PERMISSION,
 
     /**
      * El token es valido pero en COPROP no corresponde a ninguna cuenta que pueda entrar.
      *
-     * <p>Es distinto de {@link #SIN_PERMISO} y por eso tiene codigo propio: ahi hay una cuenta a
+     * <p>Es distinto de {@link #NO_PERMISSION} y por eso tiene codigo propio: ahi hay una cuenta a
      * la que le falta rol, y aqui no hay cuenta, asi que al usuario no se le ofrece reintentar
      * sino pedir su invitacion. El acceso lo da la invitacion, no el haberse autenticado
      * (Seguridad 10.1).
@@ -69,8 +69,8 @@ public enum ErrorCode {
      * de baja: distinguirlos le diria a cualquiera con una cuenta de Google si un correo esta
      * registrado en la plataforma.
      */
-    SIN_CUENTA,
+    NO_ACCOUNT,
 
     /** Fallo no previsto. Nunca lleva detalle al cliente. */
-    INTERNO
+    INTERNAL
 }

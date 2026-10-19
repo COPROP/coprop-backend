@@ -82,7 +82,7 @@ class CrossCondominiumLeakTests {
     private Invitations invitations;
 
     @Autowired
-    private UnitRelations relaciones;
+    private UnitRelations relations;
 
     /** El condominio de quien pide, donde si tiene membresia. */
     private UUID propio;
@@ -100,7 +100,7 @@ class CrossCondominiumLeakTests {
     private UUID invitacionAjena;
     private UUID personaSuelta;
     private UUID cuentaParaInvitar;
-    private String autorizacion;
+    private String authorizationHeader;
 
     /**
      * Las cuatro personas que el issue #19 necesita con una relacion ya puesta en la unidad propia.
@@ -121,8 +121,8 @@ class CrossCondominiumLeakTests {
         propio = altaDeCondominio("FUGA-OWN");
         ajeno = altaDeCondominio("FUGA-AJENO");
 
-        unidadPropia = altaDeUnidad(propio, "P-101");
-        unidadAjena = altaDeUnidad(ajeno, "A-101");
+        unidadPropia = unitRegistration(propio, "P-101");
+        unidadAjena = unitRegistration(ajeno, "A-101");
         bloquePropio = units.addBlock(propio, "Bloque propio", "admin").id();
         bloqueAjeno = units.addBlock(ajeno, "Bloque ajeno", "admin").id();
 
@@ -173,12 +173,12 @@ class CrossCondominiumLeakTests {
                 people.register(new NewPerson("Ocupa", "Perez", null), "admin").id();
         responsableParaCerrar =
                 people.register(new NewPerson("Paga", "Perez", null), "admin").id();
-        relaciones.grantOwnership(propio, unidadPropia, vendedor, new BigDecimal("100.000000"), "admin");
-        relaciones.grantOccupancy(propio, unidadPropia, ocupanteParaMudar, OccupancyRole.TENANT, "admin");
-        relaciones.assignBilling(propio, unidadPropia, responsableParaCerrar, null, "admin");
+        relations.grantOwnership(propio, unidadPropia, vendedor, new BigDecimal("100.000000"), "admin");
+        relations.grantOccupancy(propio, unidadPropia, ocupanteParaMudar, OccupancyRole.TENANT, "admin");
+        relations.assignBilling(propio, unidadPropia, responsableParaCerrar, null, "admin");
 
         String tokenSubject = TestTokenProvider.sujetoNuevo();
-        autorizacion = "Bearer " + TestTokenProvider.valido(tokenSubject, account.email());
+        authorizationHeader = "Bearer " + TestTokenProvider.valid(tokenSubject, account.email());
     }
 
     private UUID altaDeCondominio(String name) {
@@ -194,7 +194,7 @@ class CrossCondominiumLeakTests {
         return String.valueOf(Math.abs(UUID.randomUUID().getMostSignificantBits() % 1_000_000_0000L));
     }
 
-    private UUID altaDeUnidad(UUID condominium, String code) {
+    private UUID unitRegistration(UUID condominium, String code) {
         return units.register(
                         condominium,
                         new NewUnit(code, UnitType.APARTMENT, new BigDecimal("1.000000"), null, null, null),
@@ -215,7 +215,7 @@ class CrossCondominiumLeakTests {
      */
     private record Endpoint(String name, HttpMethod metodo, String plantilla, @Nullable String cuerpo) {
 
-        MockHttpServletRequestBuilder peticion(
+        MockHttpServletRequestBuilder authorizedRequest(
                 UUID condominium, UUID unit, UUID block, UUID membership, UUID invitation) {
             var constructor = request(metodo, plantilla.formatted(condominium, unit, block, membership, invitation))
                     .with(SecurityMockMvcRequestPostProcessors.csrf());
@@ -244,7 +244,7 @@ class CrossCondominiumLeakTests {
      * <p>Son todos los que hay: los demas --personas, cuentas, el perfil propio, los
      * superadministradores, la bitacora de plataforma y las dos llamadas de quien llega con un token
      * de invitacion-- son globales a proposito (Seguridad 2 y 6.1) y no tienen condominio del que
-     * aislarse. Cuando entre uno nuevo bajo {@code /condominios/{id}}, su caso entra aqui; los cinco
+     * aislarse. Cuando entre uno nuevo bajo {@code /condominiums/{id}}, su caso entra aqui; los cinco
      * de invitaciones entraron asi con el issue #18, la auditoria con el #21, los siete de bajas,
      * suspensiones y cierres de relacion con el #19, el cambio de roles con el #20 y la edicion de la
      * ficha con el #90.
@@ -252,101 +252,99 @@ class CrossCondominiumLeakTests {
     private List<Endpoint> endpoints() {
         String person = personaSuelta.toString();
         return List.of(
-                new Endpoint("consultar el condominio", HttpMethod.GET, "/api/v1/condominios/%s", null),
+                new Endpoint("consultar el condominio", HttpMethod.GET, "/api/v1/condominiums/%s", null),
                 // La ficha del condominio. El NIT va inventado y distinto del que usa la rejilla de
                 // autorizacion, para no chocar con el suyo: el NIT es unico y las dos suites
                 // comparten base.
-                new Endpoint("editar el condominio", HttpMethod.PUT, "/api/v1/condominios/%s", edicionDelCondominio()),
+                new Endpoint("editar el condominio", HttpMethod.PUT, "/api/v1/condominiums/%s", edicionDelCondominio()),
                 new Endpoint(
                         "cambiar la configuracion",
                         HttpMethod.PUT,
-                        "/api/v1/condominios/%s/configuracion",
+                        "/api/v1/condominiums/%s/configuration",
                         "{\"issueDay\":5,\"dueDay\":10}"),
                 new Endpoint(
                         "dar de alta una unidad",
                         HttpMethod.POST,
-                        "/api/v1/condominios/%s/unidades",
+                        "/api/v1/condominiums/%s/units",
                         "{\"code\":\"X-1\",\"type\":\"APARTMENT\",\"aliquot\":\"1.000000\"}"),
                 new Endpoint(
                         "alta masiva de unidades",
                         HttpMethod.POST,
-                        "/api/v1/condominios/%s/unidades/lote",
+                        "/api/v1/condominiums/%s/units/batch",
                         "{\"units\":[{\"code\":\"X-2\",\"type\":\"APARTMENT\",\"aliquot\":\"1.000000\"}]}"),
-                new Endpoint("consultar una unidad", HttpMethod.GET, "/api/v1/condominios/%s/unidades/%s", null),
+                new Endpoint("consultar una unidad", HttpMethod.GET, "/api/v1/condominiums/%s/units/%s", null),
                 new Endpoint(
                         "dar de alta un bloque",
                         HttpMethod.POST,
-                        "/api/v1/condominios/%s/bloques",
+                        "/api/v1/condominiums/%s/blocks",
                         "{\"name\":\"Torre X\"}"),
                 new Endpoint(
                         "dar de alta un piso",
                         HttpMethod.POST,
-                        "/api/v1/condominios/%s/bloques/%3$s/pisos",
+                        "/api/v1/condominiums/%s/blocks/%3$s/floors",
                         "{\"number\":3}"),
                 new Endpoint(
                         "registrar un propietario",
                         HttpMethod.POST,
-                        "/api/v1/condominios/%s/unidades/%s/propietarios",
+                        "/api/v1/condominiums/%s/units/%s/owners",
                         "{\"personId\":\"" + person + "\",\"share\":10.0}"),
                 new Endpoint(
-                        "listar los propietarios",
-                        HttpMethod.GET,
-                        "/api/v1/condominios/%s/unidades/%s/propietarios",
-                        null),
+                        "listar los propietarios", HttpMethod.GET, "/api/v1/condominiums/%s/units/%s/owners", null),
                 new Endpoint(
                         "registrar un ocupante",
                         HttpMethod.POST,
-                        "/api/v1/condominios/%s/unidades/%s/ocupantes",
+                        "/api/v1/condominiums/%s/units/%s/occupants",
                         "{\"personId\":\"" + person + "\",\"role\":\"TENANT\"}"),
                 new Endpoint(
                         "registrar un responsable de pago",
                         HttpMethod.POST,
-                        "/api/v1/condominios/%s/unidades/%s/responsables-de-pago",
+                        "/api/v1/condominiums/%s/units/%s/billing-responsibles",
                         "{\"personId\":\"" + person + "\"}"),
                 new Endpoint(
                         "conceder una membresia",
                         HttpMethod.POST,
-                        "/api/v1/condominios/%s/membresias",
+                        "/api/v1/condominiums/%s/memberships",
                         "{\"accountId\":\"" + cuentaParaInvitar + "\",\"roles\":[\"OWNER\"]}"),
-                new Endpoint("listar las membresias", HttpMethod.GET, "/api/v1/condominios/%s/membresias", null),
-                new Endpoint("consultar una membresia", HttpMethod.GET, "/api/v1/condominios/%s/membresias/%4$s", null),
+                new Endpoint("listar las membresias", HttpMethod.GET, "/api/v1/condominiums/%s/memberships", null),
+                new Endpoint(
+                        "consultar una membresia", HttpMethod.GET, "/api/v1/condominiums/%s/memberships/%4$s", null),
                 new Endpoint(
                         "emitir una invitacion",
                         HttpMethod.POST,
-                        "/api/v1/condominios/%s/invitaciones",
+                        "/api/v1/condominiums/%s/invitations",
                         "{\"accountId\":\"" + cuentaParaInvitar + "\",\"roles\":[\"OWNER\"]}"),
-                new Endpoint("listar las invitaciones", HttpMethod.GET, "/api/v1/condominios/%s/invitaciones", null),
+                new Endpoint("listar las invitaciones", HttpMethod.GET, "/api/v1/condominiums/%s/invitations", null),
                 new Endpoint(
-                        "consultar una invitacion", HttpMethod.GET, "/api/v1/condominios/%s/invitaciones/%5$s", null),
+                        "consultar una invitacion", HttpMethod.GET, "/api/v1/condominiums/%s/invitations/%5$s", null),
                 new Endpoint(
                         "reenviar una invitacion",
                         HttpMethod.POST,
-                        "/api/v1/condominios/%s/invitaciones/%5$s/reenvio",
+                        "/api/v1/condominiums/%s/invitations/%5$s/resend",
                         null),
                 new Endpoint(
                         "revocar una invitacion",
                         HttpMethod.POST,
-                        "/api/v1/condominios/%s/invitaciones/%5$s/revocacion",
+                        "/api/v1/condominiums/%s/invitations/%5$s/revocation",
                         null),
-                new Endpoint("consultar la auditoria", HttpMethod.GET, "/api/v1/condominios/%s/auditoria", null),
+                new Endpoint("consultar la auditoria", HttpMethod.GET, "/api/v1/condominiums/%s/audit-log", null),
                 // Los siete del issue #19: la baja, la suspension y la reactivacion de una
                 // membresia, y en la unidad la venta, el historico de propietarios y los dos
                 // cierres de relacion.
                 new Endpoint(
                         "dar de baja una membresia",
                         HttpMethod.POST,
-                        "/api/v1/condominios/%s/membresias/%4$s/baja",
-                        "{\"reason\":\"prueba de aislamiento\"}"),
+                        "/api/v1/condominiums/%s/memberships/%4$s/termination",
+                        "{\"reason\":\"prueba de isolation\"}"),
                 new Endpoint(
                         "suspender una membresia",
                         HttpMethod.POST,
-                        "/api/v1/condominios/%s/membresias/%4$s/suspension",
-                        "{\"reason\":\"prueba de aislamiento\"}"),
+                        "/api/v1/condominiums/%s/memberships/%4$s/suspension",
+                        "{\"reason\":\"prueba de isolation\"}"),
                 new Endpoint(
                         "reactivar una membresia",
                         HttpMethod.POST,
-                        "/api/v1/condominios/%s/membresias/%4$s/reactivacion",
-                        "{\"reason\":\"prueba de aislamiento\"}"),
+                        "/api/v1/condominiums/%s/memberships/%4$s/reactivation",
+                        "{\"reason\":\"prueba de isolation\"}"),
                 // El cambio de roles del issue #20. Como los tres anteriores, en el condominio
                 // propio cae sobre la membresia de quien pide y se rechaza con un 422 --nadie se
                 // cambia los roles a si mismo--, que es lo que el control necesita: cualquier cosa
@@ -354,27 +352,27 @@ class CrossCondominiumLeakTests {
                 new Endpoint(
                         "cambiar los roles de una membresia",
                         HttpMethod.PUT,
-                        "/api/v1/condominios/%s/membresias/%4$s/roles",
-                        "{\"roles\":[\"OWNER\"],\"reason\":\"prueba de aislamiento\"}"),
+                        "/api/v1/condominiums/%s/memberships/%4$s/roles",
+                        "{\"roles\":[\"OWNER\"],\"reason\":\"prueba de isolation\"}"),
                 new Endpoint(
                         "ver el historico de propietarios",
                         HttpMethod.GET,
-                        "/api/v1/condominios/%s/unidades/%s/propietarios/historico",
+                        "/api/v1/condominiums/%s/units/%s/owners/history",
                         null),
                 new Endpoint(
                         "transferir una unidad",
                         HttpMethod.POST,
-                        "/api/v1/condominios/%s/unidades/%s/transferencia",
+                        "/api/v1/condominiums/%s/units/%s/transfer",
                         "{\"fromPersonId\":\"" + vendedor + "\",\"toPersonId\":\"" + comprador + "\"}"),
                 new Endpoint(
                         "terminar una ocupacion",
                         HttpMethod.DELETE,
-                        "/api/v1/condominios/%s/unidades/%s/ocupantes/" + ocupanteParaMudar,
+                        "/api/v1/condominiums/%s/units/%s/occupants/" + ocupanteParaMudar,
                         null),
                 new Endpoint(
                         "terminar una responsabilidad de pago",
                         HttpMethod.DELETE,
-                        "/api/v1/condominios/%s/unidades/%s/responsables-de-pago/" + responsableParaCerrar,
+                        "/api/v1/condominiums/%s/units/%s/billing-responsibles/" + responsableParaCerrar,
                         null));
     }
 
@@ -382,10 +380,10 @@ class CrossCondominiumLeakTests {
     @MethodSource("endpoints")
     @DisplayName("ningun endpoint del condominio ajeno responde nada que no sea 404")
     void elCondominioAjenoNoExiste(Endpoint endpoint) throws Exception {
-        mockMvc.perform(endpoint.peticion(ajeno, unidadAjena, bloqueAjeno, membresiaAjena, invitacionAjena)
-                        .header(HttpHeaders.AUTHORIZATION, autorizacion))
+        mockMvc.perform(endpoint.authorizedRequest(ajeno, unidadAjena, bloqueAjeno, membresiaAjena, invitacionAjena)
+                        .header(HttpHeaders.AUTHORIZATION, authorizationHeader))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 
     @ParameterizedTest(name = "{0} en el condominio propio no da 404")
@@ -394,10 +392,11 @@ class CrossCondominiumLeakTests {
     void elCondominioPropioSiResponde(Endpoint endpoint) throws Exception {
         // El control de la suite. Sin esto, una ruta mal escrita daria 404 en las dos mitades y la
         // bateria entera pasaria sin comprobar nada.
-        mockMvc.perform(endpoint.peticion(propio, unidadPropia, bloquePropio, membresiaPropia, invitacionPropia)
-                        .header(HttpHeaders.AUTHORIZATION, autorizacion))
-                .andExpect(resultado -> {
-                    int status = resultado.getResponse().getStatus();
+        mockMvc.perform(endpoint.authorizedRequest(
+                                propio, unidadPropia, bloquePropio, membresiaPropia, invitacionPropia)
+                        .header(HttpHeaders.AUTHORIZATION, authorizationHeader))
+                .andExpect(result -> {
+                    int status = result.getResponse().getStatus();
                     if (status == 404) {
                         throw new AssertionError(
                                 "El endpoint '%s' dio 404 en el condominio propio: la ruta esta mal escrita o le falta algo al montaje, y entonces su mitad de fuga no prueba nada."
@@ -412,12 +411,12 @@ class CrossCondominiumLeakTests {
         // Es la otra mitad del criterio del issue #13: con cuenta en COPROP pero sin membresia en
         // ningun condominio, se autentica y no ve nada.
         AccountView account = cuentaNueva();
-        String token = TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), account.email());
+        String token = TestTokenProvider.valid(TestTokenProvider.sujetoNuevo(), account.email());
 
-        mockMvc.perform(request(HttpMethod.GET, "/api/v1/condominios/" + propio)
+        mockMvc.perform(request(HttpMethod.GET, "/api/v1/condominiums/" + propio)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 
     @Test
@@ -425,8 +424,8 @@ class CrossCondominiumLeakTests {
     void withoutATokenItIsStill401() throws Exception {
         // El filtro de condominio no puede adelantarse al de identidad: un 404 aqui taparia que lo
         // que falta es iniciar sesion.
-        mockMvc.perform(request(HttpMethod.GET, "/api/v1/condominios/" + ajeno))
+        mockMvc.perform(request(HttpMethod.GET, "/api/v1/condominiums/" + ajeno))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.codigo").value("NO_AUTENTICADO"));
+                .andExpect(jsonPath("$.code").value("NOT_AUTHENTICATED"));
     }
 }

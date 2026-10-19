@@ -77,7 +77,7 @@ class SecurityConfiguration {
      *       invitacion <strong>no</strong> entra aqui: eso pasa ya con sesion iniciada.
      * </ul>
      */
-    private static final String[] PUBLICAS = {"/api/openapi.json", "/api/v1/invitaciones/apertura"};
+    private static final String[] PUBLIC_PATHS = {"/api/openapi.json", "/api/v1/invitations/opening"};
 
     /**
      * Lo que necesita la consola navegable de springdoc, que solo existe en desarrollo.
@@ -90,13 +90,13 @@ class SecurityConfiguration {
     };
 
     private final String urlDeLaWeb;
-    private final boolean consolaEncendida;
+    private final boolean consoleEnabled;
 
     SecurityConfiguration(
             @Value("${coprop.web.url}") String urlDeLaWeb,
-            @Value("${springdoc.swagger-ui.enabled:false}") boolean consolaEncendida) {
+            @Value("${springdoc.swagger-ui.enabled:false}") boolean consoleEnabled) {
         this.urlDeLaWeb = urlDeLaWeb;
-        this.consolaEncendida = consolaEncendida;
+        this.consoleEnabled = consoleEnabled;
     }
 
     /**
@@ -108,10 +108,10 @@ class SecurityConfiguration {
      * nada. En produccion el webjar ni siquiera esta en el artefacto.
      */
     private String[] withoutIdentity() {
-        if (!consolaEncendida) {
-            return PUBLICAS;
+        if (!consoleEnabled) {
+            return PUBLIC_PATHS;
         }
-        return Stream.concat(Arrays.stream(PUBLICAS), Arrays.stream(DE_LA_CONSOLA))
+        return Stream.concat(Arrays.stream(PUBLIC_PATHS), Arrays.stream(DE_LA_CONSOLA))
                 .toArray(String[]::new);
     }
 
@@ -122,7 +122,7 @@ class SecurityConfiguration {
 
     @Bean
     @Order(1)
-    SecurityFilterChain cadenaDeOperacion(HttpSecurity http, ProblemWriter problemas) throws Exception {
+    SecurityFilterChain operationChain(HttpSecurity http, ProblemWriter problemas) throws Exception {
         return http.securityMatcher("/actuator/**")
                 .authorizeHttpRequests(rutas -> rutas.requestMatchers("/actuator/health", "/actuator/health/**")
                         .permitAll()
@@ -134,10 +134,10 @@ class SecurityConfiguration {
                         .denyAll())
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(errors -> errors.authenticationEntryPoint((peticion, response, fallo) ->
-                                problemas.escribir(peticion, response, ErrorCode.NO_AUTENTICADO, SIN_TOKEN))
-                        .accessDeniedHandler((peticion, response, fallo) ->
-                                problemas.escribir(peticion, response, ErrorCode.SIN_PERMISO, SIN_ROL)))
+                .exceptionHandling(errors -> errors.authenticationEntryPoint((request, response, failure) ->
+                                problemas.escribir(request, response, ErrorCode.NOT_AUTHENTICATED, SIN_TOKEN))
+                        .accessDeniedHandler((request, response, failure) ->
+                                problemas.escribir(request, response, ErrorCode.NO_PERMISSION, SIN_ROL)))
                 .build();
     }
 
@@ -155,10 +155,10 @@ class SecurityConfiguration {
                 // configurado en spring.security.oauth2.resourceserver. La rotacion de claves sale
                 // gratis: el decodificador relee el JWKS cuando aparece un "kid" que no conoce.
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults())
-                        .authenticationEntryPoint((peticion, response, fallo) ->
-                                problemas.escribir(peticion, response, ErrorCode.NO_AUTENTICADO, SIN_TOKEN))
-                        .accessDeniedHandler((peticion, response, fallo) ->
-                                problemas.escribir(peticion, response, ErrorCode.SIN_PERMISO, SIN_ROL)))
+                        .authenticationEntryPoint((request, response, failure) ->
+                                problemas.escribir(request, response, ErrorCode.NOT_AUTHENTICATED, SIN_TOKEN))
+                        .accessDeniedHandler((request, response, failure) ->
+                                problemas.escribir(request, response, ErrorCode.NO_PERMISSION, SIN_ROL)))
                 .addFilterBefore(new IdentityFilter(identities, problemas), AuthorizationFilter.class)
                 // Despues del de identidad y no "tambien antes de la autorizacion": el de
                 // condominio necesita la cuenta que resuelve el otro, y dos filtros insertados en
@@ -209,11 +209,11 @@ class SecurityConfiguration {
                         // pueda leer, no un 302 hacia Keycloak: la redireccion la haria el XHR y el
                         // navegador acabaria pintando el login dentro de una respuesta JSON.
                         .defaultAuthenticationEntryPointFor(
-                                (peticion, response, fallo) ->
-                                        problemas.escribir(peticion, response, ErrorCode.NO_AUTENTICADO, SIN_SESION),
+                                (request, response, failure) ->
+                                        problemas.escribir(request, response, ErrorCode.NOT_AUTHENTICATED, SIN_SESION),
                                 esDeLaApi())
-                        .accessDeniedHandler((peticion, response, fallo) ->
-                                problemas.escribir(peticion, response, ErrorCode.SIN_PERMISO, SIN_ROL)))
+                        .accessDeniedHandler((request, response, failure) ->
+                                problemas.escribir(request, response, ErrorCode.NO_PERMISSION, SIN_ROL)))
                 .build();
     }
 
@@ -249,15 +249,14 @@ class SecurityConfiguration {
      * cabecera, la peticion cae en la cadena del BFF y se resuelve con la cookie.
      */
     private static RequestMatcher newRequestWithBearer() {
-        return (HttpServletRequest peticion) -> {
-            String cabecera = peticion.getHeader(HttpHeaders.AUTHORIZATION);
-            return cabecera != null && cabecera.toLowerCase(Locale.ROOT).startsWith("bearer ");
+        return (HttpServletRequest request) -> {
+            String header = request.getHeader(HttpHeaders.AUTHORIZATION);
+            return header != null && header.toLowerCase(Locale.ROOT).startsWith("bearer ");
         };
     }
 
     private static RequestMatcher esDeLaApi() {
-        return (HttpServletRequest peticion) ->
-                peticion.getRequestURI().startsWith(RoutesConfiguration.PREFIJO_DE_VERSION);
+        return (HttpServletRequest request) -> request.getRequestURI().startsWith(RoutesConfiguration.VERSION_PREFIX);
     }
 
     private static final String SIN_TOKEN = "Hace falta un token valido para esta operacion.";

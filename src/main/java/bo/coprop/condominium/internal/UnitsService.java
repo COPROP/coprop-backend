@@ -148,25 +148,25 @@ class UnitsService implements Units {
      */
     private static void rejectDuplicateCodesInBatch(List<NewUnit> incoming) {
         Set<String> vistos = new HashSet<>();
-        List<String> repetidos = incoming.stream()
+        List<String> duplicates = incoming.stream()
                 .map(NewUnit::code)
                 .filter(code -> !vistos.add(code))
                 .distinct()
                 .toList();
-        if (!repetidos.isEmpty()) {
-            throw new BusinessRuleViolated("El lote repite estos codigos de unidad: %s.".formatted(repetidos));
+        if (!duplicates.isEmpty()) {
+            throw new BusinessRuleViolated("El lote repite estos codigos de unidad: %s.".formatted(duplicates));
         }
     }
 
     private void rejectAlreadyUsedCodes(UUID condominiumId, List<NewUnit> incoming) {
         List<String> codes = incoming.stream().map(NewUnit::code).toList();
-        List<String> yaUsados = units.findByCondominiumIdAndCodeIn(condominiumId, codes).stream()
+        List<String> alreadyUsed = units.findByCondominiumIdAndCodeIn(condominiumId, codes).stream()
                 .map(Unit::getCode)
                 .sorted()
                 .toList();
-        if (!yaUsados.isEmpty()) {
+        if (!alreadyUsed.isEmpty()) {
             throw new BusinessRuleViolated(
-                    "El condominio ya tiene unidades con estos codigos: %s.".formatted(yaUsados));
+                    "El condominio ya tiene unidades con estos codigos: %s.".formatted(alreadyUsed));
         }
     }
 

@@ -54,10 +54,10 @@ public interface AuditTrail {
             UUID condominiumId,
             @Nullable String actor,
             @Nullable String entity,
-            @Nullable Instant desde,
+            @Nullable Instant from,
             @Nullable Instant until,
             int page,
-            int tamano);
+            int size);
 
     /**
      * Las acciones de <strong>plataforma</strong>, las que no cuelgan de ningun condominio. Issue
@@ -78,10 +78,10 @@ public interface AuditTrail {
     PagedResponse<AuditEntryView> ofPlatform(
             @Nullable String actor,
             @Nullable String entity,
-            @Nullable Instant desde,
+            @Nullable Instant from,
             @Nullable Instant until,
             int page,
-            int tamano);
+            int size);
 
     /**
      * Borra lo anterior a esa fecha y devuelve cuantas filas se fueron.

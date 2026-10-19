@@ -65,34 +65,34 @@ public class InvitationDoubles {
          * comprobar es que llego algo que se puede pulsar. Si manana el cuerpo cambia de redaccion
          * pero conserva el enlace, esto sigue valiendo.
          */
-        private static final Pattern ENLACE = Pattern.compile("/invitaciones/([A-Za-z0-9_-]+)");
+        private static final Pattern ENLACE = Pattern.compile("/invitations/([A-Za-z0-9_-]+)");
 
-        private final List<Enviado> enviados = new ArrayList<>();
+        private final List<Sent> sent = new ArrayList<>();
 
         @Override
-        public synchronized void enviar(String destinatario, String asunto, String cuerpo) {
-            enviados.add(new Enviado(destinatario, asunto, cuerpo));
+        public synchronized void enviar(String recipient, String asunto, String cuerpo) {
+            sent.add(new Sent(recipient, asunto, cuerpo));
         }
 
-        public synchronized List<Enviado> enviados() {
-            return List.copyOf(enviados);
+        public synchronized List<Sent> sent() {
+            return List.copyOf(sent);
         }
 
         public synchronized void vaciar() {
-            enviados.clear();
+            sent.clear();
         }
 
         /** El token del ultimo correo enviado a esa direccion. */
-        public synchronized Optional<String> ultimoTokenPara(String destinatario) {
-            return enviados.reversed().stream()
-                    .filter(enviado -> enviado.destinatario().equals(destinatario))
-                    .map(enviado -> ENLACE.matcher(enviado.cuerpo()))
+        public synchronized Optional<String> ultimoTokenPara(String recipient) {
+            return sent.reversed().stream()
+                    .filter(sent -> sent.recipient().equals(recipient))
+                    .map(sent -> ENLACE.matcher(sent.cuerpo()))
                     .filter(java.util.regex.Matcher::find)
-                    .map(encontrado -> encontrado.group(1))
+                    .map(found -> found.group(1))
                     .findFirst();
         }
 
-        public record Enviado(String destinatario, String asunto, String cuerpo) {}
+        public record Sent(String recipient, String asunto, String cuerpo) {}
     }
 
     /**

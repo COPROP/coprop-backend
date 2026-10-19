@@ -31,7 +31,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 /**
- * {@code GET /api/v1/me/sesiones} y su cierre: la lista de sesiones activas que pide Seguridad 8 y
+ * {@code GET /api/v1/me/sessions} y su cierre: la lista de sesiones activas que pide Seguridad 8 y
  * el "cerrar sesion en todos los dispositivos" de 5.3. Issue <strong>#22</strong>.
  *
  * <p>Lo que se prueba aqui es la <strong>composicion de las dos mitades</strong>, que es donde esta
@@ -89,7 +89,7 @@ class MySessionsTests {
                         ahora.minus(3, ChronoUnit.DAYS),
                         ahora.minus(1, ChronoUnit.MINUTES)));
 
-        mockMvc.perform(peticion(HttpMethod.GET, "/api/v1/me/sesiones", principal.token(), null))
+        mockMvc.perform(authorizedRequest(HttpMethod.GET, "/api/v1/me/sessions", principal.token(), null))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
                 // De la mas usada a la menos: la del telefono se uso hace un minuto.
@@ -115,7 +115,7 @@ class MySessionsTests {
 
         // La peticion llega con Bearer, asi que no hay sesion de servidor con la que compararse.
         // Marcarla como actual seria mentir: quien pregunta desde el telefono no esta en esa.
-        mockMvc.perform(peticion(HttpMethod.GET, "/api/v1/me/sesiones", principal.token(), null))
+        mockMvc.perform(authorizedRequest(HttpMethod.GET, "/api/v1/me/sessions", principal.token(), null))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].current").value(false));
     }
@@ -125,7 +125,7 @@ class MySessionsTests {
     void withoutSessionsTheListIsEmpty() throws Exception {
         Quien principal = cuentaQueYaEntro();
 
-        mockMvc.perform(peticion(HttpMethod.GET, "/api/v1/me/sesiones", principal.token(), null))
+        mockMvc.perform(authorizedRequest(HttpMethod.GET, "/api/v1/me/sessions", principal.token(), null))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
     }
@@ -141,7 +141,7 @@ class MySessionsTests {
 
         // Quien mira esta pantalla esta intentando averiguar si le robaron la cuenta. Dejarle sin
         // respuesta porque Keycloak no contesta no le ayuda a decidir nada; media lista si.
-        mockMvc.perform(peticion(HttpMethod.GET, "/api/v1/me/sesiones", principal.token(), null))
+        mockMvc.perform(authorizedRequest(HttpMethod.GET, "/api/v1/me/sessions", principal.token(), null))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].origin").value("BROWSER"));
@@ -155,12 +155,12 @@ class MySessionsTests {
         bffSessions.conSesionAbierta(
                 principal.tokenSubject(), new BffSession("del-navegador", ahora, ahora, Duration.ofHours(24)));
 
-        mockMvc.perform(peticion(HttpMethod.POST, "/api/v1/me/sesiones/cierre", principal.token(), null))
+        mockMvc.perform(authorizedRequest(HttpMethod.POST, "/api/v1/me/sessions/closure", principal.token(), null))
                 .andExpect(status().isNoContent());
 
         // Los dos nombres, por lo mismo que en la baja del #19: hoy el indice es el sujeto del
         // proveedor, y pasar tambien el de la cuenta deja el cierre a salvo del dia que cambie.
-        Assertions.assertThat(bffSessions.cerradas())
+        Assertions.assertThat(bffSessions.closed())
                 .singleElement()
                 .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.collection(String.class))
                 .containsExactlyInAnyOrder(
@@ -171,7 +171,7 @@ class MySessionsTests {
                 .contains(principal.account().email());
 
         // Despues no queda ninguna.
-        mockMvc.perform(peticion(HttpMethod.GET, "/api/v1/me/sesiones", principal.token(), null))
+        mockMvc.perform(authorizedRequest(HttpMethod.GET, "/api/v1/me/sessions", principal.token(), null))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
     }
@@ -192,17 +192,18 @@ class MySessionsTests {
         PersonView person = people.register(new NewPerson("Emma", "Tola", null), "admin");
         AccountView account = people.openAccount(person.id(), TestTokenProvider.correoNuevo(), null, "admin");
         String tokenSubject = TestTokenProvider.sujetoNuevo();
-        String token = "Bearer " + TestTokenProvider.valido(tokenSubject, account.email());
+        String token = "Bearer " + TestTokenProvider.valid(tokenSubject, account.email());
 
-        mockMvc.perform(peticion(HttpMethod.GET, "/api/v1/me", token, null)).andExpect(status().isOk());
+        mockMvc.perform(authorizedRequest(HttpMethod.GET, "/api/v1/me", token, null))
+                .andExpect(status().isOk());
         return new Quien(account, tokenSubject, token);
     }
 
-    private MockHttpServletRequestBuilder peticion(
-            HttpMethod metodo, String ruta, String autorizacion, @Nullable String cuerpo) {
-        var constructor = request(metodo, ruta)
+    private MockHttpServletRequestBuilder authorizedRequest(
+            HttpMethod metodo, String path, String authorizationHeader, @Nullable String cuerpo) {
+        var constructor = request(metodo, path)
                 .with(SecurityMockMvcRequestPostProcessors.csrf())
-                .header(HttpHeaders.AUTHORIZATION, autorizacion);
+                .header(HttpHeaders.AUTHORIZATION, authorizationHeader);
         if (cuerpo != null) {
             constructor
                     .contentType(org.springframework.http.MediaType.APPLICATION_JSON)

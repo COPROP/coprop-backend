@@ -77,12 +77,12 @@ public final class Masker {
         if (texto == null || texto.isEmpty()) {
             return "";
         }
-        String resultado = texto;
+        String result = texto;
         for (Regla regla : REGLAS) {
             // El reemplazo lleva $1 y $2 a proposito: conserva el nombre de la clave y tapa solo
             // el valor. Las cadenas son constantes de esta clase, nunca entrada del usuario.
-            resultado = regla.patron().matcher(resultado).replaceAll(regla.reemplazo());
+            result = regla.patron().matcher(result).replaceAll(regla.reemplazo());
         }
-        return resultado;
+        return result;
     }
 }

@@ -32,7 +32,7 @@ public interface Mail {
      * @throws FalloDeEnvio si no se pudo entregar al servidor de correo. No se traga: quien envia
      *     decide que hacer, y en la invitacion lo que se hace es deshacer la emision.
      */
-    void enviar(String destinatario, String asunto, String cuerpo);
+    void enviar(String recipient, String asunto, String cuerpo);
 
     /** No se pudo entregar el correo al servidor. */
     class FalloDeEnvio extends RuntimeException {

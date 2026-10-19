@@ -29,7 +29,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  *
  * <p>Es el punto donde "autenticado" deja de significar "tiene un token de Keycloak" y pasa a
  * significar "es alguien en COPROP". Un token perfectamente valido de alguien sin cuenta aqui
- * <strong>no pasa de este filtro</strong>: responde 403 con {@code SIN_CUENTA}. Es lo que pide
+ * <strong>no pasa de este filtro</strong>: responde 403 con {@code NO_ACCOUNT}. Es lo que pide
  * Seguridad 10.1, que el acceso lo de la invitacion y no el haberse autenticado, y lo que hace que
  * encender el login con Google no reparta acceso a nadie.
  *
@@ -56,15 +56,15 @@ class IdentityFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest peticion, HttpServletResponse response, FilterChain cadena)
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain cadena)
             throws ServletException, IOException {
-        Authentication autenticacion = SecurityContextHolder.getContext().getAuthentication();
-        TokenSubject tokenSubject = tokenSubjectOf(autenticacion);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        TokenSubject tokenSubject = tokenSubjectOf(authentication);
 
         // Rutas publicas --el OpenAPI, el arranque del login-- y cualquier cosa que no venga del
         // proveedor de identidad. Aqui no hay nada que resolver.
-        if (autenticacion == null || tokenSubject == null) {
-            cadena.doFilter(peticion, response);
+        if (authentication == null || tokenSubject == null) {
+            cadena.doFilter(request, response);
             return;
         }
 
@@ -74,13 +74,13 @@ class IdentityFilter extends OncePerRequestFilter {
         String subject = tokenSubject.subject();
         String email = tokenSubject.email();
         AccountView account = subject != null && email != null
-                ? identities.signIn(subject, email, tokenSubject.emailVerificado())
+                ? identities.signIn(subject, email, tokenSubject.emailVerified())
                 : null;
         if (account == null) {
             problemas.escribir(
-                    peticion,
+                    request,
                     response,
-                    ErrorCode.SIN_CUENTA,
+                    ErrorCode.NO_ACCOUNT,
                     "Tu cuenta todavia no tiene acceso a COPROP. Pide tu invitacion al administrador de tu condominio.");
             return;
         }
@@ -93,12 +93,12 @@ class IdentityFilter extends OncePerRequestFilter {
                 : List.<GrantedAuthority>of();
         var identity = new AuthenticatedIdentity(
                 new AuthenticatedIdentity.Actor(account.id(), account.personId()),
-                tokenSubject.autenticacion(),
+                tokenSubject.authentication(),
                 authorities);
         SecurityContextHolder.getContext().setAuthentication(identity);
         MDC.put(LogKeys.ACTOR, identity.getName());
         try {
-            cadena.doFilter(peticion, response);
+            cadena.doFilter(request, response);
         } finally {
             MDC.remove(LogKeys.ACTOR);
         }
@@ -116,26 +116,26 @@ class IdentityFilter extends OncePerRequestFilter {
      * ningun otro sitio</strong>: este filtro sustituye la autenticacion del proveedor por la de
      * COPROP, asi que es el ultimo punto de la peticion donde el token todavia esta a la vista.
      */
-    private static @Nullable TokenSubject tokenSubjectOf(@Nullable Authentication autenticacion) {
-        if (autenticacion == null || !autenticacion.isAuthenticated()) {
+    private static @Nullable TokenSubject tokenSubjectOf(@Nullable Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
             return null;
         }
-        Object principal = autenticacion.getPrincipal();
+        Object principal = authentication.getPrincipal();
         if (principal instanceof Jwt token) {
             return new TokenSubject(
                     token.getSubject(),
                     token.getClaimAsString("email"),
                     Boolean.TRUE.equals(token.getClaimAsBoolean("email_verified")),
-                    new AuthenticatedIdentity.Autenticacion(
+                    new AuthenticatedIdentity.AuthenticationFacts(
                             token.getClaimAsInstant("auth_time"), metodosDe(token.getClaimAsStringList("amr"))));
         }
-        if (principal instanceof OidcUser usuario) {
+        if (principal instanceof OidcUser user) {
             return new TokenSubject(
-                    usuario.getSubject(),
-                    usuario.getEmail(),
-                    Boolean.TRUE.equals(usuario.getEmailVerified()),
-                    new AuthenticatedIdentity.Autenticacion(
-                            usuario.getAuthenticatedAt(), metodosDe(usuario.getClaimAsStringList("amr"))));
+                    user.getSubject(),
+                    user.getEmail(),
+                    Boolean.TRUE.equals(user.getEmailVerified()),
+                    new AuthenticatedIdentity.AuthenticationFacts(
+                            user.getAuthenticatedAt(), metodosDe(user.getClaimAsStringList("amr"))));
         }
         return null;
     }
@@ -157,6 +157,6 @@ class IdentityFilter extends OncePerRequestFilter {
     private record TokenSubject(
             @Nullable String subject,
             @Nullable String email,
-            boolean emailVerificado,
-            AuthenticatedIdentity.Autenticacion autenticacion) {}
+            boolean emailVerified,
+            AuthenticatedIdentity.AuthenticationFacts authentication) {}
 }

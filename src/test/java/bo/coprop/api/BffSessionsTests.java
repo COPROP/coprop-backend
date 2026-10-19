@@ -110,16 +110,15 @@ class BffSessionsTests {
         // Con los dos nombres, igual que el cierre: hoy solo uno de los dos encuentra algo, y el
         // dia que los dos encuentren la misma sesion no se puede listar dos veces o el usuario
         // creeria tener dos navegadores abiertos donde hay uno.
-        var encontradas =
-                sessions.listThoseOf(Set.of(tokenSubject, UUID.randomUUID().toString()));
+        var found = sessions.listThoseOf(Set.of(tokenSubject, UUID.randomUUID().toString()));
 
-        assertThat(encontradas).singleElement().satisfies(session -> {
+        assertThat(found).singleElement().satisfies(session -> {
             assertThat(session.id()).isEqualTo(id);
             assertThat(session.created()).isNotNull();
             assertThat(session.lastAccess()).isNotNull();
             // El tiempo sale de la sesion y no de una constante: es el que el filtro de vigencia
             // le dejo puesto, y en una sesion recien creada es el de la configuracion.
-            assertThat(session.inactividad()).isPositive();
+            assertThat(session.inactivity()).isPositive();
         });
     }
 
@@ -149,12 +148,12 @@ class BffSessionsTests {
                 Instant.now(),
                 Instant.now().plus(1, ChronoUnit.HOURS),
                 Map.of(IdTokenClaimNames.SUB, tokenSubject));
-        var usuario = new DefaultOidcUser(List.of(new SimpleGrantedAuthority("ROLE_USER")), idToken);
-        var autenticacion =
-                new OAuth2AuthenticationToken(usuario, usuario.getAuthorities(), SecurityConfiguration.REGISTRO_WEB);
+        var user = new DefaultOidcUser(List.of(new SimpleGrantedAuthority("ROLE_USER")), idToken);
+        var authentication =
+                new OAuth2AuthenticationToken(user, user.getAuthorities(), SecurityConfiguration.REGISTRO_WEB);
 
         SecurityContext contexto = SecurityContextHolder.createEmptyContext();
-        contexto.setAuthentication(autenticacion);
+        contexto.setAuthentication(authentication);
         return guardar(repositorio, contexto);
     }
 

@@ -95,7 +95,7 @@ class InvitationsService implements Invitations {
 
         Instant ahora = clock.instant();
         anterior.revoke(ahora);
-        publicarRevocacion(anterior, true, actor, ahora);
+        publishRevocation(anterior, true, actor, ahora);
 
         // Hay que forzar el flush entre cerrar la anterior y crear la nueva. Hibernate ordena todos
         // los INSERT antes que los UPDATE dentro de un mismo flush, asi que sin esto el indice
@@ -116,7 +116,7 @@ class InvitationsService implements Invitations {
 
         Instant ahora = clock.instant();
         invitation.revoke(ahora);
-        publicarRevocacion(invitation, false, actor, ahora);
+        publishRevocation(invitation, false, actor, ahora);
 
         return view(invitation);
     }
@@ -197,7 +197,7 @@ class InvitationsService implements Invitations {
      * un reenvio.
      */
     private InvitationView issue(
-            UUID condominiumId, UserAccount account, Set<MembershipRole> roles, String actor, boolean reenviada) {
+            UUID condominiumId, UserAccount account, Set<MembershipRole> roles, String actor, boolean resent) {
         Instant ahora = clock.instant();
         String token = InvitationToken.body();
 
@@ -218,7 +218,7 @@ class InvitationsService implements Invitations {
                 account.getId(),
                 invitation.getRoles(),
                 invitation.getExpiresAt(),
-                reenviada,
+                resent,
                 actor,
                 ahora));
 
@@ -227,7 +227,7 @@ class InvitationsService implements Invitations {
                 invitation.getId(),
                 account.getId(),
                 condominiumId,
-                reenviada);
+                resent);
         return view(invitation);
     }
 
@@ -251,7 +251,7 @@ class InvitationsService implements Invitations {
 
                 Para entrar, abri este enlace:
 
-                %s/invitaciones/%s
+                %s/invitations/%s
 
                 El enlace sirve una sola vez y vence en 7 dias. Si no lo pediste, ignora este correo.
                 """
@@ -362,7 +362,7 @@ class InvitationsService implements Invitations {
                 invitation.getInvitedBy());
     }
 
-    private void publicarRevocacion(Invitation invitation, boolean porReenvio, String actor, Instant ahora) {
+    private void publishRevocation(Invitation invitation, boolean porReenvio, String actor, Instant ahora) {
         eventos.publishEvent(new InvitationRevoked(
                 invitation.getCondominiumId(),
                 invitation.getId(),
