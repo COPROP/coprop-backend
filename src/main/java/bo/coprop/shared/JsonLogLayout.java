@@ -26,34 +26,34 @@ public class JsonLogLayout implements StructuredLogFormatter<ILoggingEvent> {
     public String format(ILoggingEvent evento) {
         StringBuilder json = new StringBuilder(256);
         json.append('{');
-        campo(json, "timestamp", Instant.ofEpochMilli(evento.getTimeStamp()).toString(), true);
-        campo(json, "level", evento.getLevel().toString(), false);
-        campo(json, "logger", evento.getLoggerName(), false);
-        campo(json, "thread", evento.getThreadName(), false);
-        campo(json, "message", Masker.enmascarar(evento.getFormattedMessage()), false);
+        field(json, "timestamp", Instant.ofEpochMilli(evento.getTimeStamp()).toString(), true);
+        field(json, "level", evento.getLevel().toString(), false);
+        field(json, "logger", evento.getLoggerName(), false);
+        field(json, "thread", evento.getThreadName(), false);
+        field(json, "message", Masker.mask(evento.getFormattedMessage()), false);
 
         // El MDC entero, enmascarado: asi una clave nueva (condominiumId, actorId) aparece en los
         // logs sin tocar esta clase.
         for (Map.Entry<String, String> entrada : evento.getMDCPropertyMap().entrySet()) {
-            campo(json, entrada.getKey(), Masker.valorDe(entrada.getKey(), entrada.getValue()), false);
+            field(json, entrada.getKey(), Masker.valueOf(entrada.getKey(), entrada.getValue()), false);
         }
 
         IThrowableProxy fallo = evento.getThrowableProxy();
         if (fallo != null) {
-            campo(json, "error.type", fallo.getClassName(), false);
-            campo(json, "error.message", Masker.enmascarar(fallo.getMessage()), false);
-            campo(json, "error.stack_trace", Masker.enmascarar(ThrowableProxyUtil.asString(fallo)), false);
+            field(json, "error.type", fallo.getClassName(), false);
+            field(json, "error.message", Masker.mask(fallo.getMessage()), false);
+            field(json, "error.stack_trace", Masker.mask(ThrowableProxyUtil.asString(fallo)), false);
         }
         json.append("}\n");
         return json.toString();
     }
 
-    private static void campo(StringBuilder json, String clave, @Nullable String valor, boolean primero) {
+    private static void field(StringBuilder json, String key, @Nullable String valor, boolean primero) {
         if (!primero) {
             json.append(',');
         }
         json.append('"');
-        escapar(json, clave);
+        escapar(json, key);
         json.append("\":\"");
         escapar(json, valor);
         json.append('"');

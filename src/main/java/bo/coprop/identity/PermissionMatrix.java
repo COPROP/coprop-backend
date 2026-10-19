@@ -51,7 +51,7 @@ import java.util.Set;
  * <p><strong>Lo que esta matriz no decide</strong>: si <em>este</em> recurso es tuyo. Eso es
  * {@link Scope#OWN}, y lo resuelve {@code AccessControl} en el modulo {@code api} (issue
  * #15), que es el unico sitio donde se ven a la vez la matriz y las relaciones de la unidad. Y si
- * hizo falta segundo factor hace poco, que es {@link #pideSegundoFactor} y lo hara cumplir el #22.
+ * hizo falta segundo factor hace poco, que es {@link #requiresSecondFactor} y lo hara cumplir el #22.
  */
 public final class PermissionMatrix {
 
@@ -70,15 +70,15 @@ public final class PermissionMatrix {
     private PermissionMatrix() {}
 
     /** Hasta donde llega ese rol para ese permiso. Nunca nulo: lo que no se declara es NONE. */
-    public static Scope alcanceDe(MembershipRole rol, Permission permiso) {
-        return MATRIZ.getOrDefault(rol, Map.of()).getOrDefault(permiso, Scope.NONE);
+    public static Scope scopeOf(MembershipRole rol, Permission permission) {
+        return MATRIZ.getOrDefault(rol, Map.of()).getOrDefault(permission, Scope.NONE);
     }
 
     /** El alcance mayor que dan los roles de una membresia, que puede tener varios. */
-    public static Scope alcanceDe(Set<MembershipRole> roles, Permission permiso) {
+    public static Scope scopeOf(Set<MembershipRole> roles, Permission permission) {
         Scope mayor = Scope.NONE;
         for (MembershipRole rol : roles) {
-            Scope suyo = alcanceDe(rol, permiso);
+            Scope suyo = scopeOf(rol, permission);
             if (suyo.compareTo(mayor) > 0) {
                 mayor = suyo;
             }
@@ -86,8 +86,8 @@ public final class PermissionMatrix {
         return mayor;
     }
 
-    public static boolean pideSegundoFactor(Permission permiso) {
-        return CON_SEGUNDO_FACTOR.contains(permiso);
+    public static boolean requiresSecondFactor(Permission permission) {
+        return CON_SEGUNDO_FACTOR.contains(permission);
     }
 
     /**
@@ -152,14 +152,14 @@ public final class PermissionMatrix {
         // esta matriz: esta en que relacion tienen con la unidad, y por eso las dos columnas son
         // identicas. Quien las separa es AccessControl, que pregunta por las tres relaciones
         // --titularidad, ocupacion y responsabilidad de pago-- y no solo por la titularidad.
-        var propietario = Map.of(
+        var owner = Map.of(
                 VIEW_ACCOUNT_STATEMENT, OWN,
                 VIEW_CREDIT_BALANCES, OWN,
                 GENERATE_QR, OWN,
                 UPLOAD_RECEIPT, OWN,
                 RESERVE, OWN);
-        matriz.put(MembershipRole.OWNER, propietario);
-        matriz.put(MembershipRole.TENANT, propietario);
+        matriz.put(MembershipRole.OWNER, owner);
+        matriz.put(MembershipRole.TENANT, owner);
 
         // Porteria: lecturas y el dia a dia de las areas comunes. No ve dinero.
         matriz.put(MembershipRole.MAINTENANCE, Map.of(RECORD_METER_READINGS, ALL, OPERATE_AMENITIES, ALL));

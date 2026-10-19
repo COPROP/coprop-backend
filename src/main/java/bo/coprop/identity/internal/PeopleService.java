@@ -19,22 +19,22 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 class PeopleService implements People {
 
-    private final PersonRepository personas;
-    private final UserAccountRepository cuentas;
+    private final PersonRepository people;
+    private final UserAccountRepository accounts;
     private final ApplicationEventPublisher eventos;
-    private final Clock reloj;
+    private final Clock clock;
 
     PeopleService(
-            PersonRepository personas, UserAccountRepository cuentas, ApplicationEventPublisher eventos, Clock reloj) {
-        this.personas = personas;
-        this.cuentas = cuentas;
+            PersonRepository people, UserAccountRepository accounts, ApplicationEventPublisher eventos, Clock clock) {
+        this.people = people;
+        this.accounts = accounts;
         this.eventos = eventos;
-        this.reloj = reloj;
+        this.clock = clock;
     }
 
     @Override
     @Transactional
-    public PersonView register(NewPerson nueva, String actor) {
+    public PersonView register(NewPerson body, String actor) {
         // Responde igual exista o no. Si el carnet ya esta registrado se reutiliza la fila: la
         // persona es global, asi que un alta que distinguiera los dos casos le diria al
         // administrador de un condominio que esa persona existe en otro. Mismo criterio que el
@@ -43,70 +43,69 @@ class PeopleService implements People {
         // Sin carnet no hay con que reconocerla y siempre se crea una nueva: dos personas pueden
         // llamarse igual, y deducir que son la misma por el nombre fusionaria a dos propietarios
         // distintos, que es mucho peor que duplicar uno.
-        String carnet = nueva.nationalId();
+        String carnet = body.nationalId();
         if (carnet != null) {
-            var yaRegistrada = personas.findByNationalId(carnet);
+            var yaRegistrada = people.findByNationalId(carnet);
             if (yaRegistrada.isPresent()) {
-                return vista(yaRegistrada.get());
+                return view(yaRegistrada.get());
             }
         }
 
-        Instant ahora = reloj.instant();
-        Person persona = personas.save(new Person(nueva.firstNames(), nueva.lastNames(), carnet, ahora));
+        Instant ahora = clock.instant();
+        Person person = people.save(new Person(body.firstNames(), body.lastNames(), carnet, ahora));
 
         // Solo cuando la fila se crea de verdad. Un evento por intento dejaria en la bitacora del
         // #21 el rastro de que esa persona ya estaba, que es justo lo que la respuesta uniforme
         // evita.
-        eventos.publishEvent(new PersonRegistered(persona.getId(), actor, ahora));
+        eventos.publishEvent(new PersonRegistered(person.getId(), actor, ahora));
 
-        return vista(persona);
+        return view(person);
     }
 
     @Override
     @Transactional(readOnly = true)
     public PersonView find(UUID personId) {
-        return vista(buscarPersona(personId));
+        return view(findPerson(personId));
     }
 
     @Override
     @Transactional
     public AccountView openAccount(UUID personId, String email, @Nullable String phone, String actor) {
-        buscarPersona(personId);
+        findPerson(personId);
 
         // Una cuenta por persona: el titulo del issue #11. La base tambien lo impone, pero
         // comprobarlo aqui permite decir que pasa en vez de devolver un choque de integridad.
-        if (cuentas.existsByPersonId(personId)) {
+        if (accounts.existsByPersonId(personId)) {
             throw new BusinessRuleViolated("La persona %s ya tiene cuenta.".formatted(personId));
         }
         // El correo identifica la cuenta de cara al login, asi que no puede repetirse. Esto si
         // revela que el correo esta en uso; es inevitable para no permitir dos cuentas con el
         // mismo, y el issue #18 --invitaciones-- es quien tiene que presentar bien ese caso.
-        if (cuentas.existsByEmail(email)) {
+        if (accounts.existsByEmail(email)) {
             throw new BusinessRuleViolated("El correo %s ya esta en uso.".formatted(email));
         }
 
-        Instant ahora = reloj.instant();
-        UserAccount cuenta = cuentas.save(new UserAccount(personId, email, phone, ahora));
+        Instant ahora = clock.instant();
+        UserAccount account = accounts.save(new UserAccount(personId, email, phone, ahora));
 
-        eventos.publishEvent(new AccountOpened(cuenta.getId(), personId, actor, ahora));
+        eventos.publishEvent(new AccountOpened(account.getId(), personId, actor, ahora));
 
-        return cuenta.vista();
+        return account.view();
     }
 
     @Override
     @Transactional(readOnly = true)
     public AccountView findAccount(UUID accountId) {
-        return cuentas.findById(accountId)
+        return accounts.findById(accountId)
                 .orElseThrow(() -> ResourceNotFound.de("la cuenta", accountId))
-                .vista();
+                .view();
     }
 
-    private Person buscarPersona(UUID personId) {
-        return personas.findById(personId).orElseThrow(() -> ResourceNotFound.de("la persona", personId));
+    private Person findPerson(UUID personId) {
+        return people.findById(personId).orElseThrow(() -> ResourceNotFound.de("la persona", personId));
     }
 
-    private static PersonView vista(Person persona) {
-        return new PersonView(
-                persona.getId(), persona.getFirstNames(), persona.getLastNames(), persona.getNationalId());
+    private static PersonView view(Person person) {
+        return new PersonView(person.getId(), person.getFirstNames(), person.getLastNames(), person.getNationalId());
     }
 }

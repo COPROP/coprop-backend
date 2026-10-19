@@ -71,7 +71,7 @@ class UserAccount {
     }
 
     /** Lo que de esta cuenta se puede enseñar. Sin {@code idpSubject}: es un puente interno. */
-    AccountView vista() {
+    AccountView view() {
         return new AccountView(id, personId, email, phone, status, mfaEnabled);
     }
 
@@ -83,7 +83,7 @@ class UserAccount {
      * del issue #86</strong>, que recoge el ciclo de vida de la credencial; se le atribuia al #19,
      * que resulto ser de la membresia y no de la cuenta.
      */
-    void vincular(String idpSubject, Instant cuando) {
+    void link(String idpSubject, Instant cuando) {
         this.idpSubject = idpSubject;
         this.status = AccountStatus.ACTIVE;
         this.lastAccessAt = cuando;
@@ -98,7 +98,7 @@ class UserAccount {
      * cae a un UPDATE cada {@value #MINUTOS_ENTRE_ACCESOS} minutos por cuenta y el dato sigue
      * sirviendo para lo que se guarda: saber si alguien entra o no entra.
      */
-    void registrarAcceso(Instant cuando) {
+    void recordAccess(Instant cuando) {
         if (lastAccessAt == null || lastAccessAt.isBefore(cuando.minus(Duration.ofMinutes(MINUTOS_ENTRE_ACCESOS)))) {
             this.lastAccessAt = cuando;
         }
@@ -110,7 +110,7 @@ class UserAccount {
      * <p>{@code INVITED} si puede: es justo quien no ha entrado nunca. Lo que no puede es una
      * cuenta bloqueada --por seguridad, se desbloquea-- ni una dada de baja, que no vuelve.
      */
-    boolean puedeEntrar() {
+    boolean canSignIn() {
         return status == AccountStatus.INVITED || status == AccountStatus.ACTIVE;
     }
 

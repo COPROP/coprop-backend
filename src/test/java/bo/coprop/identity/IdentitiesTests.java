@@ -38,10 +38,10 @@ class IdentitiesTests {
     private static final String SUJETO = "9f1c2d3e-0000-4444-8888-aaaabbbbcccc";
 
     @Autowired
-    private People personas;
+    private People people;
 
     @Autowired
-    private Identities identidades;
+    private Identities identities;
 
     @Autowired
     private DataSource dataSource;
@@ -49,18 +49,18 @@ class IdentitiesTests {
     @Autowired
     private EntityManager entityManager;
 
-    private AccountView cuentaDe(String correo) {
-        PersonView persona = personas.register(new NewPerson("Emma", "Tola", null), "admin");
-        return personas.openAccount(persona.id(), correo, null, "admin");
+    private AccountView accountOf(String email) {
+        PersonView person = people.register(new NewPerson("Emma", "Tola", null), "admin");
+        return people.openAccount(person.id(), email, null, "admin");
     }
 
     @Test
     @DisplayName("el primer login vincula la cuenta al sujeto del token y la activa")
     void elPrimerLoginVincula(PublishedEvents eventos) {
-        AccountView invitada = cuentaDe("emma@coprop.bo");
+        AccountView invitada = accountOf("emma@coprop.bo");
         assertThat(invitada.status()).isEqualTo(AccountStatus.INVITED);
 
-        AccountView entrada = requireNonNull(identidades.signIn(SUJETO, "emma@coprop.bo", true), "tenia que entrar");
+        AccountView entrada = requireNonNull(identities.signIn(SUJETO, "emma@coprop.bo", true), "tenia que entrar");
 
         assertThat(entrada.id()).isEqualTo(invitada.id());
         assertThat(entrada.status()).isEqualTo(AccountStatus.ACTIVE);
@@ -71,10 +71,10 @@ class IdentitiesTests {
     @Test
     @DisplayName("el segundo login no vuelve a vincular ni publica nada")
     void elSegundoLoginNoPublicaNada(PublishedEvents eventos) {
-        cuentaDe("emma@coprop.bo");
-        identidades.signIn(SUJETO, "emma@coprop.bo", true);
+        accountOf("emma@coprop.bo");
+        identities.signIn(SUJETO, "emma@coprop.bo", true);
 
-        AccountView otraVez = identidades.signIn(SUJETO, "emma@coprop.bo", true);
+        AccountView otraVez = identities.signIn(SUJETO, "emma@coprop.bo", true);
 
         assertThat(otraVez).isNotNull();
         assertThat(eventos.ofType(AccountActivated.class)).hasSize(1);
@@ -82,67 +82,67 @@ class IdentitiesTests {
 
     @Test
     @DisplayName("una vez vinculada, se reconoce por el sujeto aunque cambie el correo")
-    void seReconocePorElSujetoAunqueCambieElCorreo() {
-        AccountView cuenta = cuentaDe("emma@coprop.bo");
-        identidades.signIn(SUJETO, "emma@coprop.bo", true);
+    void itIsRecognizedBySubjectEvenIfTheEmailChanges() {
+        AccountView account = accountOf("emma@coprop.bo");
+        identities.signIn(SUJETO, "emma@coprop.bo", true);
 
         // El correo se cambia en el proveedor de identidad y el token empieza a traer otro. Sigue
         // siendo la misma persona: el sujeto no cambia nunca.
         AccountView newValues =
-                requireNonNull(identidades.signIn(SUJETO, "emma.tola@coprop.bo", true), "tenia que entrar");
+                requireNonNull(identities.signIn(SUJETO, "emma.tola@coprop.bo", true), "tenia que entrar");
 
-        assertThat(newValues.id()).isEqualTo(cuenta.id());
+        assertThat(newValues.id()).isEqualTo(account.id());
     }
 
     @Test
     @DisplayName("un correo sin verificar no vincula nada")
     void unCorreoSinVerificarNoVincula(PublishedEvents eventos) {
-        AccountView cuenta = cuentaDe("emma@coprop.bo");
+        AccountView account = accountOf("emma@coprop.bo");
 
         // Vincular por correo es lo que hace que la contraseña y Google caigan en la misma cuenta.
         // Si el proveedor no garantiza el correo, eso mismo seria la via para quedarse con la
         // cuenta ajena.
-        assertThat(identidades.signIn(SUJETO, "emma@coprop.bo", false)).isNull();
+        assertThat(identities.signIn(SUJETO, "emma@coprop.bo", false)).isNull();
 
-        assertThat(personas.findAccount(cuenta.id()).status()).isEqualTo(AccountStatus.INVITED);
+        assertThat(people.findAccount(account.id()).status()).isEqualTo(AccountStatus.INVITED);
         assertThat(eventos.ofType(AccountActivated.class)).isEmpty();
     }
 
     @Test
     @DisplayName("autenticarse no basta: sin cuenta en COPROP no hay identidad")
-    void sinCuentaNoHayIdentidad() {
+    void withoutAnAccountThereIsNoIdentity() {
         // Es el caso de quien entra con Google y nadie lo invito. Seguridad 10.1: Google solo
         // autentica, el acceso lo da la invitacion.
-        assertThat(identidades.signIn(SUJETO, "desconocida@gmail.com", true)).isNull();
+        assertThat(identities.signIn(SUJETO, "desconocida@gmail.com", true)).isNull();
     }
 
     @Test
     @DisplayName("una cuenta bloqueada no entra, y responde igual que si no existiera")
-    void unaCuentaBloqueadaNoEntra() {
-        AccountView cuenta = cuentaDe("emma@coprop.bo");
+    void aBlockedAccountDoesNotGetIn() {
+        AccountView account = accountOf("emma@coprop.bo");
 
         // Se bloquea por SQL porque todavia no hay operacion de dominio que lo haga: bloquear y
         // dar de baja una cuenta es el issue #19. Hace falta vaciar el contexto de persistencia
         // despues, o Hibernate devolveria la instancia que ya tiene en memoria --con el estado
         // viejo-- y el test pasaria sin comprobar nada.
         entityManager.flush();
-        new JdbcTemplate(dataSource).update("update user_account set status = 'BLOCKED' where id = ?", cuenta.id());
+        new JdbcTemplate(dataSource).update("update user_account set status = 'BLOCKED' where id = ?", account.id());
         entityManager.clear();
 
-        assertThat(identidades.signIn(SUJETO, "emma@coprop.bo", true)).isNull();
+        assertThat(identities.signIn(SUJETO, "emma@coprop.bo", true)).isNull();
     }
 
     @Test
     @DisplayName("el correo del token se compara sin distinguir mayusculas")
-    void elCorreoSeComparaSinMayusculas() {
-        AccountView cuenta = cuentaDe("emma@coprop.bo");
+    void theEmailIsComparedCaseInsensitively() {
+        AccountView account = accountOf("emma@coprop.bo");
 
         // El proveedor de identidad no promete como escribe el correo, y UNIQUE (email) si
         // distingue. Sin esto, un token con el correo en mayusculas abriria el camino de "no hay
         // cuenta" para alguien que si la tiene.
-        AccountView entrada = requireNonNull(identidades.signIn(SUJETO, "Emma@Coprop.bo", true), "tenia que entrar");
+        AccountView entrada = requireNonNull(identities.signIn(SUJETO, "Emma@Coprop.bo", true), "tenia que entrar");
 
-        assertThat(entrada.id()).isEqualTo(cuenta.id());
+        assertThat(entrada.id()).isEqualTo(account.id());
     }
 
     /** Reloj parado: asi el evento del primer login se compara contra una fecha concreta. */

@@ -55,16 +55,16 @@ class UnitRelationsController {
         this.relaciones = relaciones;
     }
 
-    @PreAuthorize("@autorizacion.puede(authentication, 'MANAGE_UNITS')")
+    @PreAuthorize("@authorization.can(authentication, 'MANAGE_UNITS')")
     @PostMapping("/propietarios")
-    ResponseEntity<OwnershipView> registrarPropietario(
+    ResponseEntity<OwnershipView> registerOwner(
             @PathVariable UUID condominiumId,
             @PathVariable UUID unitId,
-            @Valid @RequestBody NuevoPropietario nuevo,
-            Principal quien) {
-        OwnershipView creada =
-                relaciones.grantOwnership(condominiumId, unitId, nuevo.personId(), nuevo.share(), quien.getName());
-        return ResponseEntity.status(201).body(creada);
+            @Valid @RequestBody NewOwner body,
+            Principal principal) {
+        OwnershipView created =
+                relaciones.grantOwnership(condominiumId, unitId, body.personId(), body.share(), principal.getName());
+        return ResponseEntity.status(201).body(created);
     }
 
     /**
@@ -79,34 +79,34 @@ class UnitRelationsController {
      * propietario que pide la de un vecino recibe <strong>404</strong>; y porteria recibe
      * <strong>403</strong>, porque ahi lo que falla es el rol y no el recurso.
      */
-    @PreAuthorize("@acceso.puedeSobreLaUnidad(authentication, 'VIEW_ACCOUNT_STATEMENT', #condominiumId, #unitId)")
+    @PreAuthorize("@access.canOnUnit(authentication, 'VIEW_ACCOUNT_STATEMENT', #condominiumId, #unitId)")
     @GetMapping("/propietarios")
-    List<OwnershipView> propietarios(@PathVariable UUID condominiumId, @PathVariable UUID unitId) {
+    List<OwnershipView> owners(@PathVariable UUID condominiumId, @PathVariable UUID unitId) {
         return relaciones.ownersOf(condominiumId, unitId);
     }
 
-    @PreAuthorize("@autorizacion.puede(authentication, 'MANAGE_UNITS')")
+    @PreAuthorize("@authorization.can(authentication, 'MANAGE_UNITS')")
     @PostMapping("/ocupantes")
-    ResponseEntity<OccupancyView> registrarOcupante(
+    ResponseEntity<OccupancyView> registerOccupant(
             @PathVariable UUID condominiumId,
             @PathVariable UUID unitId,
-            @Valid @RequestBody NuevoOcupante nuevo,
-            Principal quien) {
-        OccupancyView creada =
-                relaciones.grantOccupancy(condominiumId, unitId, nuevo.personId(), nuevo.role(), quien.getName());
-        return ResponseEntity.status(201).body(creada);
+            @Valid @RequestBody NewOccupant body,
+            Principal principal) {
+        OccupancyView created =
+                relaciones.grantOccupancy(condominiumId, unitId, body.personId(), body.role(), principal.getName());
+        return ResponseEntity.status(201).body(created);
     }
 
-    @PreAuthorize("@autorizacion.puede(authentication, 'MANAGE_UNITS')")
+    @PreAuthorize("@authorization.can(authentication, 'MANAGE_UNITS')")
     @PostMapping("/responsables-de-pago")
     ResponseEntity<BillingResponsibilityView> asignarResponsable(
             @PathVariable UUID condominiumId,
             @PathVariable UUID unitId,
-            @Valid @RequestBody NuevoResponsable nuevo,
-            Principal quien) {
-        BillingResponsibilityView creada =
-                relaciones.assignBilling(condominiumId, unitId, nuevo.personId(), nuevo.conceptId(), quien.getName());
-        return ResponseEntity.status(201).body(creada);
+            @Valid @RequestBody NewBillingResponsible body,
+            Principal principal) {
+        BillingResponsibilityView created =
+                relaciones.assignBilling(condominiumId, unitId, body.personId(), body.conceptId(), principal.getName());
+        return ResponseEntity.status(201).body(created);
     }
 
     /**
@@ -121,9 +121,9 @@ class UnitRelationsController {
      * <p>Incluye la titularidad vigente, para que la lista se lea como una cadena y no haya que
      * juntarla con la otra consulta.
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'MANAGE_UNITS')")
+    @PreAuthorize("@authorization.can(authentication, 'MANAGE_UNITS')")
     @GetMapping("/propietarios/historico")
-    List<OwnershipView> historicoDePropietarios(@PathVariable UUID condominiumId, @PathVariable UUID unitId) {
+    List<OwnershipView> ownersHistory(@PathVariable UUID condominiumId, @PathVariable UUID unitId) {
         return relaciones.ownershipHistoryOf(condominiumId, unitId);
     }
 
@@ -137,15 +137,15 @@ class UnitRelationsController {
      *
      * <p>Responde la titularidad del comprador, que es lo unico que queda abierto al terminar.
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'MANAGE_UNITS')")
+    @PreAuthorize("@authorization.can(authentication, 'MANAGE_UNITS')")
     @PostMapping("/transferencia")
     OwnershipView transferir(
             @PathVariable UUID condominiumId,
             @PathVariable UUID unitId,
             @Valid @RequestBody Transferencia venta,
-            Principal quien) {
+            Principal principal) {
         return relaciones.transferOwnership(
-                condominiumId, unitId, venta.fromPersonId(), venta.toPersonId(), quien.getName());
+                condominiumId, unitId, venta.fromPersonId(), venta.toPersonId(), principal.getName());
     }
 
     /**
@@ -155,11 +155,14 @@ class UnitRelationsController {
      * de existir, y que por debajo se cierre una vigencia en vez de borrarse es asunto del dominio.
      * Responde 204 por lo mismo: no hay nada vigente que devolver.
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'MANAGE_UNITS')")
+    @PreAuthorize("@authorization.can(authentication, 'MANAGE_UNITS')")
     @DeleteMapping("/ocupantes/{personId}")
-    ResponseEntity<Void> terminarOcupacion(
-            @PathVariable UUID condominiumId, @PathVariable UUID unitId, @PathVariable UUID personId, Principal quien) {
-        relaciones.endOccupancy(condominiumId, unitId, personId, quien.getName());
+    ResponseEntity<Void> endOccupancy(
+            @PathVariable UUID condominiumId,
+            @PathVariable UUID unitId,
+            @PathVariable UUID personId,
+            Principal principal) {
+        relaciones.endOccupancy(condominiumId, unitId, personId, principal.getName());
         return ResponseEntity.noContent().build();
     }
 
@@ -170,15 +173,15 @@ class UnitRelationsController {
      *     asigno: cerrar la general no cierra las de un concepto concreto, porque son filas
      *     distintas y responden por cosas distintas
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'MANAGE_UNITS')")
+    @PreAuthorize("@authorization.can(authentication, 'MANAGE_UNITS')")
     @DeleteMapping("/responsables-de-pago/{personId}")
-    ResponseEntity<Void> terminarResponsabilidad(
+    ResponseEntity<Void> endBillingResponsibility(
             @PathVariable UUID condominiumId,
             @PathVariable UUID unitId,
             @PathVariable UUID personId,
             @RequestParam(required = false) @Nullable UUID conceptId,
-            Principal quien) {
-        relaciones.endBilling(condominiumId, unitId, personId, conceptId, quien.getName());
+            Principal principal) {
+        relaciones.endBilling(condominiumId, unitId, personId, conceptId, principal.getName());
         return ResponseEntity.noContent().build();
     }
 
@@ -196,15 +199,15 @@ class UnitRelationsController {
      * @param share porcentaje de copropiedad. Seis decimales, igual que la alicuota de la unidad y
      *     por la misma razon: a dos, un edificio grande deja bolivianos sin repartir cada mes.
      */
-    record NuevoPropietario(
+    record NewOwner(
             @NotNull UUID personId,
             @NotNull @Positive @DecimalMax("100.0") @Digits(integer = 3, fraction = 6) BigDecimal share) {}
 
-    record NuevoOcupante(@NotNull UUID personId, @NotNull OccupancyRole role) {}
+    record NewOccupant(@NotNull UUID personId, @NotNull OccupancyRole role) {}
 
     /**
      * @param conceptId nulo = responde por todo lo que se cobre a la unidad. El concepto como
      *     entidad nace en M2, asi que hoy no se comprueba que exista.
      */
-    record NuevoResponsable(@NotNull UUID personId, @Nullable UUID conceptId) {}
+    record NewBillingResponsible(@NotNull UUID personId, @Nullable UUID conceptId) {}
 }

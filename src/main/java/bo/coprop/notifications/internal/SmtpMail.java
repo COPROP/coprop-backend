@@ -30,23 +30,23 @@ class SmtpMail implements Mail {
 
     private static final Logger log = LoggerFactory.getLogger(SmtpMail.class);
 
-    private final JavaMailSender correo;
+    private final JavaMailSender email;
     private final String remitente;
 
-    SmtpMail(JavaMailSender correo, @Value("${coprop.correo.remitente}") String remitente) {
-        this.correo = correo;
+    SmtpMail(JavaMailSender email, @Value("${coprop.correo.remitente}") String remitente) {
+        this.email = email;
         this.remitente = remitente;
     }
 
     @Override
     public void enviar(String destinatario, String asunto, String cuerpo) {
-        var mensaje = new SimpleMailMessage();
-        mensaje.setFrom(remitente);
-        mensaje.setTo(destinatario);
-        mensaje.setSubject(asunto);
-        mensaje.setText(cuerpo);
+        var message = new SimpleMailMessage();
+        message.setFrom(remitente);
+        message.setTo(destinatario);
+        message.setSubject(asunto);
+        message.setText(cuerpo);
         try {
-            this.correo.send(mensaje);
+            this.email.send(message);
         } catch (MailException fallo) {
             throw new FalloDeEnvio("No se pudo enviar el correo a %s.".formatted(destinatario), fallo);
         }

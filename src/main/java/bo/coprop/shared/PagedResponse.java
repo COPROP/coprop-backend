@@ -23,15 +23,15 @@ import org.springframework.data.domain.Page;
  * @param total elementos que hay en total
  * @param totalPaginas paginas que hay en total
  */
-public record PagedResponse<T>(List<T> contenido, int pagina, int tamano, long total, int totalPaginas) {
+public record PagedResponse<T>(List<T> contenido, int page, int tamano, long total, int totalPages) {
 
     /** Envuelve una pagina de Spring Data convirtiendo cada elemento a su representacion de API. */
-    public static <E, T> PagedResponse<T> de(Page<E> pagina, Function<E, T> aDto) {
+    public static <E, T> PagedResponse<T> de(Page<E> page, Function<E, T> aDto) {
         return new PagedResponse<>(
-                pagina.getContent().stream().map(aDto).toList(),
-                pagina.getNumber(),
-                pagina.getSize(),
-                pagina.getTotalElements(),
-                pagina.getTotalPages());
+                page.getContent().stream().map(aDto).toList(),
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages());
     }
 }

@@ -61,16 +61,16 @@ class ApiAuthenticationTests {
     private MockMvc mockMvc;
 
     @Autowired
-    private People personas;
+    private People people;
 
-    private AccountView abrirCuenta(String correo) {
-        PersonView persona = personas.register(new NewPerson("Emma", "Tola", null), "admin");
-        return personas.openAccount(persona.id(), correo, null, "admin");
+    private AccountView openAccount(String email) {
+        PersonView person = people.register(new NewPerson("Emma", "Tola", null), "admin");
+        return people.openAccount(person.id(), email, null, "admin");
     }
 
     @Test
     @DisplayName("un token expirado devuelve 401 en problem+json")
-    void unTokenExpiradoDevuelve401() throws Exception {
+    void anExpiredTokenReturns401() throws Exception {
         String expirado = TestTokenProvider.token(
                 TestTokenProvider.sujetoNuevo(),
                 TestTokenProvider.correoNuevo(),
@@ -88,7 +88,7 @@ class ApiAuthenticationTests {
 
     @Test
     @DisplayName("un token firmado con otra clave devuelve 401")
-    void unTokenConFirmaInvalidaDevuelve401() throws Exception {
+    void aTokenWithAnInvalidSignatureReturns401() throws Exception {
         // Mismo contenido, otra firma: es el token que trae quien se lo fabrico el solo.
         RSAKey otraClave = new RSAKeyGenerator(2048).keyID("intrusa").generate();
         String falsificado = TestTokenProvider.token(
@@ -107,7 +107,7 @@ class ApiAuthenticationTests {
 
     @Test
     @DisplayName("un token para otra audiencia no sirve contra esta API")
-    void unTokenDeOtraAudienciaDevuelve401() throws Exception {
+    void aTokenFromAnotherAudienceReturns401() throws Exception {
         // El mismo realm emite tokens para la consola de cuenta. Sin validar la audiencia, uno de
         // esos abriria la API entera.
         String ajeno = TestTokenProvider.token(
@@ -125,7 +125,7 @@ class ApiAuthenticationTests {
 
     @Test
     @DisplayName("sin token no se entra, y la respuesta es la del contrato")
-    void sinTokenNoSeEntra() throws Exception {
+    void withoutATokenThereIsNoEntry() throws Exception {
         mockMvc.perform(get("/api/v1/cuentas/" + UUID.randomUUID()))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.codigo").value("NO_AUTENTICADO"));
@@ -133,7 +133,7 @@ class ApiAuthenticationTests {
 
     @Test
     @DisplayName("un token valido de quien no tiene cuenta autentica, pero no ve nada")
-    void unTokenSinCuentaNoVeNada() throws Exception {
+    void aTokenWithoutAnAccountSeesNothing() throws Exception {
         // El criterio del issue: autenticarse no es tener acceso. Es exactamente lo que pasara
         // cuando se encienda el login con Google y entre alguien a quien nadie invito.
         mockMvc.perform(get("/api/v1/cuentas/" + UUID.randomUUID())
@@ -149,13 +149,13 @@ class ApiAuthenticationTests {
 
     @Test
     @DisplayName("un token con el correo sin verificar tampoco entra")
-    void unTokenConCorreoSinVerificarNoEntra() throws Exception {
-        String correo = TestTokenProvider.correoNuevo();
-        abrirCuenta(correo);
+    void aTokenWithAnUnverifiedEmailDoesNotGetIn() throws Exception {
+        String email = TestTokenProvider.correoNuevo();
+        openAccount(email);
 
         String sinVerificar = TestTokenProvider.token(
                 TestTokenProvider.sujetoNuevo(),
-                correo,
+                email,
                 false,
                 Instant.now().plus(5, ChronoUnit.MINUTES),
                 TestTokenProvider.AUDIENCIA,
@@ -169,48 +169,48 @@ class ApiAuthenticationTests {
 
     @Test
     @DisplayName("un token valido de quien si tiene cuenta entra y la deja activa")
-    void unTokenConCuentaEntra() throws Exception {
-        String correo = TestTokenProvider.correoNuevo();
-        AccountView cuenta = abrirCuenta(correo);
+    void aTokenWithAnAccountGetsIn() throws Exception {
+        String email = TestTokenProvider.correoNuevo();
+        AccountView account = openAccount(email);
 
-        mockMvc.perform(get("/api/v1/cuentas/" + cuenta.id())
+        mockMvc.perform(get("/api/v1/cuentas/" + account.id())
                         .header(
                                 HttpHeaders.AUTHORIZATION,
-                                "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), correo)))
+                                "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), email)))
                 .andExpect(status().isOk())
                 // Entro invitada y el primer login la deja activa, sin que nadie mas intervenga.
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
-                .andExpect(jsonPath("$.email").value(correo));
+                .andExpect(jsonPath("$.email").value(email));
     }
 
     @Test
     @DisplayName("un segundo sujeto con el mismo correo no se queda con la cuenta")
-    void unSegundoSujetoNoSeQuedaConLaCuenta() throws Exception {
-        String correo = TestTokenProvider.correoNuevo();
-        AccountView cuenta = abrirCuenta(correo);
+    void aSecondSubjectDoesNotTakeOverTheAccount() throws Exception {
+        String email = TestTokenProvider.correoNuevo();
+        AccountView account = openAccount(email);
 
         // El primero entra y la cuenta queda vinculada a su sujeto.
-        mockMvc.perform(get("/api/v1/cuentas/" + cuenta.id())
+        mockMvc.perform(get("/api/v1/cuentas/" + account.id())
                         .header(
                                 HttpHeaders.AUTHORIZATION,
-                                "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), correo)))
+                                "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), email)))
                 .andExpect(status().isOk());
 
         // El segundo llega con otro sujeto y el mismo correo. El realm no deberia permitir dos
         // identidades con el mismo correo; si alguna vez pasara, la cuenta no cambia de dueño.
-        mockMvc.perform(get("/api/v1/cuentas/" + cuenta.id())
+        mockMvc.perform(get("/api/v1/cuentas/" + account.id())
                         .header(
                                 HttpHeaders.AUTHORIZATION,
-                                "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), correo)))
+                                "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), email)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.codigo").value("SIN_CUENTA"));
     }
 
     @Test
     @DisplayName("toda linea de log de la peticion dice quien la hizo")
-    void elActorQuedaEnElLog() throws Exception {
-        String correo = TestTokenProvider.correoNuevo();
-        AccountView cuenta = abrirCuenta(correo);
+    void theActorIsRecordedInTheLog() throws Exception {
+        String email = TestTokenProvider.correoNuevo();
+        AccountView account = openAccount(email);
 
         var capturados = new ListAppender<ILoggingEvent>();
         var registro = (Logger) LoggerFactory.getLogger(ControladorQueRegistra.Endpoints.class);
@@ -221,14 +221,14 @@ class ApiAuthenticationTests {
             mockMvc.perform(get("/api/v1/identidad/una-linea")
                             .header(
                                     HttpHeaders.AUTHORIZATION,
-                                    "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), correo)))
+                                    "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), email)))
                     .andExpect(status().isOk());
 
             // La clave es la que el issue #6 dejo declarada y sin rellenar. Lo que se guarda es la
             // cuenta, que es lo que autentica, y es el mismo valor que acaba como actor en los
             // eventos del dominio.
             assertThat(capturados.list).singleElement().satisfies(evento -> assertThat(evento.getMDCPropertyMap())
-                    .containsEntry(LogKeys.ACTOR, cuenta.id().toString())
+                    .containsEntry(LogKeys.ACTOR, account.id().toString())
                     .containsKey(LogKeys.TRAZA));
         } finally {
             registro.detachAppender(capturados);
@@ -238,13 +238,13 @@ class ApiAuthenticationTests {
 
     @Test
     @DisplayName("el contrato de la API se sirve sin identidad")
-    void elContratoEsPublico() throws Exception {
+    void theContractIsPublic() throws Exception {
         mockMvc.perform(get("/api/openapi.json")).andExpect(status().isOk());
     }
 
     @Test
     @DisplayName("el health es publico y el resto del actuator no se sirve a nadie")
-    void elActuatorNoSeSirve() throws Exception {
+    void theActuatorIsNotServed() throws Exception {
         mockMvc.perform(get("/actuator/health")).andExpect(status().isOk());
 
         // Ni siquiera con un token valido: las metricas de la plataforma no son de un propietario.
@@ -272,7 +272,7 @@ class ApiAuthenticationTests {
             private static final org.slf4j.Logger log = LoggerFactory.getLogger(Endpoints.class);
 
             @GetMapping("/una-linea")
-            void unaLinea() {
+            void oneLine() {
                 log.info("algo que hace el dominio");
             }
         }

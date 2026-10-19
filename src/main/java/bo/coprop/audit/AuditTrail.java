@@ -55,8 +55,8 @@ public interface AuditTrail {
             @Nullable String actor,
             @Nullable String entity,
             @Nullable Instant desde,
-            @Nullable Instant hasta,
-            int pagina,
+            @Nullable Instant until,
+            int page,
             int tamano);
 
     /**
@@ -79,8 +79,8 @@ public interface AuditTrail {
             @Nullable String actor,
             @Nullable String entity,
             @Nullable Instant desde,
-            @Nullable Instant hasta,
-            int pagina,
+            @Nullable Instant until,
+            int page,
             int tamano);
 
     /**
@@ -94,5 +94,5 @@ public interface AuditTrail {
      * {@code DELETE} normal: el disparador de la base los rechaza todos. Por dentro llama a la
      * funcion que la migracion V9 declara para esto.
      */
-    long purgar(Instant hasta);
+    long purge(Instant until);
 }

@@ -94,7 +94,7 @@ public interface Identities {
      *     que si no existiera, porque quien administra la plataforma no es dato publico--
      * @throws bo.coprop.shared.BusinessRuleViolated si se lo revoca a si mismo
      */
-    void revokePlatformAdmin(java.util.UUID accountId, String motivo, String actor);
+    void revokePlatformAdmin(java.util.UUID accountId, String reason, String actor);
 
     /**
      * Quien administra la plataforma hoy, de la concesion mas reciente a la mas antigua.

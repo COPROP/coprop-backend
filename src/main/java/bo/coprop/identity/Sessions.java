@@ -43,12 +43,12 @@ public interface Sessions {
      * @param nombres los nombres con los que esa cuenta puede estar identificada en una sesion
      * @return cuantas cerro
      */
-    int cerrarLasDe(Set<String> nombres);
+    int closeThoseOf(Set<String> names);
 
     /**
      * Las sesiones del BFF abiertas a nombre de alguno de esos nombres. Issue <strong>#22</strong>.
      *
-     * <p>Recibe un conjunto por lo mismo que {@link #cerrarLasDe}, y con la misma consecuencia: una
+     * <p>Recibe un conjunto por lo mismo que {@link #closeThoseOf}, y con la misma consecuencia: una
      * sesion que apareciera por dos nombres se contaria dos veces, asi que se devuelven sin
      * repetir.
      *
@@ -57,7 +57,7 @@ public interface Sessions {
      *
      * @return las que hay, de cero a varias; nunca {@code null}
      */
-    List<SesionDelBff> listarLasDe(Set<String> nombres);
+    List<BffSession> listThoseOf(Set<String> names);
 
     /**
      * Una sesion de servidor del BFF, con lo poco que Spring Session guarda de ella.
@@ -72,5 +72,5 @@ public interface Sessions {
      * @param ultimoAcceso la ultima peticion que la uso
      * @param inactividad cuanto aguanta sin usarse, ya resuelta por rol (Seguridad 5.3)
      */
-    record SesionDelBff(String id, Instant creada, Instant ultimoAcceso, Duration inactividad) {}
+    record BffSession(String id, Instant created, Instant lastAccess, Duration inactividad) {}
 }

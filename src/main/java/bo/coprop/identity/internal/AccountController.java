@@ -26,10 +26,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/cuentas")
 class AccountController {
 
-    private final People personas;
+    private final People people;
 
-    AccountController(People personas) {
-        this.personas = personas;
+    AccountController(People people) {
+        this.people = people;
     }
 
     /**
@@ -44,9 +44,9 @@ class AccountController {
      * condominio, y la respuesta depende solo de los roles de quien pregunta --para cualquier
      * cuenta que no sea la suya recibe lo mismo--, asi que no hay existencia que filtrar.
      */
-    @PreAuthorize("@acceso.puedeVerLaCuenta(authentication, #accountId)")
+    @PreAuthorize("@access.canViewAccount(authentication, #accountId)")
     @GetMapping("/{accountId}")
     AccountView consultar(@PathVariable UUID accountId) {
-        return personas.findAccount(accountId);
+        return people.findAccount(accountId);
     }
 }

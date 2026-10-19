@@ -47,19 +47,19 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/condominios/{condominiumId}")
 class UnitController {
 
-    private final Units unidades;
+    private final Units units;
 
-    UnitController(Units unidades) {
-        this.unidades = unidades;
+    UnitController(Units units) {
+        this.units = units;
     }
 
-    @PreAuthorize("@autorizacion.puede(authentication, 'MANAGE_UNITS')")
+    @PreAuthorize("@authorization.can(authentication, 'MANAGE_UNITS')")
     @PostMapping("/unidades")
     ResponseEntity<UnitView> alta(
-            @PathVariable UUID condominiumId, @Valid @RequestBody NewUnit nueva, Principal quien) {
-        UnitView creada = unidades.register(condominiumId, nueva, quien.getName());
-        return ResponseEntity.created(URI.create("/api/v1/condominios/" + condominiumId + "/unidades/" + creada.id()))
-                .body(creada);
+            @PathVariable UUID condominiumId, @Valid @RequestBody NewUnit body, Principal principal) {
+        UnitView created = units.register(condominiumId, body, principal.getName());
+        return ResponseEntity.created(URI.create("/api/v1/condominios/" + condominiumId + "/unidades/" + created.id()))
+                .body(created);
     }
 
     /**
@@ -69,30 +69,30 @@ class UnitController {
      * que resolver el parseo y el informe de errores fila a fila; hacerla tambien aqui seria
      * hacerla dos veces.
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'MANAGE_UNITS')")
+    @PreAuthorize("@authorization.can(authentication, 'MANAGE_UNITS')")
     @PostMapping("/unidades/lote")
     ResponseEntity<List<UnitView>> altaMasiva(
-            @PathVariable UUID condominiumId, @Valid @RequestBody LoteDeUnidades lote, Principal quien) {
-        return ResponseEntity.status(201).body(unidades.registerAll(condominiumId, lote.unidades(), quien.getName()));
+            @PathVariable UUID condominiumId, @Valid @RequestBody UnitBatch batch, Principal principal) {
+        return ResponseEntity.status(201).body(units.registerAll(condominiumId, batch.units(), principal.getName()));
     }
 
-    @PreAuthorize("@autorizacion.puede(authentication, 'MANAGE_UNITS')")
+    @PreAuthorize("@authorization.can(authentication, 'MANAGE_UNITS')")
     @PostMapping("/bloques")
-    ResponseEntity<BlockView> altaDeBloque(
-            @PathVariable UUID condominiumId, @Valid @RequestBody NuevoBloque nuevo, Principal quien) {
-        BlockView creado = unidades.addBlock(condominiumId, nuevo.name(), quien.getName());
+    ResponseEntity<BlockView> registerBlock(
+            @PathVariable UUID condominiumId, @Valid @RequestBody NewBlock body, Principal principal) {
+        BlockView creado = units.addBlock(condominiumId, body.name(), principal.getName());
         return ResponseEntity.status(201).body(creado);
     }
 
-    @PreAuthorize("@autorizacion.puede(authentication, 'MANAGE_UNITS')")
+    @PreAuthorize("@authorization.can(authentication, 'MANAGE_UNITS')")
     @PostMapping("/bloques/{blockId}/pisos")
-    ResponseEntity<FloorView> altaDePiso(
+    ResponseEntity<FloorView> registerFloor(
             @PathVariable UUID condominiumId,
             @PathVariable UUID blockId,
-            @Valid @RequestBody NuevoPiso nuevo,
-            Principal quien) {
+            @Valid @RequestBody NewFloor body,
+            Principal principal) {
         return ResponseEntity.status(201)
-                .body(unidades.addFloor(condominiumId, blockId, nuevo.number(), quien.getName()));
+                .body(units.addFloor(condominiumId, blockId, body.number(), principal.getName()));
     }
 
     /**
@@ -105,16 +105,16 @@ class UnitController {
      * responde <strong>404</strong>, igual que si no existiera, para que nadie recorra el edificio
      * probando identificadores.
      */
-    @PreAuthorize("@acceso.puedeVerLaUnidad(authentication, #condominiumId, #unitId)")
+    @PreAuthorize("@access.canViewUnit(authentication, #condominiumId, #unitId)")
     @GetMapping("/unidades/{unitId}")
     UnitView consultar(@PathVariable UUID condominiumId, @PathVariable UUID unitId) {
-        return unidades.find(condominiumId, unitId);
+        return units.find(condominiumId, unitId);
     }
 
     /** Envuelto en un objeto y no un array suelto: deja sitio para añadir opciones al lote. */
-    record LoteDeUnidades(@NotEmpty @Valid List<NewUnit> unidades) {}
+    record UnitBatch(@NotEmpty @Valid List<NewUnit> units) {}
 
-    record NuevoBloque(@NotBlank @Size(max = 80) String name) {}
+    record NewBlock(@NotBlank @Size(max = 80) String name) {}
 
-    record NuevoPiso(@Min(-5) @Max(200) int number) {}
+    record NewFloor(@Min(-5) @Max(200) int number) {}
 }

@@ -96,7 +96,7 @@ class AuditLog {
         return actor;
     }
 
-    String getAccion() {
+    String getAction() {
         return action;
     }
 

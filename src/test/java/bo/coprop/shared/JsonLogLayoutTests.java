@@ -23,52 +23,52 @@ class JsonLogLayoutTests {
 
     private static final String CREDENCIAL = "s3cr3t-del-banco-que-no-debe-salir";
 
-    private final JsonLogLayout formato = new JsonLogLayout();
+    private final JsonLogLayout format = new JsonLogLayout();
 
     @Test
     @DisplayName("la credencial no sale en el mensaje")
-    void noSaleEnElMensaje() {
-        String json = formato.format(evento("respuesta del proveedor: {\"client_secret\":\"" + CREDENCIAL + "\"}"));
+    void itDoesNotLeakInTheMessage() {
+        String json = format.format(evento("respuesta del proveedor: {\"client_secret\":\"" + CREDENCIAL + "\"}"));
 
         assertThat(json).doesNotContain(CREDENCIAL).contains(Masker.TAPADO);
     }
 
     @Test
     @DisplayName("la credencial no sale desde el MDC")
-    void noSaleDesdeElMdc() {
+    void itDoesNotLeakFromTheMdc() {
         LoggingEvent evento = evento("pago aplicado");
         evento.setMDCPropertyMap(Map.of(LogKeys.TRAZA, "abc-123", "token", CREDENCIAL));
 
-        String json = formato.format(evento);
+        String json = format.format(evento);
 
         assertThat(json).doesNotContain(CREDENCIAL).contains("\"traceId\":\"abc-123\"");
     }
 
     @Test
     @DisplayName("la credencial no sale desde el mensaje de la excepcion ni de su traza")
-    void noSaleDesdeLaExcepcion() {
+    void itDoesNotLeakFromTheException() {
         LoggingEvent evento = evento("fallo llamando al proveedor");
         evento.setThrowableProxy(new ch.qos.logback.classic.spi.ThrowableProxy(
                 new IllegalStateException("rechazado con apiKey=" + CREDENCIAL)));
 
-        String json = formato.format(evento);
+        String json = format.format(evento);
 
         assertThat(json).doesNotContain(CREDENCIAL).contains("\"error.type\"");
     }
 
     @Test
     @DisplayName("sale una sola linea de JSON valido, con las comillas escapadas")
-    void saleUnaLineaDeJsonValido() {
-        String json = formato.format(evento("texto con \"comillas\" y un salto\nde linea"));
+    void oneLineOfValidJsonComesOut() {
+        String json = format.format(evento("texto con \"comillas\" y un salto\nde linea"));
 
         assertThat(json).endsWith("}\n");
         assertThat(json.substring(0, json.length() - 1)).doesNotContain("\n");
         assertThat(json).contains("\\\"comillas\\\"").contains("\\n");
     }
 
-    private static LoggingEvent evento(String mensaje) {
+    private static LoggingEvent evento(String message) {
         Logger logger = (Logger) LoggerFactory.getLogger(JsonLogLayoutTests.class);
-        LoggingEvent evento = new LoggingEvent(Logger.FQCN, logger, Level.INFO, mensaje, null, null);
+        LoggingEvent evento = new LoggingEvent(Logger.FQCN, logger, Level.INFO, message, null, null);
         evento.setLoggerContext((LoggerContext) LoggerFactory.getILoggerFactory());
         return evento;
     }

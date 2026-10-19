@@ -25,7 +25,7 @@ class MigrationsTests {
     Flyway flyway;
 
     @Test
-    void lasMigracionesCorrenEnLimpio() {
+    void theMigrationsRunOnACleanDatabase() {
         var info = flyway.info();
 
         assertThat(info.applied()).isNotEmpty();
@@ -33,7 +33,7 @@ class MigrationsTests {
     }
 
     @Test
-    void lasExtensionesQuedanInstaladas() {
+    void theExtensionsEndUpInstalled() {
         var jdbc = new JdbcTemplate(dataSource);
 
         var extensiones = jdbc.queryForList(
@@ -44,7 +44,7 @@ class MigrationsTests {
     }
 
     @Test
-    void volverACorrerLasMigracionesNoCambiaNada() {
+    void rerunningTheMigrationsChangesNothing() {
         var oldValues = flyway.info().applied().length;
 
         flyway.migrate();

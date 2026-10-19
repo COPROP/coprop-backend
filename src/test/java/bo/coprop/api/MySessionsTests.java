@@ -7,11 +7,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import bo.coprop.TestcontainersConfiguration;
 import bo.coprop.identity.AccessDoubles;
 import bo.coprop.identity.AccountView;
-import bo.coprop.identity.IdentityProvider.SesionDelProveedor;
+import bo.coprop.identity.IdentityProvider.ProviderSession;
 import bo.coprop.identity.NewPerson;
 import bo.coprop.identity.People;
 import bo.coprop.identity.PersonView;
-import bo.coprop.identity.Sessions.SesionDelBff;
+import bo.coprop.identity.Sessions.BffSession;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -52,125 +52,126 @@ class MySessionsTests {
     private MockMvc mockMvc;
 
     @Autowired
-    private People personas;
+    private People people;
 
     @Autowired
-    private AccessDoubles.SesionesDePrueba sesionesDelBff;
+    private AccessDoubles.SesionesDePrueba bffSessions;
 
     @Autowired
     private AccessDoubles.ProveedorDeIdentidadDePrueba proveedor;
 
     @BeforeEach
-    void reiniciarLosDobles() {
+    void restartTheDoubles() {
         // Los dobles son beans del contexto y el contexto se comparte: sin esto, las sesiones de un
         // caso aparecen en la lista del siguiente y el que simula un proveedor caido los hunde.
-        sesionesDelBff.reiniciar();
+        bffSessions.reiniciar();
         proveedor.reiniciar();
     }
 
     @Test
     @DisplayName("la lista junta la sesion del navegador y la del proveedor")
-    void laListaJuntaLasDosMitades() throws Exception {
-        Quien quien = cuentaQueYaEntro();
+    void theListJoinsBothHalves() throws Exception {
+        Quien principal = cuentaQueYaEntro();
         Instant ahora = Instant.now();
 
-        sesionesDelBff.conSesionAbierta(
-                quien.sujeto(),
-                new SesionDelBff(
+        bffSessions.conSesionAbierta(
+                principal.tokenSubject(),
+                new BffSession(
                         "del-navegador",
                         ahora.minus(2, ChronoUnit.HOURS),
                         ahora.minus(30, ChronoUnit.MINUTES),
                         Duration.ofHours(1)));
         proveedor.conSesionAbierta(
-                quien.cuenta().email(),
-                new SesionDelProveedor(
+                principal.account().email(),
+                new ProviderSession(
                         "del-telefono",
                         "190.129.1.1",
                         ahora.minus(3, ChronoUnit.DAYS),
                         ahora.minus(1, ChronoUnit.MINUTES)));
 
-        mockMvc.perform(peticion(HttpMethod.GET, "/api/v1/me/sesiones", quien.token(), null))
+        mockMvc.perform(peticion(HttpMethod.GET, "/api/v1/me/sesiones", principal.token(), null))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
                 // De la mas usada a la menos: la del telefono se uso hace un minuto.
                 .andExpect(jsonPath("$[0].id").value("del-telefono"))
-                .andExpect(jsonPath("$[0].origen").value("PROVIDER"))
+                .andExpect(jsonPath("$[0].origin").value("PROVIDER"))
                 .andExpect(jsonPath("$[0].ip").value("190.129.1.1"))
                 // El proveedor gobierna sus propios tiempos, asi que de esa no se sabe cuando vence.
-                .andExpect(jsonPath("$[0].expira").doesNotExist())
+                .andExpect(jsonPath("$[0].expiresAt").doesNotExist())
                 .andExpect(jsonPath("$[1].id").value("del-navegador"))
-                .andExpect(jsonPath("$[1].origen").value("BROWSER"))
+                .andExpect(jsonPath("$[1].origin").value("BROWSER"))
                 // La del navegador no trae IP: la tabla de la V6 no guarda de donde vino.
                 .andExpect(jsonPath("$[1].ip").doesNotExist())
-                .andExpect(jsonPath("$[1].expira").exists());
+                .andExpect(jsonPath("$[1].expiresAt").exists());
     }
 
     @Test
     @DisplayName("ninguna es la actual cuando se pregunta desde la app movil")
-    void desdeLaAppMovilNingunaEsLaActual() throws Exception {
-        Quien quien = cuentaQueYaEntro();
+    void fromTheMobileAppNoneIsTheCurrentOne() throws Exception {
+        Quien principal = cuentaQueYaEntro();
         Instant ahora = Instant.now();
-        sesionesDelBff.conSesionAbierta(
-                quien.sujeto(), new SesionDelBff("del-navegador", ahora, ahora, Duration.ofHours(24)));
+        bffSessions.conSesionAbierta(
+                principal.tokenSubject(), new BffSession("del-navegador", ahora, ahora, Duration.ofHours(24)));
 
         // La peticion llega con Bearer, asi que no hay sesion de servidor con la que compararse.
         // Marcarla como actual seria mentir: quien pregunta desde el telefono no esta en esa.
-        mockMvc.perform(peticion(HttpMethod.GET, "/api/v1/me/sesiones", quien.token(), null))
+        mockMvc.perform(peticion(HttpMethod.GET, "/api/v1/me/sesiones", principal.token(), null))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].actual").value(false));
+                .andExpect(jsonPath("$[0].current").value(false));
     }
 
     @Test
     @DisplayName("sin ninguna sesion abierta responde 200 con lista vacia, no 404")
-    void sinSesionesLaListaEstaVacia() throws Exception {
-        Quien quien = cuentaQueYaEntro();
+    void withoutSessionsTheListIsEmpty() throws Exception {
+        Quien principal = cuentaQueYaEntro();
 
-        mockMvc.perform(peticion(HttpMethod.GET, "/api/v1/me/sesiones", quien.token(), null))
+        mockMvc.perform(peticion(HttpMethod.GET, "/api/v1/me/sesiones", principal.token(), null))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
     }
 
     @Test
     @DisplayName("un proveedor caido devuelve media lista, no un error")
-    void elProveedorCaidoDevuelveMediaLista() throws Exception {
-        Quien quien = cuentaQueYaEntro();
+    void aDownProviderReturnsHalfTheList() throws Exception {
+        Quien principal = cuentaQueYaEntro();
         Instant ahora = Instant.now();
-        sesionesDelBff.conSesionAbierta(
-                quien.sujeto(), new SesionDelBff("del-navegador", ahora, ahora, Duration.ofHours(24)));
-        proveedor.queFalle();
+        bffSessions.conSesionAbierta(
+                principal.tokenSubject(), new BffSession("del-navegador", ahora, ahora, Duration.ofHours(24)));
+        proveedor.makeItFail();
 
         // Quien mira esta pantalla esta intentando averiguar si le robaron la cuenta. Dejarle sin
         // respuesta porque Keycloak no contesta no le ayuda a decidir nada; media lista si.
-        mockMvc.perform(peticion(HttpMethod.GET, "/api/v1/me/sesiones", quien.token(), null))
+        mockMvc.perform(peticion(HttpMethod.GET, "/api/v1/me/sesiones", principal.token(), null))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].origen").value("BROWSER"));
+                .andExpect(jsonPath("$[0].origin").value("BROWSER"));
     }
 
     @Test
     @DisplayName("el cierre pide las dos puertas con los dos nombres de la cuenta")
-    void elCierrePideLasDosPuertas() throws Exception {
-        Quien quien = cuentaQueYaEntro();
+    void theClosureRequiresBothDoors() throws Exception {
+        Quien principal = cuentaQueYaEntro();
         Instant ahora = Instant.now();
-        sesionesDelBff.conSesionAbierta(
-                quien.sujeto(), new SesionDelBff("del-navegador", ahora, ahora, Duration.ofHours(24)));
+        bffSessions.conSesionAbierta(
+                principal.tokenSubject(), new BffSession("del-navegador", ahora, ahora, Duration.ofHours(24)));
 
-        mockMvc.perform(peticion(HttpMethod.POST, "/api/v1/me/sesiones/cierre", quien.token(), null))
+        mockMvc.perform(peticion(HttpMethod.POST, "/api/v1/me/sesiones/cierre", principal.token(), null))
                 .andExpect(status().isNoContent());
 
         // Los dos nombres, por lo mismo que en la baja del #19: hoy el indice es el sujeto del
         // proveedor, y pasar tambien el de la cuenta deja el cierre a salvo del dia que cambie.
-        Assertions.assertThat(sesionesDelBff.cerradas())
+        Assertions.assertThat(bffSessions.cerradas())
                 .singleElement()
                 .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.collection(String.class))
-                .containsExactlyInAnyOrder(quien.sujeto(), quien.cuenta().id().toString());
+                .containsExactlyInAnyOrder(
+                        principal.tokenSubject(), principal.account().id().toString());
 
         // Y la del proveedor tambien, que es la que sostiene el refresh token de la app movil.
         Assertions.assertThat(proveedor.aQuienSeLeCerraronSesiones())
-                .contains(quien.cuenta().email());
+                .contains(principal.account().email());
 
         // Despues no queda ninguna.
-        mockMvc.perform(peticion(HttpMethod.GET, "/api/v1/me/sesiones", quien.token(), null))
+        mockMvc.perform(peticion(HttpMethod.GET, "/api/v1/me/sesiones", principal.token(), null))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
     }
@@ -178,7 +179,7 @@ class MySessionsTests {
     // --- Armado -----------------------------------------------------------------------------
 
     /** Una cuenta, su sujeto en el proveedor y el token con el que entra. */
-    private record Quien(AccountView cuenta, String sujeto, String token) {}
+    private record Quien(AccountView account, String tokenSubject, String token) {}
 
     /**
      * Una cuenta que ya hizo una peticion, asi que su sujeto esta vinculado.
@@ -188,13 +189,13 @@ class MySessionsTests {
      * que se buscan sus sesiones.
      */
     private Quien cuentaQueYaEntro() throws Exception {
-        PersonView persona = personas.register(new NewPerson("Emma", "Tola", null), "admin");
-        AccountView cuenta = personas.openAccount(persona.id(), TestTokenProvider.correoNuevo(), null, "admin");
-        String sujeto = TestTokenProvider.sujetoNuevo();
-        String token = "Bearer " + TestTokenProvider.valido(sujeto, cuenta.email());
+        PersonView person = people.register(new NewPerson("Emma", "Tola", null), "admin");
+        AccountView account = people.openAccount(person.id(), TestTokenProvider.correoNuevo(), null, "admin");
+        String tokenSubject = TestTokenProvider.sujetoNuevo();
+        String token = "Bearer " + TestTokenProvider.valido(tokenSubject, account.email());
 
         mockMvc.perform(peticion(HttpMethod.GET, "/api/v1/me", token, null)).andExpect(status().isOk());
-        return new Quien(cuenta, sujeto, token);
+        return new Quien(account, tokenSubject, token);
     }
 
     private MockHttpServletRequestBuilder peticion(

@@ -68,12 +68,12 @@ public final class Masker {
      * Lo descubrio el test del criterio del issue #6, con un {@code token} en el MDC que salia
      * entero.
      */
-    public static String valorDe(String clave, @Nullable String valor) {
-        return CLAVE_SUELTA.matcher(clave).matches() ? TAPADO : enmascarar(valor);
+    public static String valueOf(String key, @Nullable String valor) {
+        return CLAVE_SUELTA.matcher(key).matches() ? TAPADO : mask(valor);
     }
 
     /** Devuelve el texto con los secretos tapados. Un texto nulo sale como cadena vacia. */
-    public static String enmascarar(@Nullable String texto) {
+    public static String mask(@Nullable String texto) {
         if (texto == null || texto.isEmpty()) {
             return "";
         }

@@ -35,7 +35,7 @@ public record MembershipView(
      * abierta --suspender no cierra la fila, que es justo lo que la distingue de una baja-- y una
      * cerrada conserva el estado que tenia cuando se cerro, porque cerrar no lo toca.
      */
-    public boolean daAcceso() {
+    public boolean grantsAccess() {
         return validTo == null && status == MembershipStatus.ACTIVE;
     }
 }

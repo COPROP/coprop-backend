@@ -32,14 +32,14 @@ import org.springframework.web.bind.annotation.RestController;
  * membresia es de un condominio concreto.
  *
  * <p>Conceder una membresia y leer el padron piden el permiso de invitar usuarios (#16); quien
- * puede conceder <em>esos</em> roles es una segunda regla, y de ahi {@code puedeConceder}.
+ * puede conceder <em>esos</em> roles es una segunda regla, y de ahi {@code canGrant}.
  *
  * <p>La baja, la suspension y la reactivacion son el <strong>#19</strong>, y las tres piden
  * {@code puedeCambiar}, que es la misma regla del alta leida al reves: quien no puede nombrar a un
  * administrador tampoco puede quitarlo ni dejarlo fuera.
  *
  * <p>El cambio de roles es el <strong>#20</strong>, y es el unico que pide las <strong>dos</strong>
- * mitades a la vez: {@code puedeCambiar} por los que se van y {@code puedeConceder} por los que
+ * mitades a la vez: {@code puedeCambiar} por los que se van y {@code canGrant} por los que
  * llegan. El rol de plataforma no se reparte desde aqui --no cuelga de ningun condominio-- sino en
  * {@link PlatformAdminController}.
  */
@@ -48,10 +48,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/condominios/{condominiumId}/membresias")
 class MembershipController {
 
-    private final Memberships membresias;
+    private final Memberships memberships;
 
-    MembershipController(Memberships membresias) {
-        this.membresias = membresias;
+    MembershipController(Memberships memberships) {
+        this.memberships = memberships;
     }
 
     // Dos reglas en una: poder invitar, y poder conceder ESOS roles. El administrador del
@@ -60,15 +60,16 @@ class MembershipController {
     // administrador de un condominio recien creado.
     // El segundo factor solo si entre los roles hay alguno administrativo (#22): lo sensible de
     // Seguridad 7.3 es nombrar a un administrador, no dar de alta a un propietario.
-    @PreAuthorize("@autorizacion.puedeConceder(authentication, #nueva.roles())"
-            + " and @reautenticacion.siHayRolAdministrativo(authentication, #nueva.roles())")
+    @PreAuthorize("@authorization.canGrant(authentication, #body.roles())"
+            + " and @reauthentication.ifAdminRole(authentication, #body.roles())")
     @PostMapping
     ResponseEntity<MembershipView> alta(
-            @PathVariable UUID condominiumId, @Valid @RequestBody NuevaMembresia nueva, Principal quien) {
-        MembershipView creada =
-                membresias.grant(condominiumId, nueva.accountId(), nueva.roles(), nueva.invitedBy(), quien.getName());
-        return ResponseEntity.created(URI.create("/api/v1/condominios/" + condominiumId + "/membresias/" + creada.id()))
-                .body(creada);
+            @PathVariable UUID condominiumId, @Valid @RequestBody NewMembership body, Principal principal) {
+        MembershipView created =
+                memberships.grant(condominiumId, body.accountId(), body.roles(), body.invitedBy(), principal.getName());
+        return ResponseEntity.created(
+                        URI.create("/api/v1/condominios/" + condominiumId + "/membresias/" + created.id()))
+                .body(created);
     }
 
     /**
@@ -85,18 +86,18 @@ class MembershipController {
      *     {@code true} salen todas, de la mas reciente a la mas antigua, y la misma cuenta puede
      *     aparecer varias veces: volver a entrar despues de una baja abre una fila nueva
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'INVITE_USERS')")
+    @PreAuthorize("@authorization.can(authentication, 'INVITE_USERS')")
     @GetMapping
-    List<MembershipView> listar(
+    List<MembershipView> list(
             @PathVariable UUID condominiumId, @RequestParam(defaultValue = "false") boolean cerradas) {
-        return cerradas ? membresias.allOfCondominium(condominiumId) : membresias.ofCondominium(condominiumId);
+        return cerradas ? memberships.allOfCondominium(condominiumId) : memberships.ofCondominium(condominiumId);
     }
 
     /** Una membresia del condominio, para quien reparte los roles. Misma regla que el listado. */
-    @PreAuthorize("@autorizacion.puede(authentication, 'INVITE_USERS')")
+    @PreAuthorize("@authorization.can(authentication, 'INVITE_USERS')")
     @GetMapping("/{membershipId}")
     MembershipView consultar(@PathVariable UUID condominiumId, @PathVariable UUID membershipId) {
-        return membresias.find(condominiumId, membershipId);
+        return memberships.find(condominiumId, membershipId);
     }
 
     /**
@@ -113,14 +114,14 @@ class MembershipController {
      * {@code DELETE} con cuerpo es algo que los intermediarios tratan como quieren. Ademas no borra:
      * responde la membresia cerrada, con su {@code validTo} puesto.
      */
-    @PreAuthorize("@autorizacion.puedeCambiar(authentication, #condominiumId, #membershipId)")
+    @PreAuthorize("@authorization.canChange(authentication, #condominiumId, #membershipId)")
     @PostMapping("/{membershipId}/baja")
-    MembershipView darDeBaja(
+    MembershipView terminate(
             @PathVariable UUID condominiumId,
             @PathVariable UUID membershipId,
-            @Valid @RequestBody Motivo motivo,
-            Principal quien) {
-        return membresias.revoke(condominiumId, membershipId, motivo.motivo(), quien.getName());
+            @Valid @RequestBody Reason reason,
+            Principal principal) {
+        return memberships.revoke(condominiumId, membershipId, reason.reason(), principal.getName());
     }
 
     /**
@@ -129,14 +130,14 @@ class MembershipController {
      * <p>Misma regla de autorizacion que la baja, y por lo mismo: dejar fuera a un administrador es
      * tan grave como quitarle el rol.
      */
-    @PreAuthorize("@autorizacion.puedeCambiar(authentication, #condominiumId, #membershipId)")
+    @PreAuthorize("@authorization.canChange(authentication, #condominiumId, #membershipId)")
     @PostMapping("/{membershipId}/suspension")
-    MembershipView suspender(
+    MembershipView suspend(
             @PathVariable UUID condominiumId,
             @PathVariable UUID membershipId,
-            @Valid @RequestBody Motivo motivo,
-            Principal quien) {
-        return membresias.suspend(condominiumId, membershipId, motivo.motivo(), quien.getName());
+            @Valid @RequestBody Reason reason,
+            Principal principal) {
+        return memberships.suspend(condominiumId, membershipId, reason.reason(), principal.getName());
     }
 
     /**
@@ -144,8 +145,8 @@ class MembershipController {
      *
      * <p><strong>Pide las dos mitades de la regla y no una</strong>: poder quitar los roles que la
      * membresia tiene hoy ({@code puedeCambiar}) <em>y</em> poder conceder los que llegan en el
-     * cuerpo ({@code puedeConceder}). Un cambio es las dos cosas a la vez, y con una sola mitad se
-     * escapa justo lo que la matriz acota: con solo {@code puedeConceder}, el superadministrador
+     * cuerpo ({@code canGrant}). Un cambio es las dos cosas a la vez, y con una sola mitad se
+     * escapa justo lo que la matriz acota: con solo {@code canGrant}, el superadministrador
      * convertiria a un propietario en {@code CONDO_ADMIN} --y la celda "Solo administradores" le
      * prohibe tocar propietarios--; con solo {@code puedeCambiar}, podria quitarle sus roles
      * administrativos a alguien y dejarle {@code OWNER}, que es repartir un rol que no le toca.
@@ -167,27 +168,28 @@ class MembershipController {
      * {@code CONDO_ADMIN} a alguien se escribe mandando un cuerpo sin el, y es tan sensible como
      * ponerselo.
      */
-    @PreAuthorize("@autorizacion.puedeCambiar(authentication, #condominiumId, #membershipId)"
-            + " and @autorizacion.puedeConceder(authentication, #nuevos.roles())"
-            + " and @reautenticacion.reciente(authentication)")
+    @PreAuthorize("@authorization.canChange(authentication, #condominiumId, #membershipId)"
+            + " and @authorization.canGrant(authentication, #incoming.roles())"
+            + " and @reauthentication.recent(authentication)")
     @PutMapping("/{membershipId}/roles")
-    MembershipView cambiarRoles(
+    MembershipView changeRoles(
             @PathVariable UUID condominiumId,
             @PathVariable UUID membershipId,
-            @Valid @RequestBody NuevosRoles nuevos,
-            Principal quien) {
-        return membresias.changeRoles(condominiumId, membershipId, nuevos.roles(), nuevos.motivo(), quien.getName());
+            @Valid @RequestBody NewRoles incoming,
+            Principal principal) {
+        return memberships.changeRoles(
+                condominiumId, membershipId, incoming.roles(), incoming.reason(), principal.getName());
     }
 
     /** Levanta la suspension. Vuelve a dar acceso en la siguiente peticion. Issue #19. */
-    @PreAuthorize("@autorizacion.puedeCambiar(authentication, #condominiumId, #membershipId)")
+    @PreAuthorize("@authorization.canChange(authentication, #condominiumId, #membershipId)")
     @PostMapping("/{membershipId}/reactivacion")
-    MembershipView reactivar(
+    MembershipView reinstate(
             @PathVariable UUID condominiumId,
             @PathVariable UUID membershipId,
-            @Valid @RequestBody Motivo motivo,
-            Principal quien) {
-        return membresias.reinstate(condominiumId, membershipId, motivo.motivo(), quien.getName());
+            @Valid @RequestBody Reason reason,
+            Principal principal) {
+        return memberships.reinstate(condominiumId, membershipId, reason.reason(), principal.getName());
     }
 
     /**
@@ -197,7 +199,7 @@ class MembershipController {
      * "con motivo", y un campo que admita un espacio en blanco no es un motivo. Acabara en la
      * bitacora, que es el unico sitio donde se guarda.
      */
-    record Motivo(@NotBlank @Size(min = 5, max = 500) String motivo) {}
+    record Reason(@NotBlank @Size(min = 5, max = 500) String reason) {}
 
     /**
      * Lo que hace falta para conceder una membresia.
@@ -208,7 +210,7 @@ class MembershipController {
      * @param roles al menos uno; el diagrama de Seguridad 2 marca esa relacion como obligatoria
      * @param invitedBy la cuenta que invito; nulo en la del primer administrador
      */
-    record NuevaMembresia(
+    record NewMembership(
             @jakarta.validation.constraints.NotNull UUID accountId,
             @NotEmpty Set<MembershipRole> roles,
             @Nullable UUID invitedBy) {}
@@ -220,5 +222,5 @@ class MembershipController {
      * cuerpo con un rol que se añade dejaria al cliente adivinando el estado anterior, y al servidor
      * sin poder guardar en la bitacora las dos mitades del cambio.
      */
-    record NuevosRoles(@NotEmpty Set<MembershipRole> roles, @NotBlank @Size(min = 5, max = 500) String motivo) {}
+    record NewRoles(@NotEmpty Set<MembershipRole> roles, @NotBlank @Size(min = 5, max = 500) String reason) {}
 }

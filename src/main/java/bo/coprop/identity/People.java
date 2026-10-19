@@ -30,7 +30,7 @@ public interface People {
      *
      * @param actor quien la da de alta, para la bitacora
      */
-    PersonView register(NewPerson nueva, String actor);
+    PersonView register(NewPerson body, String actor);
 
     /**
      * @throws bo.coprop.shared.ResourceNotFound si no existe

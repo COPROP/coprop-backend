@@ -14,6 +14,6 @@ public class MaskedConverter extends ClassicConverter {
 
     @Override
     public String convert(ILoggingEvent evento) {
-        return Masker.enmascarar(evento.getFormattedMessage());
+        return Masker.mask(evento.getFormattedMessage());
     }
 }

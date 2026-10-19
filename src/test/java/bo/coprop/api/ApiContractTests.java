@@ -50,7 +50,7 @@ class ApiContractTests {
     @Test
     @WithMockUser
     @DisplayName("la validacion devuelve 422 con la lista de campos, no el 400 de Spring")
-    void validacionDevuelve422ConLaListaDeCampos() throws Exception {
+    void validationReturns422WithTheFieldList() throws Exception {
         mockMvc.perform(post("/api/v1/pruebas/validacion")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -58,14 +58,14 @@ class ApiContractTests {
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.codigo").value("VALIDACION"))
-                .andExpect(jsonPath("$.errores[0].campo").value("numero"))
-                .andExpect(jsonPath("$.errores[0].codigo").value("NotBlank"));
+                .andExpect(jsonPath("$.errores[0].field").value("numero"))
+                .andExpect(jsonPath("$.errores[0].code").value("NotBlank"));
     }
 
     @Test
     @WithMockUser
     @DisplayName("un recurso inexistente devuelve 404 con su codigo estable")
-    void recursoNoEncontradoDevuelve404() throws Exception {
+    void resourceNotFoundReturns404() throws Exception {
         mockMvc.perform(get("/api/v1/pruebas/no-encontrado"))
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
@@ -76,7 +76,7 @@ class ApiContractTests {
     @Test
     @WithMockUser
     @DisplayName("un choque con el estado actual devuelve 409 y una regla violada 422")
-    void conflictoYReglaSeDistinguen() throws Exception {
+    void conflictAndRuleAreDistinguished() throws Exception {
         mockMvc.perform(get("/api/v1/pruebas/conflicto"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.codigo").value("CONFLICTO"));
@@ -89,7 +89,7 @@ class ApiContractTests {
     @Test
     @WithMockUser
     @DisplayName("un fallo no previsto devuelve 500 sin filtrar el mensaje de la excepcion")
-    void errorNoPrevistoNoFiltraElDetalle() throws Exception {
+    void anUnexpectedErrorDoesNotLeakTheDetail() throws Exception {
         mockMvc.perform(get("/api/v1/pruebas/estalla"))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.codigo").value("INTERNO"))
@@ -98,7 +98,7 @@ class ApiContractTests {
 
     @Test
     @DisplayName("sin autenticar devuelve 401 en problem+json, no un cuerpo vacio")
-    void sinAutenticarDevuelve401EnProblemJson() throws Exception {
+    void withoutAuthenticatingItReturns401InProblemJson() throws Exception {
         mockMvc.perform(get("/api/v1/pruebas/no-encontrado"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
@@ -117,7 +117,7 @@ class ApiContractTests {
      */
     @Test
     @DisplayName("el health y la especificacion OpenAPI no piden autenticacion")
-    void elHealthYLaEspecificacionSonPublicos() throws Exception {
+    void healthAndTheSpecArePublic() throws Exception {
         mockMvc.perform(get("/actuator/health")).andExpect(status().isOk());
         mockMvc.perform(get("/api/openapi.json"))
                 .andExpect(status().isOk())
@@ -128,7 +128,7 @@ class ApiContractTests {
     @Test
     @WithMockUser
     @DisplayName("el prefijo de version lo pone la configuracion, no el controlador")
-    void elPrefijoDeVersionSeAplicaSolo() throws Exception {
+    void theVersionPrefixIsAppliedOnItsOwn() throws Exception {
         mockMvc.perform(get("/pruebas/no-encontrado")).andExpect(status().isNotFound());
         mockMvc.perform(get("/api/v1/pruebas/no-encontrado"))
                 .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
@@ -137,7 +137,7 @@ class ApiContractTests {
     @Test
     @WithMockUser
     @DisplayName("un cuerpo que no es JSON da 400 con su codigo, no un problem+json mudo")
-    void unCuerpoRotoDa400ConCodigo() throws Exception {
+    void aBrokenBodyGives400WithACode() throws Exception {
         // Antes este caso no pasaba por ningun manejador nuestro: contestaba
         // ResponseEntityExceptionHandler y el cuerpo salia sin codigo, contra lo que promete el
         // contrato. Tanto, que el interceptor del frontend tiene que inventarse uno cuando falta.
@@ -156,7 +156,7 @@ class ApiContractTests {
     @Test
     @WithMockUser
     @DisplayName("un valor de enum inadmisible da 422 y enumera los admitidos")
-    void unEnumInadmisibleDa422() throws Exception {
+    void anUnacceptableEnumGives422() throws Exception {
         // El JSON esta bien formado, asi que el 422 es el estado correcto (RFC 9110) y el cliente
         // recibe la misma forma que en cualquier otra validacion: campo, codigo y mensaje.
         mockMvc.perform(post("/api/v1/pruebas/enum")
@@ -165,31 +165,31 @@ class ApiContractTests {
                         .content("{\"color\":\"AZUL\"}"))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.codigo").value("VALIDACION"))
-                .andExpect(jsonPath("$.errores[0].campo").value("color"))
-                .andExpect(jsonPath("$.errores[0].codigo").value("VALOR_NO_ADMITIDO"))
-                .andExpect(jsonPath("$.errores[0].mensaje").value(containsString("ROJO, VERDE")))
+                .andExpect(jsonPath("$.errores[0].field").value("color"))
+                .andExpect(jsonPath("$.errores[0].code").value("VALOR_NO_ADMITIDO"))
+                .andExpect(jsonPath("$.errores[0].message").value(containsString("ROJO, VERDE")))
                 // El nombre de la clase destino no sale: es ruido para el cliente.
-                .andExpect(jsonPath("$.errores[0].mensaje").value(not(containsString("Color"))));
+                .andExpect(jsonPath("$.errores[0].message").value(not(containsString("Color"))));
     }
 
     @Test
     @WithMockUser
     @DisplayName("un tipo que no encaja da 422 y señala el campo, aunque no sea un enum")
-    void unTipoQueNoEncajaDa422() throws Exception {
+    void aTypeThatDoesNotFitGives422() throws Exception {
         mockMvc.perform(post("/api/v1/pruebas/validacion")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"numero\":{}}"))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.codigo").value("VALIDACION"))
-                .andExpect(jsonPath("$.errores[0].campo").value("numero"))
-                .andExpect(jsonPath("$.errores[0].codigo").value("FORMATO"));
+                .andExpect(jsonPath("$.errores[0].field").value("numero"))
+                .andExpect(jsonPath("$.errores[0].code").value("FORMATO"));
     }
 
     @Test
     @WithMockUser
     @DisplayName("el traceId viaja en la cabecera y dentro del cuerpo del error")
-    void elTraceIdViajaEnLaRespuesta() throws Exception {
+    void theTraceIdTravelsInTheResponse() throws Exception {
         mockMvc.perform(get("/api/v1/pruebas/no-encontrado").header("X-Trace-Id", "abc-123"))
                 .andExpect(header().string("X-Trace-Id", "abc-123"))
                 .andExpect(jsonPath("$.traceId").value("abc-123"));
@@ -212,22 +212,22 @@ class ApiContractTests {
             record Entrada(@NotBlank String numero) {}
 
             @GetMapping("/no-encontrado")
-            void noEncontrado() {
+            void notFound() {
                 throw ResourceNotFound.de("Unidad", 7);
             }
 
             @GetMapping("/conflicto")
-            void conflicto() {
+            void conflict() {
                 throw new StateConflict("La obligacion ya estaba pagada.");
             }
 
             @GetMapping("/regla")
-            void regla() {
+            void rule() {
                 throw new BusinessRuleViolated("No se puede pagar un mes mas nuevo primero.");
             }
 
             @GetMapping("/estalla")
-            void estalla() {
+            void itBlowsUp() {
                 throw new IllegalStateException("fallo al leer tabla_secreta");
             }
 

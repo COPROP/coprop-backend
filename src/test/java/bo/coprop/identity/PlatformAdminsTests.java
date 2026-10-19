@@ -44,116 +44,116 @@ class PlatformAdminsTests {
 
     private static final Instant AHORA = Instant.parse("2026-10-15T12:00:00Z");
 
-    private final People personas;
-    private final Identities identidades;
-    private final AccessDoubles.SesionesDePrueba sesiones;
+    private final People people;
+    private final Identities identities;
+    private final AccessDoubles.SesionesDePrueba sessions;
     private final AccessDoubles.ProveedorDeIdentidadDePrueba proveedor;
 
     PlatformAdminsTests(
-            @Autowired People personas,
-            @Autowired Identities identidades,
-            @Autowired AccessDoubles.SesionesDePrueba sesiones,
+            @Autowired People people,
+            @Autowired Identities identities,
+            @Autowired AccessDoubles.SesionesDePrueba sessions,
             @Autowired AccessDoubles.ProveedorDeIdentidadDePrueba proveedor) {
-        this.personas = personas;
-        this.identidades = identidades;
-        this.sesiones = sesiones;
+        this.people = people;
+        this.identities = identities;
+        this.sessions = sessions;
         this.proveedor = proveedor;
     }
 
     /** Los dobles son del contexto y el contexto se comparte: lo mismo que en MembershipsTests. */
     @BeforeEach
-    void dejarLosDoblesLimpios() {
-        sesiones.reiniciar();
+    void resetTheDoubles() {
+        sessions.reiniciar();
         proveedor.reiniciar();
     }
 
     @Test
     @DisplayName("se le concede el rol a otra cuenta, y queda quien se lo concedio")
-    void seConcedeAOtraCuenta() {
-        UUID quienConcede = cuentaDe("concede@coprop.bo");
-        UUID quienRecibe = cuentaDe("recibe@coprop.bo");
+    void itIsGrantedToAnotherAccount() {
+        UUID quienConcede = accountOf("concede@coprop.bo");
+        UUID quienRecibe = accountOf("recibe@coprop.bo");
 
-        PlatformAdminView concedido = identidades.grantPlatformAdmin(quienRecibe, quienConcede.toString());
+        PlatformAdminView concedido = identities.grantPlatformAdmin(quienRecibe, quienConcede.toString());
 
         assertThat(concedido).isEqualTo(new PlatformAdminView(quienRecibe, quienConcede, AHORA));
-        assertThat(identidades.esSuperadministrador(quienRecibe)).isTrue();
+        assertThat(identities.esSuperadministrador(quienRecibe)).isTrue();
         // El listado es lo que hace posible revocar: sin el habria que conocer de antemano el
         // identificador de la cuenta.
-        assertThat(identidades.platformAdmins()).contains(concedido);
+        assertThat(identities.platformAdmins()).contains(concedido);
     }
 
     @Test
     @DisplayName("nadie se concede a si mismo el rol de plataforma")
-    void nadieSeLoConcedeASiMismo() {
-        UUID cuenta = cuentaDe("solo@coprop.bo");
+    void nobodyGrantsItToThemselves() {
+        UUID account = accountOf("solo@coprop.bo");
 
         // Lo impide tambien el CHECK de la migracion V7; aqui se comprueba antes para poder
         // explicarlo, porque un fallo de integridad saldria como un 500 sin decir nada util.
-        assertThatThrownBy(() -> identidades.grantPlatformAdmin(cuenta, cuenta.toString()))
+        assertThatThrownBy(() -> identities.grantPlatformAdmin(account, account.toString()))
                 .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("si mismo");
     }
 
     @Test
     @DisplayName("concederselo a quien ya lo tiene es un conflicto de estado, no un alta repetida")
-    void aQuienYaLoTieneEsConflicto() {
-        UUID quienConcede = cuentaDe("concede2@coprop.bo");
-        UUID quienRecibe = cuentaDe("recibe2@coprop.bo");
-        identidades.grantPlatformAdmin(quienRecibe, quienConcede.toString());
+    void whoAlreadyHasItGetsAConflict() {
+        UUID quienConcede = accountOf("concede2@coprop.bo");
+        UUID quienRecibe = accountOf("recibe2@coprop.bo");
+        identities.grantPlatformAdmin(quienRecibe, quienConcede.toString());
 
         // 409 y no 201: la fila existe y no hay grados. Un 201 silencioso cambiaria granted_by y
         // granted_at, y con eso se perderia quien se lo dio de verdad.
-        assertThatThrownBy(() -> identidades.grantPlatformAdmin(quienRecibe, quienConcede.toString()))
+        assertThatThrownBy(() -> identities.grantPlatformAdmin(quienRecibe, quienConcede.toString()))
                 .isInstanceOf(StateConflict.class)
                 .hasMessageContaining("ya administra la plataforma");
     }
 
     @Test
     @DisplayName("no se le concede a una cuenta que no existe")
-    void noSeConcedeAUnaCuentaQueNoExiste() {
-        UUID quienConcede = cuentaDe("concede3@coprop.bo");
+    void itIsNotGrantedToAnAccountThatDoesNotExist() {
+        UUID quienConcede = accountOf("concede3@coprop.bo");
 
-        assertThatThrownBy(() -> identidades.grantPlatformAdmin(UUID.randomUUID(), quienConcede.toString()))
+        assertThatThrownBy(() -> identities.grantPlatformAdmin(UUID.randomUUID(), quienConcede.toString()))
                 .isInstanceOf(ResourceNotFound.class);
     }
 
     @Test
     @DisplayName("revocar le quita el rol y le cierra las sesiones, las dos")
-    void revocarQuitaElRolYCierraLasSesiones() {
-        UUID quienRevoca = cuentaDe("revoca@coprop.bo");
-        UUID quienLoPierde = cuentaDe("pierde@coprop.bo");
-        identidades.grantPlatformAdmin(quienLoPierde, quienRevoca.toString());
+    void revokingRemovesTheRoleAndClosesTheSessions() {
+        UUID quienRevoca = accountOf("revoca@coprop.bo");
+        UUID quienLoPierde = accountOf("pierde@coprop.bo");
+        identities.grantPlatformAdmin(quienLoPierde, quienRevoca.toString());
 
-        identidades.revokePlatformAdmin(quienLoPierde, "dejo la empresa", quienRevoca.toString());
+        identities.revokePlatformAdmin(quienLoPierde, "dejo la empresa", quienRevoca.toString());
 
-        assertThat(identidades.esSuperadministrador(quienLoPierde)).isFalse();
+        assertThat(identities.esSuperadministrador(quienLoPierde)).isFalse();
         // Seguridad 8 pide revocar las sesiones al retirar un rol administrativo, y no hay rol mas
         // administrativo que este. Sin condicion ninguna: no hay membresias que contar.
-        assertThat(sesiones.cerradas()).containsExactly(Set.of(quienLoPierde.toString()));
+        assertThat(sessions.cerradas()).containsExactly(Set.of(quienLoPierde.toString()));
         assertThat(proveedor.aQuienSeLeCerraronSesiones()).containsExactly("pierde@coprop.bo");
     }
 
     @Test
     @DisplayName("revocarle el rol a quien no lo tiene responde como si no existiera")
-    void aQuienNoLoTieneResponde404() {
-        UUID quienRevoca = cuentaDe("revoca2@coprop.bo");
-        UUID cualquiera = cuentaDe("cualquiera@coprop.bo");
+    void whoDoesNotHaveItGets404() {
+        UUID quienRevoca = accountOf("revoca2@coprop.bo");
+        UUID cualquiera = accountOf("cualquiera@coprop.bo");
 
         // 404 y no 422: quien administra la plataforma no es dato publico, asi que preguntar por una
         // cuenta que no lo administra tiene que responder lo mismo que preguntar por una que no
         // existe. Mismo criterio que el 404-no-403 del #17.
-        assertThatThrownBy(() -> identidades.revokePlatformAdmin(cualquiera, "por si acaso", quienRevoca.toString()))
+        assertThatThrownBy(() -> identities.revokePlatformAdmin(cualquiera, "por si acaso", quienRevoca.toString()))
                 .isInstanceOf(ResourceNotFound.class);
     }
 
     @Test
     @DisplayName("nadie se revoca a si mismo: se quedaria sin la pantalla para volver")
-    void nadieSeLoRevocaASiMismo() {
-        UUID quienConcede = cuentaDe("concede4@coprop.bo");
-        UUID quienLoTiene = cuentaDe("tiene@coprop.bo");
-        identidades.grantPlatformAdmin(quienLoTiene, quienConcede.toString());
+    void nobodyRevokesItFromThemselves() {
+        UUID quienConcede = accountOf("concede4@coprop.bo");
+        UUID whoHoldsIt = accountOf("tiene@coprop.bo");
+        identities.grantPlatformAdmin(whoHoldsIt, quienConcede.toString());
 
-        assertThatThrownBy(() -> identidades.revokePlatformAdmin(quienLoTiene, "me retiro", quienLoTiene.toString()))
+        assertThatThrownBy(() -> identities.revokePlatformAdmin(whoHoldsIt, "me retiro", whoHoldsIt.toString()))
                 .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("si mismo");
     }
@@ -161,11 +161,11 @@ class PlatformAdminsTests {
     @Test
     @DisplayName("la concesion y la revocacion publican sus eventos, los dos sin condominio")
     void losDosEventosVanSinCondominio(PublishedEvents eventos) {
-        UUID quienConcede = cuentaDe("concede5@coprop.bo");
-        UUID elOtro = cuentaDe("elotro@coprop.bo");
+        UUID quienConcede = accountOf("concede5@coprop.bo");
+        UUID elOtro = accountOf("elotro@coprop.bo");
 
-        identidades.grantPlatformAdmin(elOtro, quienConcede.toString());
-        identidades.revokePlatformAdmin(elOtro, "se equivocaron de cuenta", quienConcede.toString());
+        identities.grantPlatformAdmin(elOtro, quienConcede.toString());
+        identities.revokePlatformAdmin(elOtro, "se equivocaron de cuenta", quienConcede.toString());
 
         assertThat(eventos.ofType(PlatformAdminGranted.class))
                 .containsExactly(new PlatformAdminGranted(elOtro, quienConcede, AHORA));
@@ -183,11 +183,11 @@ class PlatformAdminsTests {
 
     @Test
     @DisplayName("el actor del evento de concesion es quien lo concedio, no el arranque")
-    void elActorEsQuienLoConcedio() {
-        UUID quienConcede = cuentaDe("concede6@coprop.bo");
-        UUID quienRecibe = cuentaDe("recibe6@coprop.bo");
+    void theActorIsWhoGrantedIt() {
+        UUID quienConcede = accountOf("concede6@coprop.bo");
+        UUID quienRecibe = accountOf("recibe6@coprop.bo");
 
-        identidades.grantPlatformAdmin(quienRecibe, quienConcede.toString());
+        identities.grantPlatformAdmin(quienRecibe, quienConcede.toString());
 
         // Hasta este issue el evento siempre decia "arranque", porque el rol no tenia operacion:
         // desde aqui, grantedBy es una cuenta de verdad y el actor de la bitacora es esa.
@@ -195,9 +195,9 @@ class PlatformAdminsTests {
                 .isEqualTo(quienConcede.toString());
     }
 
-    private UUID cuentaDe(String correo) {
-        PersonView persona = personas.register(new NewPerson("Emma", "Tola", null), "admin");
-        return personas.openAccount(persona.id(), correo, null, "admin").id();
+    private UUID accountOf(String email) {
+        PersonView person = people.register(new NewPerson("Emma", "Tola", null), "admin");
+        return people.openAccount(person.id(), email, null, "admin").id();
     }
 
     /** Reloj parado: asi los eventos se pueden comparar contra una fecha concreta. */

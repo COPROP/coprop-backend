@@ -38,10 +38,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/personas")
 class PersonController {
 
-    private final People personas;
+    private final People people;
 
-    PersonController(People personas) {
-        this.personas = personas;
+    PersonController(People people) {
+        this.people = people;
     }
 
     /**
@@ -55,12 +55,12 @@ class PersonController {
     // La persona es global, asi que la ruta no cuelga de un condominio y no hay autoridades de
     // condominio que mirar. Basta con administrar alguno: quien da de alta a una persona lo hace
     // para su edificio.
-    @PreAuthorize("@autorizacion.puedeEnAlgunCondominio(authentication, 'MANAGE_UNITS')")
+    @PreAuthorize("@authorization.canInAnyCondominium(authentication, 'MANAGE_UNITS')")
     @PostMapping
-    ResponseEntity<PersonView> alta(@Valid @RequestBody NewPerson nueva, Principal quien) {
-        PersonView persona = personas.register(nueva, quien.getName());
-        return ResponseEntity.created(URI.create("/api/v1/personas/" + persona.id()))
-                .body(persona);
+    ResponseEntity<PersonView> alta(@Valid @RequestBody NewPerson body, Principal principal) {
+        PersonView person = people.register(body, principal.getName());
+        return ResponseEntity.created(URI.create("/api/v1/personas/" + person.id()))
+                .body(person);
     }
 
     /**
@@ -69,20 +69,20 @@ class PersonController {
      * <p>Misma regla que el alta, mas lo propio: sin eso, quien no administra nada no veria ni sus
      * datos. Y niega con <strong>403</strong>, no con 404, por lo mismo que la cuenta.
      */
-    @PreAuthorize("@acceso.puedeVerLaPersona(authentication, #personId)")
+    @PreAuthorize("@access.canViewPerson(authentication, #personId)")
     @GetMapping("/{personId}")
     PersonView consultar(@PathVariable UUID personId) {
-        return personas.find(personId);
+        return people.find(personId);
     }
 
     /** Abre la cuenta con la que la persona entrara. El envio de la invitacion es el issue #18. */
-    @PreAuthorize("@autorizacion.puedeEnAlgunCondominio(authentication, 'MANAGE_UNITS')")
+    @PreAuthorize("@authorization.canInAnyCondominium(authentication, 'MANAGE_UNITS')")
     @PostMapping("/{personId}/cuenta")
-    ResponseEntity<AccountView> abrirCuenta(
-            @PathVariable UUID personId, @Valid @RequestBody AperturaDeCuenta apertura, Principal quien) {
-        AccountView cuenta = personas.openAccount(personId, apertura.email(), apertura.phone(), quien.getName());
-        return ResponseEntity.created(URI.create("/api/v1/cuentas/" + cuenta.id()))
-                .body(cuenta);
+    ResponseEntity<AccountView> openAccount(
+            @PathVariable UUID personId, @Valid @RequestBody AccountOpening opening, Principal principal) {
+        AccountView account = people.openAccount(personId, opening.email(), opening.phone(), principal.getName());
+        return ResponseEntity.created(URI.create("/api/v1/cuentas/" + account.id()))
+                .body(account);
     }
 
     /**
@@ -90,5 +90,5 @@ class PersonController {
      *
      * <p>No hay contraseña que pedir: la guarda el proveedor de identidad, no esta aplicacion.
      */
-    record AperturaDeCuenta(@NotBlank @Email @Size(max = 160) String email, @Nullable @Size(max = 32) String phone) {}
+    record AccountOpening(@NotBlank @Email @Size(max = 160) String email, @Nullable @Size(max = 32) String phone) {}
 }

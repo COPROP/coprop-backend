@@ -16,12 +16,12 @@ class ModularityTests {
     static final ApplicationModules modules = ApplicationModules.of(CopropBackendApplication.class);
 
     @Test
-    void losModulosRespetanSusLimites() {
+    void theModulesRespectTheirBoundaries() {
         modules.verify();
     }
 
     @Test
-    void generaElDiagramaDeModulos() {
+    void itGeneratesTheModuleDiagram() {
         new Documenter(modules).writeDocumentation();
     }
 }

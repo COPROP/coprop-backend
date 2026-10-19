@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
  * una de sus claves. En el enlace del correo si va en la URL, pero esa URL es de la web y no llega
  * nunca al servidor.
  *
- * <p>Las dos son {@code POST} aunque {@link #abrir} parezca una consulta: crea el usuario en el
+ * <p>Las dos son {@code POST} aunque {@link #open} parezca una consulta: crea el usuario en el
  * proveedor de identidad y le manda un correo, asi que no es idempotente en el sentido de no tener
  * efectos. Sí lo es en el que importa --abrir el enlace dos veces vuelve a mandar el correo y no
  * rompe nada-- y por eso no consume el token.
@@ -38,10 +38,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/invitaciones")
 class InvitationAccessController {
 
-    private final Invitations invitaciones;
+    private final Invitations invitations;
 
-    InvitationAccessController(Invitations invitaciones) {
-        this.invitaciones = invitaciones;
+    InvitationAccessController(Invitations invitations) {
+        this.invitations = invitations;
     }
 
     /**
@@ -57,9 +57,9 @@ class InvitationAccessController {
      * sesion".
      */
     @PostMapping("/apertura")
-    Apertura abrir(@Valid @RequestBody ConToken cuerpo) {
-        Invitations.Apertura apertura = invitaciones.open(cuerpo.token());
-        return new Apertura(apertura.condominiumId(), apertura.credencialEnviada());
+    Opening open(@Valid @RequestBody ConToken cuerpo) {
+        Invitations.Opening opening = invitations.open(cuerpo.token());
+        return new Opening(opening.condominiumId(), opening.credentialSent());
     }
 
     /**
@@ -72,8 +72,8 @@ class InvitationAccessController {
      * entro.
      */
     @PostMapping("/aceptacion")
-    InvitationView aceptar(@Valid @RequestBody ConToken cuerpo, Principal quien) {
-        return invitaciones.accept(cuerpo.token(), UUID.fromString(quien.getName()));
+    InvitationView accept(@Valid @RequestBody ConToken cuerpo, Principal principal) {
+        return invitations.accept(cuerpo.token(), UUID.fromString(principal.getName()));
     }
 
     /**
@@ -93,5 +93,5 @@ class InvitationAccessController {
      *     todavia no puede iniciar sesion. En falso, ya tiene cuenta en el proveedor --participa en
      *     otro condominio-- y solo le toca entrar.
      */
-    record Apertura(UUID condominio, boolean credencialEnviada) {}
+    record Opening(UUID condominium, boolean credentialSent) {}
 }

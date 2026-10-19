@@ -35,7 +35,7 @@ interface MembershipRepository extends JpaRepository<Membership, UUID> {
             where m.accountId = :cuenta and m.validTo is null and m.status = bo.coprop.identity.MembershipStatus.ACTIVE
               and r in :roles
             """)
-    boolean existeVigenteConAlgunRol(@Param("cuenta") UUID cuenta, @Param("roles") Collection<MembershipRole> roles);
+    boolean currentExistsWithAnyRole(@Param("cuenta") UUID account, @Param("roles") Collection<MembershipRole> roles);
 
     /**
      * Todas las del condominio, vigentes y cerradas, de la mas reciente a la mas antigua.
@@ -67,6 +67,6 @@ interface MembershipRepository extends JpaRepository<Membership, UUID> {
               and m.status = bo.coprop.identity.MembershipStatus.ACTIVE
               and r = :rol and m.id <> :salvo
             """)
-    boolean existeOtraVigenteConRol(
-            @Param("condominio") UUID condominio, @Param("rol") MembershipRole rol, @Param("salvo") UUID salvo);
+    boolean anotherCurrentExistsWithRole(
+            @Param("condominio") UUID condominium, @Param("rol") MembershipRole rol, @Param("salvo") UUID salvo);
 }

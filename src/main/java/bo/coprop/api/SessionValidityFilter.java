@@ -67,63 +67,63 @@ class SessionValidityFilter extends OncePerRequestFilter {
     /** Duracion maxima de una sesion, se use o no se use. */
     static final Duration MAXIMA = Duration.ofHours(24);
 
-    private final Memberships membresias;
+    private final Memberships memberships;
     private final ProblemWriter problemas;
-    private final Clock reloj;
+    private final Clock clock;
 
-    SessionValidityFilter(Memberships membresias, ProblemWriter problemas, Clock reloj) {
-        this.membresias = membresias;
+    SessionValidityFilter(Memberships memberships, ProblemWriter problemas, Clock clock) {
+        this.memberships = memberships;
         this.problemas = problemas;
-        this.reloj = reloj;
+        this.clock = clock;
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest peticion, HttpServletResponse respuesta, FilterChain cadena)
+    protected void doFilterInternal(HttpServletRequest peticion, HttpServletResponse response, FilterChain cadena)
             throws ServletException, IOException {
         // Sin sesion no hay nada que gobernar: una ruta publica, o el propio login antes de crearla.
         // Nunca se crea una aqui --getSession(false)--: crear sesiones es cosa de oauth2Login, y
         // hacerlo en un filtro le daria cookie a cualquiera que pase por una ruta publica.
-        HttpSession sesion = peticion.getSession(false);
-        Authentication quien = SecurityContextHolder.getContext().getAuthentication();
-        if (sesion == null || quien == null) {
-            cadena.doFilter(peticion, respuesta);
+        HttpSession session = peticion.getSession(false);
+        Authentication principal = SecurityContextHolder.getContext().getAuthentication();
+        if (session == null || principal == null) {
+            cadena.doFilter(peticion, response);
             return;
         }
-        var actor = actorDe(quien);
+        var actor = actorOf(principal);
         if (actor == null) {
-            cadena.doFilter(peticion, respuesta);
+            cadena.doFilter(peticion, response);
             return;
         }
 
-        Instant creada = Instant.ofEpochMilli(sesion.getCreationTime());
-        Duration edad = Duration.between(creada, reloj.instant());
+        Instant created = Instant.ofEpochMilli(session.getCreationTime());
+        Duration edad = Duration.between(created, clock.instant());
         if (edad.compareTo(MAXIMA) > 0) {
             log.info(
                     "La sesion de la cuenta {} alcanzo la duracion maxima ({} horas) y se cierra; llevaba abierta {} horas (Seguridad 5.3).",
                     actor.accountId(),
                     MAXIMA.toHours(),
                     edad.toHours());
-            sesion.invalidate();
+            session.invalidate();
             SecurityContextHolder.clearContext();
             problemas.escribir(
                     peticion,
-                    respuesta,
+                    response,
                     ErrorCode.NO_AUTENTICADO,
                     "Tu sesion alcanzo su duracion maxima. Vuelve a iniciar sesion.");
             return;
         }
 
-        Duration inactividad = inactividadDe(quien, actor.accountId());
-        if (sesion.getMaxInactiveInterval() != (int) inactividad.toSeconds()) {
+        Duration inactividad = inactividadDe(principal, actor.accountId());
+        if (session.getMaxInactiveInterval() != (int) inactividad.toSeconds()) {
             // Solo cuando cambia. Tocarlo en cada peticion marcaria la sesion como sucia y la
             // escribiria en la base aunque no hubiera cambiado nada.
-            sesion.setMaxInactiveInterval((int) inactividad.toSeconds());
+            session.setMaxInactiveInterval((int) inactividad.toSeconds());
             log.debug(
                     "La sesion de la cuenta {} pasa a {} minutos de inactividad.",
                     actor.accountId(),
                     inactividad.toMinutes());
         }
-        cadena.doFilter(peticion, respuesta);
+        cadena.doFilter(peticion, response);
     }
 
     /**
@@ -136,21 +136,21 @@ class SessionValidityFilter extends OncePerRequestFilter {
      *
      * <p>Las suspendidas no cuentan: no dan acceso a nada, asi que tampoco endurecen nada.
      */
-    private Duration inactividadDe(Authentication quien, UUID accountId) {
+    private Duration inactividadDe(Authentication principal, UUID accountId) {
         String deLaPlataforma = "ROLE_" + MembershipRole.PLATFORM_ADMIN.name();
-        boolean administraLaPlataforma =
-                quien.getAuthorities().stream().anyMatch(autoridad -> deLaPlataforma.equals(autoridad.getAuthority()));
-        if (administraLaPlataforma) {
+        boolean managesThePlatform = principal.getAuthorities().stream()
+                .anyMatch(autoridad -> deLaPlataforma.equals(autoridad.getAuthority()));
+        if (managesThePlatform) {
             return ADMINISTRATIVA;
         }
-        boolean administraAlgunCondominio = membresias.ofAccount(accountId).stream()
-                .filter(membresia -> membresia.status() == MembershipStatus.ACTIVE)
-                .flatMap(membresia -> membresia.roles().stream())
+        boolean managesAnyCondominium = memberships.ofAccount(accountId).stream()
+                .filter(membership -> membership.status() == MembershipStatus.ACTIVE)
+                .flatMap(membership -> membership.roles().stream())
                 .anyMatch(PermissionMatrix::esAdministrativo);
-        return administraAlgunCondominio ? ADMINISTRATIVA : ORDINARIA;
+        return managesAnyCondominium ? ADMINISTRATIVA : ORDINARIA;
     }
 
-    private static AuthenticatedIdentity.@Nullable Actor actorDe(Authentication quien) {
-        return quien.getPrincipal() instanceof AuthenticatedIdentity.Actor actor ? actor : null;
+    private static AuthenticatedIdentity.@Nullable Actor actorOf(Authentication principal) {
+        return principal.getPrincipal() instanceof AuthenticatedIdentity.Actor actor ? actor : null;
     }
 }

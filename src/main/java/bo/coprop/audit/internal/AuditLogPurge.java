@@ -33,12 +33,12 @@ class AuditLogPurge {
     /** Un año, que es la retencion que fija Seguridad 10.1. */
     private static final Duration RETENCION = Duration.ofDays(365);
 
-    private final AuditTrail bitacora;
-    private final Clock reloj;
+    private final AuditTrail auditTrail;
+    private final Clock clock;
 
-    AuditLogPurge(AuditTrail bitacora, Clock reloj) {
-        this.bitacora = bitacora;
-        this.reloj = reloj;
+    AuditLogPurge(AuditTrail auditTrail, Clock clock) {
+        this.auditTrail = auditTrail;
+        this.clock = clock;
     }
 
     /**
@@ -49,10 +49,10 @@ class AuditLogPurge {
      * hora. Y al estar fuera del horario de cualquier zona de Bolivia, no compite con nadie.
      */
     @Scheduled(cron = "0 0 3 * * *")
-    void purgar() {
-        long borradas = bitacora.purgar(reloj.instant().minus(RETENCION));
-        if (borradas > 0) {
-            log.info("La purga diaria quito {} filas de la bitacora.", borradas);
+    void purge() {
+        long deleted = auditTrail.purge(clock.instant().minus(RETENCION));
+        if (deleted > 0) {
+            log.info("La purga diaria quito {} filas de la bitacora.", deleted);
         }
     }
 }

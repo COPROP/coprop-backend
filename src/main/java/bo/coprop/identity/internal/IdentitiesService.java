@@ -31,29 +31,29 @@ class IdentitiesService implements Identities {
 
     private static final Logger log = LoggerFactory.getLogger(IdentitiesService.class);
 
-    private final UserAccountRepository cuentas;
+    private final UserAccountRepository accounts;
     private final PlatformAdminRepository superadministradores;
     private final AccessRevocation cierre;
-    private final Sessions sesionesDelBff;
+    private final Sessions bffSessions;
     private final IdentityProvider proveedor;
     private final ApplicationEventPublisher eventos;
-    private final Clock reloj;
+    private final Clock clock;
 
     IdentitiesService(
-            UserAccountRepository cuentas,
+            UserAccountRepository accounts,
             PlatformAdminRepository superadministradores,
             AccessRevocation cierre,
-            Sessions sesionesDelBff,
+            Sessions bffSessions,
             IdentityProvider proveedor,
             ApplicationEventPublisher eventos,
-            Clock reloj) {
-        this.cuentas = cuentas;
+            Clock clock) {
+        this.accounts = accounts;
         this.superadministradores = superadministradores;
         this.cierre = cierre;
-        this.sesionesDelBff = sesionesDelBff;
+        this.bffSessions = bffSessions;
         this.proveedor = proveedor;
         this.eventos = eventos;
-        this.reloj = reloj;
+        this.clock = clock;
     }
 
     @Override
@@ -65,20 +65,20 @@ class IdentitiesService implements Identities {
     @Override
     @Transactional
     public PlatformAdminView grantPlatformAdmin(UUID accountId, String actor) {
-        UUID quienConcede = cuentaDe(actor);
+        UUID quienConcede = accountOf(actor);
         if (accountId.equals(quienConcede)) {
             // Lo impide tambien el CHECK de la migracion V7. Comprobarlo aqui permite explicarlo:
             // un fallo de integridad saldria como un 500 sin decir nada util.
             throw new BusinessRuleViolated("Nadie se concede a si mismo el rol de plataforma.");
         }
-        if (!cuentas.existsById(accountId)) {
+        if (!accounts.existsById(accountId)) {
             throw ResourceNotFound.de("la cuenta", accountId);
         }
         if (superadministradores.existsById(accountId)) {
             throw new StateConflict("La cuenta %s ya administra la plataforma.".formatted(accountId));
         }
 
-        Instant ahora = reloj.instant();
+        Instant ahora = clock.instant();
         PlatformAdmin concedido = superadministradores.save(new PlatformAdmin(accountId, quienConcede, ahora));
         eventos.publishEvent(new PlatformAdminGranted(accountId, quienConcede, ahora));
 
@@ -86,59 +86,59 @@ class IdentitiesService implements Identities {
                 "La cuenta {} administra la plataforma desde ahora; se lo concedio {}. Crea condominios y puede abrir accesos de soporte (Seguridad 10.1).",
                 accountId,
                 actor);
-        return vista(concedido);
+        return view(concedido);
     }
 
     @Override
     @Transactional
-    public void revokePlatformAdmin(UUID accountId, String motivo, String actor) {
-        if (accountId.equals(cuentaDe(actor))) {
+    public void revokePlatformAdmin(UUID accountId, String reason, String actor) {
+        if (accountId.equals(accountOf(actor))) {
             throw new BusinessRuleViolated(
                     "Nadie se revoca a si mismo el rol de plataforma: pideselo a otro superadministrador.");
         }
-        PlatformAdmin quienLoTiene = superadministradores
+        PlatformAdmin whoHoldsIt = superadministradores
                 .findById(accountId)
                 // 404 y no un 422: quien administra la plataforma no es dato publico, asi que
                 // preguntar por una cuenta que no lo administra responde lo mismo que preguntar por
                 // una que no existe. Mismo criterio que el 404-no-403 del #17.
                 .orElseThrow(() -> ResourceNotFound.de("el superadministrador", accountId));
 
-        Instant ahora = reloj.instant();
-        superadministradores.delete(quienLoTiene);
+        Instant ahora = clock.instant();
+        superadministradores.delete(whoHoldsIt);
         // Hace falta que la fila se vaya ANTES de cerrar las sesiones: el cierre pregunta por los
         // superadministradores --no le cierra las sesiones a quien lo es-- y leeria la fila vieja.
         superadministradores.flush();
-        boolean sesionesCerradas = cierre.deTodasFormas(accountId);
+        boolean closedSessions = cierre.deTodasFormas(accountId);
 
-        eventos.publishEvent(new PlatformAdminRevoked(accountId, motivo, sesionesCerradas, actor, ahora));
-        log.warn("La cuenta {} ya no administra la plataforma; se lo quito {}. Motivo: {}.", accountId, actor, motivo);
+        eventos.publishEvent(new PlatformAdminRevoked(accountId, reason, closedSessions, actor, ahora));
+        log.warn("La cuenta {} ya no administra la plataforma; se lo quito {}. Motivo: {}.", accountId, actor, reason);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<PlatformAdminView> platformAdmins() {
         return superadministradores.findAllByOrderByGrantedAtDescAccountIdDesc().stream()
-                .map(IdentitiesService::vista)
+                .map(IdentitiesService::view)
                 .toList();
     }
 
     @Override
     @Transactional
     public @Nullable AccountView signIn(String idpSubject, String email, boolean emailVerificado) {
-        Instant ahora = reloj.instant();
+        Instant ahora = clock.instant();
 
         // El camino de siempre: la cuenta ya se vinculo y se reconoce por el sujeto. Va primero
         // porque es el de todos los logins menos uno, y porque el correo puede cambiar en el
         // proveedor sin que la cuenta deje de ser la misma.
-        Optional<UserAccount> vinculada = cuentas.findByIdpSubject(idpSubject);
+        Optional<UserAccount> vinculada = accounts.findByIdpSubject(idpSubject);
         if (vinculada.isPresent()) {
-            UserAccount cuenta = vinculada.get();
-            if (!cuenta.puedeEntrar()) {
-                log.info("Acceso denegado: la cuenta {} esta en estado {}.", cuenta.getId(), cuenta.getStatus());
+            UserAccount account = vinculada.get();
+            if (!account.canSignIn()) {
+                log.info("Acceso denegado: la cuenta {} esta en estado {}.", account.getId(), account.getStatus());
                 return null;
             }
-            cuenta.registrarAcceso(ahora);
-            return cuenta.vista();
+            account.recordAccess(ahora);
+            return account.view();
         }
 
         // Primer login. Vincular por correo es lo que hace que entrar con contraseña y entrar con
@@ -150,17 +150,17 @@ class IdentitiesService implements Identities {
             return null;
         }
 
-        Optional<UserAccount> porCorreo = cuentas.findByEmailIgnoreCase(email);
-        if (porCorreo.isEmpty()) {
+        Optional<UserAccount> byEmail = accounts.findByEmailIgnoreCase(email);
+        if (byEmail.isEmpty()) {
             // Autentico, pero en COPROP no es nadie. El acceso lo da la invitacion (Seguridad
             // 10.1), y crear la cuenta cuando una invitacion lo respalda es el issue #18.
             log.info("Acceso denegado: ninguna cuenta con el correo del token.");
             return null;
         }
 
-        UserAccount cuenta = porCorreo.get();
-        if (!cuenta.puedeEntrar()) {
-            log.info("Acceso denegado: la cuenta {} esta en estado {}.", cuenta.getId(), cuenta.getStatus());
+        UserAccount account = byEmail.get();
+        if (!account.canSignIn()) {
+            log.info("Acceso denegado: la cuenta {} esta en estado {}.", account.getId(), account.getStatus());
             return null;
         }
 
@@ -170,18 +170,18 @@ class IdentitiesService implements Identities {
         // una red de seguridad: si algun dia se afloja esa opcion, o se añade un proveedor que no
         // la respete, el agujero no se abre solo. Rehacer el vinculo es una operacion explicita
         // del issue #86, que es el del ciclo de vida de la credencial.
-        if (cuenta.getIdpSubject() != null) {
+        if (account.getIdpSubject() != null) {
             log.warn(
                     "Acceso denegado: la cuenta {} ya esta vinculada a otro sujeto y llego {}.",
-                    cuenta.getId(),
+                    account.getId(),
                     idpSubject);
             return null;
         }
 
-        cuenta.vincular(idpSubject, ahora);
-        eventos.publishEvent(new AccountActivated(cuenta.getId(), cuenta.getPersonId(), idpSubject, ahora));
+        account.link(idpSubject, ahora);
+        eventos.publishEvent(new AccountActivated(account.getId(), account.getPersonId(), idpSubject, ahora));
 
-        return cuenta.vista();
+        return account.view();
     }
 
     /**
@@ -195,26 +195,27 @@ class IdentitiesService implements Identities {
     @Override
     @Transactional(readOnly = true)
     public List<ActiveSessionView> sessionsOf(UUID accountId) {
-        UserAccount cuenta = cuentas.findById(accountId).orElseThrow(() -> ResourceNotFound.de("la cuenta", accountId));
+        UserAccount account =
+                accounts.findById(accountId).orElseThrow(() -> ResourceNotFound.de("la cuenta", accountId));
 
         var todas = new java.util.ArrayList<ActiveSessionView>();
-        for (var sesion : sesionesDelBff.listarLasDe(nombresDe(cuenta))) {
+        for (var session : bffSessions.listThoseOf(namesOf(account))) {
             todas.add(new ActiveSessionView(
-                    sesion.id(),
+                    session.id(),
                     SessionOrigin.BROWSER,
                     null,
-                    sesion.creada(),
-                    sesion.ultimoAcceso(),
-                    sesion.ultimoAcceso().plus(sesion.inactividad())));
+                    session.created(),
+                    session.lastAccess(),
+                    session.lastAccess().plus(session.inactividad())));
         }
         try {
-            for (var sesion : proveedor.sesionesDe(cuenta.getEmail())) {
+            for (var session : proveedor.sessionsOf(account.getEmail())) {
                 todas.add(new ActiveSessionView(
-                        sesion.id(),
+                        session.id(),
                         SessionOrigin.PROVIDER,
-                        sesion.ip(),
-                        sesion.creada(),
-                        sesion.ultimoAcceso(),
+                        session.ip(),
+                        session.created(),
+                        session.lastAccess(),
                         null));
             }
         } catch (IdentityProvider.FalloDelProveedorDeIdentidad fallo) {
@@ -226,19 +227,19 @@ class IdentitiesService implements Identities {
                     accountId,
                     fallo);
         }
-        todas.sort(
-                java.util.Comparator.comparing(ActiveSessionView::ultimoAcceso).reversed());
+        todas.sort(java.util.Comparator.comparing(ActiveSessionView::lastAccess).reversed());
         return List.copyOf(todas);
     }
 
     @Override
     @Transactional
     public int signOutEverywhere(UUID accountId, String actor) {
-        UserAccount cuenta = cuentas.findById(accountId).orElseThrow(() -> ResourceNotFound.de("la cuenta", accountId));
+        UserAccount account =
+                accounts.findById(accountId).orElseThrow(() -> ResourceNotFound.de("la cuenta", accountId));
 
-        AccessRevocation.Cerradas cerradas = cierre.porPeticionPropia(cuenta.getId());
+        AccessRevocation.Cerradas cerradas = cierre.byOwnRequest(account.getId());
         eventos.publishEvent(
-                new SessionsSignedOut(accountId, cerradas.delBff(), cerradas.enElProveedor(), actor, reloj.instant()));
+                new SessionsSignedOut(accountId, cerradas.delBff(), cerradas.enElProveedor(), actor, clock.instant()));
 
         log.warn(
                 "La cuenta {} cerro todas sus sesiones: {} del navegador, y en el proveedor {} (Seguridad 5.3).",
@@ -255,17 +256,17 @@ class IdentitiesService implements Identities {
      * en vez de exponerla porque son tres lineas y compartirlas obligaria a sacar un metodo
      * publico de una clase que es un detalle del modulo.
      */
-    private static java.util.Set<String> nombresDe(UserAccount cuenta) {
-        var nombres = new java.util.HashSet<String>();
-        nombres.add(cuenta.getId().toString());
-        String sujeto = cuenta.getIdpSubject();
-        if (sujeto != null) {
-            nombres.add(sujeto);
+    private static java.util.Set<String> namesOf(UserAccount account) {
+        var names = new java.util.HashSet<String>();
+        names.add(account.getId().toString());
+        String tokenSubject = account.getIdpSubject();
+        if (tokenSubject != null) {
+            names.add(tokenSubject);
         }
-        return nombres;
+        return names;
     }
 
-    private static PlatformAdminView vista(PlatformAdmin fila) {
+    private static PlatformAdminView view(PlatformAdmin fila) {
         return new PlatformAdminView(fila.getAccountId(), fila.getGrantedBy(), fila.getGrantedAt());
     }
 
@@ -278,7 +279,7 @@ class IdentitiesService implements Identities {
      * --el "arranque" del primer superadministrador-- no puede llegar a estas operaciones: entran
      * por HTTP, y alli siempre hay una cuenta.
      */
-    private static UUID cuentaDe(String actor) {
+    private static UUID accountOf(String actor) {
         return UUID.fromString(actor);
     }
 }

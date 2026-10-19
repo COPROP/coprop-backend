@@ -22,8 +22,8 @@ public record MembershipSuspended(
         UUID condominiumId,
         UUID membershipId,
         UUID accountId,
-        String motivo,
-        boolean sesionesCerradas,
+        String reason,
+        boolean closedSessions,
         String actor,
         Instant occurredAt)
         implements AuditableEvent {
@@ -54,8 +54,8 @@ public record MembershipSuspended(
                 "status",
                 MembershipStatus.SUSPENDED.name(),
                 "motivo",
-                motivo,
+                reason,
                 "sesionesCerradas",
-                String.valueOf(sesionesCerradas));
+                String.valueOf(closedSessions));
     }
 }

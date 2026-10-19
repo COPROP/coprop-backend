@@ -102,16 +102,16 @@ class Invitation {
      * {@code Instant.now()}-- y aqui tiene una consecuencia practica: sin ella no habria forma de
      * probar el vencimiento sin esperar siete dias.
      */
-    boolean estaViva(Instant ahora) {
+    boolean isLive(Instant ahora) {
         return acceptedAt == null && revokedAt == null && expiresAt.isAfter(ahora);
     }
 
-    /** Sella la invitacion. De un solo uso: a partir de aqui {@link #estaViva} dice que no. */
-    void aceptar(Instant at) {
+    /** Sella la invitacion. De un solo uso: a partir de aqui {@link #isLive} dice que no. */
+    void accept(Instant at) {
         this.acceptedAt = at;
     }
 
-    void revocar(Instant at) {
+    void revoke(Instant at) {
         this.revokedAt = at;
     }
 

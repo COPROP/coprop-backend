@@ -113,28 +113,28 @@ class AuthorizationChainTests {
     private MockMvc mockMvc;
 
     @Autowired
-    private Condominiums condominios;
+    private Condominiums condominiums;
 
     @Autowired
-    private Units unidades;
+    private Units units;
 
     @Autowired
     private UnitRelations relaciones;
 
     @Autowired
-    private People personas;
+    private People people;
 
     @Autowired
-    private Memberships membresias;
+    private Memberships memberships;
 
     @Autowired
-    private Invitations invitaciones;
+    private Invitations invitations;
 
     @Autowired
     private DataSource dataSource;
 
-    private UUID condominio;
-    private UUID bloque;
+    private UUID condominium;
+    private UUID block;
 
     /** La unidad con la que el propietario y el inquilino de la rejilla tienen relacion vigente. */
     private UUID unidadPropia;
@@ -200,12 +200,12 @@ class AuthorizationChainTests {
     /** Un token por rol, y la persona y la cuenta detras de el, para preguntar por lo propio. */
     private final Map<MembershipRole, Quien> porRol = new EnumMap<>(MembershipRole.class);
 
-    private record Quien(UUID cuenta, UUID persona, String autorizacion) {}
+    private record Quien(UUID account, UUID person, String autorizacion) {}
 
     @BeforeAll
-    void prepararElEdificioYUnaCuentaPorRol() {
-        condominio = altaDeCondominio();
-        bloque = unidades.addBlock(condominio, "Bloque A", "admin").id();
+    void prepareTheBuildingAndOneAccountPerRole() {
+        condominium = altaDeCondominio();
+        block = units.addBlock(condominium, "Bloque A", "admin").id();
         unidadPropia = altaDeUnidad("CAD-PROPIA");
         unidadAjena = altaDeUnidad("CAD-AJENA");
 
@@ -216,52 +216,52 @@ class AuthorizationChainTests {
         // El propietario y el inquilino de la rejilla tienen relacion vigente con la unidad propia:
         // sin eso, las celdas "Propias" darian 404 y la rejilla no distinguiria un OWN
         // resuelto de un NONE. Son dos de las tres relaciones; la tercera tiene su propio caso.
-        relaciones.grantOwnership(condominio, unidadPropia, persona(OWNER), new BigDecimal("50.000000"), "admin");
-        relaciones.grantOccupancy(condominio, unidadPropia, persona(TENANT), OccupancyRole.TENANT, "admin");
+        relaciones.grantOwnership(condominium, unidadPropia, person(OWNER), new BigDecimal("50.000000"), "admin");
+        relaciones.grantOccupancy(condominium, unidadPropia, person(TENANT), OccupancyRole.TENANT, "admin");
 
         // La membresia que se pide por identificador en la rejilla, de alguien que no es ninguno de
         // los siete: pedir la propia es otra pregunta y la contesta GET /me.
-        membresiaDelCondominio = membresias
-                .grant(condominio, cuentaNueva().id(), Set.of(OWNER), null, "admin")
+        membresiaDelCondominio = memberships
+                .grant(condominium, cuentaNueva().id(), Set.of(OWNER), null, "admin")
                 .id();
 
-        PersonView suelta = personas.register(new NewPerson("Ana", "Perez", null), "admin");
+        PersonView suelta = people.register(new NewPerson("Ana", "Perez", null), "admin");
         personaSuelta = suelta.id();
-        cuentaSuelta = personas.openAccount(suelta.id(), TestTokenProvider.correoNuevo(), null, "admin")
+        cuentaSuelta = people.openAccount(suelta.id(), TestTokenProvider.correoNuevo(), null, "admin")
                 .id();
 
         // Una persona sin cuenta, para que el alta de cuenta de la rejilla no choque con la regla de
         // una cuenta por persona antes de llegar a la autorizacion.
-        personaSinCuenta = personas.register(new NewPerson("Luis", "Mamani", null), "admin")
-                .id();
+        personaSinCuenta =
+                people.register(new NewPerson("Luis", "Mamani", null), "admin").id();
 
         // Una invitacion abierta para reenviar y revocar, y una cuenta libre para emitir. Son dos
         // cuentas distintas a proposito: con una sola, la emision chocaria con la invitacion que ya
         // tiene abierta y la celda daria 422 por el estado del dato en vez de por la autorizacion.
         cuentaParaInvitar = cuentaNueva().id();
-        invitacionAbierta = invitaciones
+        invitacionAbierta = invitations
                 .issue(
-                        condominio,
+                        condominium,
                         cuentaNueva().id(),
                         Set.of(OWNER),
-                        quien(CONDO_ADMIN).cuenta().toString())
+                        principal(CONDO_ADMIN).account().toString())
                 .id();
 
         // Las tres del issue #19, una por operacion.
-        membresiaParaDarDeBaja = membresias
-                .grant(condominio, cuentaNueva().id(), Set.of(OWNER), null, "admin")
+        membresiaParaDarDeBaja = memberships
+                .grant(condominium, cuentaNueva().id(), Set.of(OWNER), null, "admin")
                 .id();
-        membresiaParaSuspender = membresias
-                .grant(condominio, cuentaNueva().id(), Set.of(OWNER), null, "admin")
+        membresiaParaSuspender = memberships
+                .grant(condominium, cuentaNueva().id(), Set.of(OWNER), null, "admin")
                 .id();
-        membresiaParaReactivar = membresias
-                .grant(condominio, cuentaNueva().id(), Set.of(OWNER), null, "admin")
+        membresiaParaReactivar = memberships
+                .grant(condominium, cuentaNueva().id(), Set.of(OWNER), null, "admin")
                 .id();
-        membresias.suspend(condominio, membresiaParaReactivar, "para que la rejilla la reactive", "admin");
+        memberships.suspend(condominium, membresiaParaReactivar, "para que la rejilla la reactive", "admin");
 
         // Las tres del issue #20.
-        membresiaParaCambiarRoles = membresias
-                .grant(condominio, cuentaNueva().id(), Set.of(OWNER), null, "admin")
+        membresiaParaCambiarRoles = memberships
+                .grant(condominium, cuentaNueva().id(), Set.of(OWNER), null, "admin")
                 .id();
         cuentaParaLaPlataforma = cuentaNueva().id();
         cuentaConLaPlataformaPuesta = cuentaNueva().id();
@@ -273,21 +273,21 @@ class AuthorizationChainTests {
                         cuentaConLaPlataformaPuesta);
 
         // Y las relaciones de la unidad ajena que los cierres del #19 van a cerrar.
-        vendedorDeLaAjena = personas.register(new NewPerson("Vende", "Ajena", null), "admin")
-                .id();
-        compradorDeLaAjena = personas.register(new NewPerson("Compra", "Ajena", null), "admin")
-                .id();
-        ocupanteDeLaAjena = personas.register(new NewPerson("Ocupa", "Ajena", null), "admin")
-                .id();
+        vendedorDeLaAjena =
+                people.register(new NewPerson("Vende", "Ajena", null), "admin").id();
+        compradorDeLaAjena =
+                people.register(new NewPerson("Compra", "Ajena", null), "admin").id();
+        ocupanteDeLaAjena =
+                people.register(new NewPerson("Ocupa", "Ajena", null), "admin").id();
         responsableDeLaAjena =
-                personas.register(new NewPerson("Paga", "Ajena", null), "admin").id();
-        relaciones.grantOwnership(condominio, unidadAjena, vendedorDeLaAjena, new BigDecimal("100.000000"), "admin");
-        relaciones.grantOccupancy(condominio, unidadAjena, ocupanteDeLaAjena, OccupancyRole.TENANT, "admin");
-        relaciones.assignBilling(condominio, unidadAjena, responsableDeLaAjena, null, "admin");
+                people.register(new NewPerson("Paga", "Ajena", null), "admin").id();
+        relaciones.grantOwnership(condominium, unidadAjena, vendedorDeLaAjena, new BigDecimal("100.000000"), "admin");
+        relaciones.grantOccupancy(condominium, unidadAjena, ocupanteDeLaAjena, OccupancyRole.TENANT, "admin");
+        relaciones.assignBilling(condominium, unidadAjena, responsableDeLaAjena, null, "admin");
     }
 
     private UUID altaDeCondominio() {
-        return condominios
+        return condominiums
                 .register(
                         new NewCondominium(
                                 "Cadena " + UUID.randomUUID(),
@@ -305,17 +305,17 @@ class AuthorizationChainTests {
         return String.valueOf(Math.abs(UUID.randomUUID().getMostSignificantBits() % 1_000_000_0000L));
     }
 
-    private UUID altaDeUnidad(String codigo) {
-        return unidades.register(
-                        condominio,
-                        new NewUnit(codigo, UnitType.APARTMENT, new BigDecimal("1.000000"), null, null, null),
+    private UUID altaDeUnidad(String code) {
+        return units.register(
+                        condominium,
+                        new NewUnit(code, UnitType.APARTMENT, new BigDecimal("1.000000"), null, null, null),
                         "admin")
                 .id();
     }
 
     private AccountView cuentaNueva() {
-        PersonView persona = personas.register(new NewPerson("Emma", "Tola", null), "admin");
-        return personas.openAccount(persona.id(), TestTokenProvider.correoNuevo(), null, "admin");
+        PersonView person = people.register(new NewPerson("Emma", "Tola", null), "admin");
+        return people.openAccount(person.id(), TestTokenProvider.correoNuevo(), null, "admin");
     }
 
     /**
@@ -327,23 +327,23 @@ class AuthorizationChainTests {
      * condominio, que es justo lo que el filtro del #17 le permite.
      */
     private Quien conElRol(MembershipRole rol) {
-        PersonView persona = personas.register(new NewPerson("Rol", rol.name(), null), "admin");
-        AccountView cuenta = personas.openAccount(persona.id(), TestTokenProvider.correoNuevo(), null, "admin");
+        PersonView person = people.register(new NewPerson("Rol", rol.name(), null), "admin");
+        AccountView account = people.openAccount(person.id(), TestTokenProvider.correoNuevo(), null, "admin");
         if (rol == PLATFORM_ADMIN) {
             new JdbcTemplate(dataSource)
-                    .update("insert into platform_admin (user_id, granted_at) values (?, now())", cuenta.id());
+                    .update("insert into platform_admin (user_id, granted_at) values (?, now())", account.id());
         } else {
-            membresias.grant(condominio, cuenta.id(), Set.of(rol), null, "admin");
+            memberships.grant(condominium, account.id(), Set.of(rol), null, "admin");
         }
-        String token = TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), cuenta.email());
-        return new Quien(cuenta.id(), persona.id(), "Bearer " + token);
+        String token = TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), account.email());
+        return new Quien(account.id(), person.id(), "Bearer " + token);
     }
 
-    private UUID persona(MembershipRole rol) {
-        return quien(rol).persona();
+    private UUID person(MembershipRole rol) {
+        return principal(rol).person();
     }
 
-    private Quien quien(MembershipRole rol) {
+    private Quien principal(MembershipRole rol) {
         return java.util.Objects.requireNonNull(porRol.get(rol));
     }
 
@@ -356,7 +356,7 @@ class AuthorizationChainTests {
      * contrario que la suite de fuga, que corre la misma plantilla contra dos condominios.
      */
     private record Endpoint(
-            String nombre,
+            String name,
             HttpMethod metodo,
             String ruta,
             @Nullable String cuerpo,
@@ -371,7 +371,7 @@ class AuthorizationChainTests {
      * propio de uno que no existe.
      */
     private List<Endpoint> endpoints() {
-        String enElCondominio = "/api/v1/condominios/" + condominio;
+        String enElCondominio = "/api/v1/condominios/" + condominium;
         String laUnidad = enElCondominio + "/unidades/" + unidadPropia;
         String laUnidadAjena = enElCondominio + "/unidades/" + unidadAjena;
         return List.of(
@@ -407,7 +407,7 @@ class AuthorizationChainTests {
                         "alta masiva de unidades",
                         HttpMethod.POST,
                         enElCondominio + "/unidades/lote",
-                        "{\"unidades\":[" + unidadConCodigo() + "]}",
+                        "{\"units\":[" + unidadConCodigo() + "]}",
                         soloPara(CONDO_ADMIN)),
                 new Endpoint(
                         "dar de alta un bloque",
@@ -418,7 +418,7 @@ class AuthorizationChainTests {
                 new Endpoint(
                         "dar de alta un piso",
                         HttpMethod.POST,
-                        enElCondominio + "/bloques/" + bloque + "/pisos",
+                        enElCondominio + "/bloques/" + block + "/pisos",
                         "{\"number\":3}",
                         soloPara(CONDO_ADMIN)),
                 new Endpoint(
@@ -598,19 +598,19 @@ class AuthorizationChainTests {
                         "dar de baja una membresia",
                         HttpMethod.POST,
                         enElCondominio + "/membresias/" + membresiaParaDarDeBaja + "/baja",
-                        motivo(),
+                        reason(),
                         soloPara(CONDO_ADMIN)),
                 new Endpoint(
                         "suspender una membresia",
                         HttpMethod.POST,
                         enElCondominio + "/membresias/" + membresiaParaSuspender + "/suspension",
-                        motivo(),
+                        reason(),
                         soloPara(CONDO_ADMIN)),
                 new Endpoint(
                         "reactivar una membresia",
                         HttpMethod.POST,
                         enElCondominio + "/membresias/" + membresiaParaReactivar + "/reactivacion",
-                        motivo(),
+                        reason(),
                         soloPara(CONDO_ADMIN)),
 
                 // El cambio de roles (issue #20). Pide las DOS mitades: poder quitar los que tiene
@@ -621,7 +621,7 @@ class AuthorizationChainTests {
                         "cambiar los roles de una membresia",
                         HttpMethod.PUT,
                         enElCondominio + "/membresias/" + membresiaParaCambiarRoles + "/roles",
-                        "{\"roles\":[\"TENANT\"],\"motivo\":\"lo decide la rejilla de autorizacion\"}",
+                        "{\"roles\":[\"TENANT\"],\"reason\":\"lo decide la rejilla de autorizacion\"}",
                         soloPara(CONDO_ADMIN)),
 
                 // El rol de plataforma y la bitacora de plataforma (issue #20). Las tres rutas son
@@ -644,7 +644,7 @@ class AuthorizationChainTests {
                         "revocar el rol de plataforma",
                         HttpMethod.POST,
                         "/api/v1/superadministradores/" + cuentaConLaPlataformaPuesta + "/revocacion",
-                        motivo(),
+                        reason(),
                         soloPara(PLATFORM_ADMIN)),
                 new Endpoint(
                         "consultar la auditoria de plataforma",
@@ -685,8 +685,8 @@ class AuthorizationChainTests {
     }
 
     /** El motivo que piden la baja, la suspension y la reactivacion. Con el minimo de caracteres. */
-    private static String motivo() {
-        return "{\"motivo\":\"lo decide la rejilla de autorizacion\"}";
+    private static String reason() {
+        return "{\"reason\":\"lo decide la rejilla de autorizacion\"}";
     }
 
     /**
@@ -713,7 +713,7 @@ class AuthorizationChainTests {
     private String edicionDelCondominio() {
         return """
                 {"name": "Cadena editada", "nit": "%s", "address": "Av. Ballivian 123"}"""
-                .formatted(condominios.find(condominio).nit());
+                .formatted(condominiums.find(condominium).nit());
     }
 
     private static String unidadConCodigo() {
@@ -765,7 +765,7 @@ class AuthorizationChainTests {
 
         @Override
         public String toString() {
-            return "%s con %s da %s".formatted(endpoint.nombre(), rol, esperado);
+            return "%s con %s da %s".formatted(endpoint.name(), rol, esperado);
         }
     }
 
@@ -773,8 +773,8 @@ class AuthorizationChainTests {
     @MethodSource("celdas")
     @DisplayName("la rejilla entera: los cuarenta y un endpoints por los siete roles")
     void laRejillaEntera(Celda celda) throws Exception {
-        var resultado =
-                mockMvc.perform(peticion(celda.endpoint(), quien(celda.rol()).autorizacion()));
+        var resultado = mockMvc.perform(
+                peticion(celda.endpoint(), principal(celda.rol()).autorizacion()));
 
         switch (celda.esperado()) {
             case PERMITIDO -> resultado.andExpect(estadoQueNoSea(403, 404, celda));
@@ -799,9 +799,9 @@ class AuthorizationChainTests {
     private static org.springframework.test.web.servlet.ResultMatcher estadoQueNoSea(
             int unEstado, int otro, Celda celda) {
         return resultado -> {
-            int estado = resultado.getResponse().getStatus();
-            if (estado == unEstado || estado == otro) {
-                throw new AssertionError("La celda '%s' respondio %d.".formatted(celda, estado));
+            int status = resultado.getResponse().getStatus();
+            if (status == unEstado || status == otro) {
+                throw new AssertionError("La celda '%s' respondio %d.".formatted(celda, status));
             }
         };
     }
@@ -821,26 +821,26 @@ class AuthorizationChainTests {
 
     @Test
     @DisplayName("el propietario ve su unidad y la del vecino le responde 404")
-    void elPropietarioSoloVeSuUnidad() throws Exception {
+    void theOwnerOnlySeesTheirUnit() throws Exception {
         // Es el criterio del issue, con el estado de cuenta sustituido por lo que hay en M1: las
         // dos unidades son del MISMO condominio y el propietario tiene membresia activa en el, asi
         // que el 404 no lo pone el filtro del #17 sino la relacion con el recurso. Es la unica
         // forma de probar este eslabon por separado.
-        String propietario = quien(OWNER).autorizacion();
+        String owner = principal(OWNER).autorizacion();
 
-        mockMvc.perform(peticion(laUnidad(unidadPropia), propietario)).andExpect(status().isOk());
+        mockMvc.perform(peticion(laUnidad(unidadPropia), owner)).andExpect(status().isOk());
 
-        mockMvc.perform(peticion(laUnidad(unidadAjena), propietario))
+        mockMvc.perform(peticion(laUnidad(unidadAjena), owner))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
     }
 
     @Test
     @DisplayName("al administrador del condominio las dos unidades le responden igual")
-    void elAdministradorVeLasDos() throws Exception {
+    void theAdminSeesBoth() throws Exception {
         // El control del caso anterior. Sin esto, una unidad mal sembrada daria 404 a todo el mundo
         // y el 404 del propietario no probaria nada.
-        String administrador = quien(CONDO_ADMIN).autorizacion();
+        String administrador = principal(CONDO_ADMIN).autorizacion();
 
         mockMvc.perform(peticion(laUnidad(unidadPropia), administrador)).andExpect(status().isOk());
         mockMvc.perform(peticion(laUnidad(unidadAjena), administrador)).andExpect(status().isOk());
@@ -848,83 +848,85 @@ class AuthorizationChainTests {
 
     @Test
     @DisplayName("sobre la unidad ajena el alcance propio da 404 y el rol sin permiso da 403")
-    void laNegativaDistingueElRolDelRecurso() throws Exception {
+    void theRefusalDistinguishesTheRoleFromTheResource() throws Exception {
         // Las dos negativas sobre el MISMO endpoint y el MISMO recurso, que es donde se ve que no
         // son intercambiables: a quien le falta el permiso se le dice que le falta, y a quien lo
         // tiene sobre lo suyo se le dice que esto no existe. Al reves, el 403 del propietario
         // confirmaria que esa unidad existe y con eso se enumera el edificio.
-        String ruta = "/api/v1/condominios/" + condominio + "/unidades/" + unidadAjena + "/propietarios";
+        String ruta = "/api/v1/condominios/" + condominium + "/unidades/" + unidadAjena + "/propietarios";
 
         mockMvc.perform(request(HttpMethod.GET, ruta)
-                        .header(HttpHeaders.AUTHORIZATION, quien(OWNER).autorizacion()))
+                        .header(HttpHeaders.AUTHORIZATION, principal(OWNER).autorizacion()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
 
         mockMvc.perform(request(HttpMethod.GET, ruta)
-                        .header(HttpHeaders.AUTHORIZATION, quien(MAINTENANCE).autorizacion()))
+                        .header(
+                                HttpHeaders.AUTHORIZATION,
+                                principal(MAINTENANCE).autorizacion()))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.codigo").value("SIN_PERMISO"));
     }
 
     @Test
     @DisplayName("responder por los cobros de una unidad tambien es tenerla")
-    void elResponsableDePagoTambienLaTiene() throws Exception {
+    void theBillingResponsibleAlsoHasIt() throws Exception {
         // La tercera relacion, que es la que se olvida: el propietario que alquilo ya no ocupa, y
         // si solo contara la ocupacion se quedaria sin ver la unidad por la que sigue pagando.
         // Seguridad 7.2 la nombra explicitamente --"inquilino responsable vigente del servicio"--.
-        AccountView cuenta = cuentaNueva();
-        UUID persona = cuenta.personId();
-        membresias.grant(condominio, cuenta.id(), Set.of(TENANT), null, "admin");
-        String token = "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), cuenta.email());
+        AccountView account = cuentaNueva();
+        UUID person = account.personId();
+        memberships.grant(condominium, account.id(), Set.of(TENANT), null, "admin");
+        String token = "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), account.email());
 
         mockMvc.perform(peticion(laUnidad(unidadAjena), token)).andExpect(status().isNotFound());
 
-        relaciones.assignBilling(condominio, unidadAjena, persona, null, "admin");
+        relaciones.assignBilling(condominium, unidadAjena, person, null, "admin");
 
         mockMvc.perform(peticion(laUnidad(unidadAjena), token)).andExpect(status().isOk());
     }
 
     @Test
     @DisplayName("cada uno ve su propia persona y su propia cuenta sin administrar nada")
-    void loPropioSeVeSinAdministrarNada() throws Exception {
+    void yourOwnIsVisibleWithoutManagingAnything() throws Exception {
         // Un propietario no administra ningun condominio, asi que por la matriz no le toca ninguna
         // de las dos consultas. Lo propio es la excepcion, y hace falta: sin ella la cabecera
         // Location del alta de su cuenta apuntaria a una ruta que a el le responde 403.
-        Quien propietario = quien(OWNER);
+        Quien owner = principal(OWNER);
 
-        mockMvc.perform(request(HttpMethod.GET, "/api/v1/personas/" + propietario.persona())
-                        .header(HttpHeaders.AUTHORIZATION, propietario.autorizacion()))
+        mockMvc.perform(request(HttpMethod.GET, "/api/v1/personas/" + owner.person())
+                        .header(HttpHeaders.AUTHORIZATION, owner.autorizacion()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(propietario.persona().toString()));
+                .andExpect(jsonPath("$.id").value(owner.person().toString()));
 
-        mockMvc.perform(request(HttpMethod.GET, "/api/v1/cuentas/" + propietario.cuenta())
-                        .header(HttpHeaders.AUTHORIZATION, propietario.autorizacion()))
+        mockMvc.perform(request(HttpMethod.GET, "/api/v1/cuentas/" + owner.account())
+                        .header(HttpHeaders.AUTHORIZATION, owner.autorizacion()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(propietario.cuenta().toString()));
+                .andExpect(jsonPath("$.id").value(owner.account().toString()));
     }
 
     @Test
     @DisplayName("la relacion con la unidad no se hereda entre condominios")
-    void laRelacionNoCruzaCondominios() throws Exception {
+    void theRelationDoesNotCrossCondominiums() throws Exception {
         // El propietario de la unidad de un edificio pide, en otro edificio donde tambien es
         // miembro, una unidad con la que no tiene relacion. La consulta de la relacion lleva el
         // condominio, asi que no empareja; si no lo llevara, bastaria ser propietario en cualquier
         // parte para ver cualquier unidad del mismo identificador.
         UUID otro = altaDeCondominio();
-        AccountView cuenta = cuentaNueva();
-        UUID persona = cuenta.personId();
-        membresias.grant(condominio, cuenta.id(), Set.of(OWNER), null, "admin");
-        membresias.grant(otro, cuenta.id(), Set.of(OWNER), null, "admin");
-        relaciones.grantOwnership(condominio, unidadAjena, persona, new BigDecimal("10.000000"), "admin");
+        AccountView account = cuentaNueva();
+        UUID person = account.personId();
+        memberships.grant(condominium, account.id(), Set.of(OWNER), null, "admin");
+        memberships.grant(otro, account.id(), Set.of(OWNER), null, "admin");
+        relaciones.grantOwnership(condominium, unidadAjena, person, new BigDecimal("10.000000"), "admin");
 
-        UUID unidadDelOtro = unidades.register(
+        UUID unidadDelOtro = units.register(
                         otro,
                         new NewUnit("OTRO-1", UnitType.APARTMENT, new BigDecimal("1.000000"), null, null, null),
                         "admin")
                 .id();
-        String token = "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), cuenta.email());
+        String token = "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), account.email());
 
-        mockMvc.perform(request(HttpMethod.GET, "/api/v1/condominios/" + condominio + "/unidades/" + unidadAjena)
+        mockMvc.perform(request(HttpMethod.GET, "/api/v1/condominios/" + condominium + "/unidades/" + unidadAjena)
                         .header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(status().isOk());
 
@@ -935,22 +937,22 @@ class AuthorizationChainTests {
 
     @Test
     @DisplayName("la rejilla declara los siete roles en cada endpoint")
-    void laRejillaNoDejaCeldasSinDeclarar() {
+    void theGridLeavesNoCellUndeclared() {
         // El guardian de este test. Una fila que se olvide de un rol lo dejaria sin probar y la
         // rejilla pasaria igual; es el mismo descuido que en el #16 dejo un permiso de menos en
         // CONDO_ADMIN, y lo cazo justo el test que exigia las columnas completas.
         for (Endpoint endpoint : endpoints()) {
             assertThat(endpoint.esperado())
-                    .as("el endpoint '%s' no declara los siete roles", endpoint.nombre())
+                    .as("el endpoint '%s' no declara los siete roles", endpoint.name())
                     .containsOnlyKeys(MembershipRole.values());
         }
     }
 
-    private Endpoint laUnidad(UUID unidad) {
+    private Endpoint laUnidad(UUID unit) {
         return new Endpoint(
                 "consultar una unidad",
                 HttpMethod.GET,
-                "/api/v1/condominios/" + condominio + "/unidades/" + unidad,
+                "/api/v1/condominios/" + condominium + "/unidades/" + unit,
                 null,
                 todos());
     }

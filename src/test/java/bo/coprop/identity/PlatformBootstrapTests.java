@@ -30,7 +30,7 @@ class PlatformBootstrapTests {
     private static final String CORREO = "dev@coprop.local";
 
     @Autowired
-    private Identities identidades;
+    private Identities identities;
 
     @Autowired
     private DataSource dataSource;
@@ -45,25 +45,25 @@ class PlatformBootstrapTests {
 
     @Test
     @DisplayName("al arrancar sin superadministradores se abre el primero, con su persona y su cuenta")
-    void alArrancarSeAbreElPrimero() {
-        assertThat(identidades.esSuperadministrador(cuentaDelCorreoInicial())).isTrue();
+    void onStartupTheFirstIsOpened() {
+        assertThat(identities.esSuperadministrador(cuentaDelCorreoInicial())).isTrue();
     }
 
     @Test
     @DisplayName("la cuenta nace sin vincular: la propiedad abre la puerta, no entra por ti")
-    void laCuentaNaceSinVincular() {
+    void theAccountIsBornUnlinked() {
         // No crea credenciales ni toca el proveedor de identidad. Alguien tiene que entrar con ese
         // correo para que la cuenta se vincule, que es lo que ya hace el issue #13.
         var jdbc = new JdbcTemplate(dataSource);
-        String estado = jdbc.queryForObject(
+        String status = jdbc.queryForObject(
                 "select status from user_account where lower(email) = lower(?)", String.class, CORREO);
 
-        assertThat(estado).isEqualTo(AccountStatus.INVITED.name());
+        assertThat(status).isEqualTo(AccountStatus.INVITED.name());
     }
 
     @Test
     @DisplayName("no abre un segundo: en cuanto hay uno, la propiedad deja de hacer nada")
-    void noAbreUnSegundo() {
+    void itDoesNotOpenASecondOne() {
         // Es lo que impide que la propiedad sea una puerta trasera permanente. Dejarla puesta en
         // produccion por descuido no abre nada mas, y quitarla no cierra lo ya abierto.
         var jdbc = new JdbcTemplate(dataSource);
@@ -78,7 +78,7 @@ class PlatformBootstrapTests {
 
     @Test
     @DisplayName("el primero no lo concede nadie, y eso queda escrito")
-    void elPrimeroNoLoConcedeNadie() {
+    void nobodyGrantsTheFirstOne() {
         // granted_by nulo es la unica forma de distinguir despues el que abrio el arranque de los
         // que concedio una persona. La bitacora del issue #21 lo va a querer.
         var jdbc = new JdbcTemplate(dataSource);

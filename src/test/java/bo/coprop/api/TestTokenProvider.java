@@ -70,15 +70,15 @@ class TestTokenProvider {
      * pasarian sin comprobar nada. Lo que no trae segundo factor se pide a mano, con
      * {@link #sinSegundoFactor} y {@link #conSegundoFactorEn}.
      */
-    static String valido(String sujeto, String correo) {
-        return token(sujeto, correo, true, Instant.now().plus(5, ChronoUnit.MINUTES), AUDIENCIA, CLAVE);
+    static String valido(String tokenSubject, String email) {
+        return token(tokenSubject, email, true, Instant.now().plus(5, ChronoUnit.MINUTES), AUDIENCIA, CLAVE);
     }
 
     /** Como {@link #valido}, pero autenticado solo con contraseña: no hay segundo factor. */
-    static String sinSegundoFactor(String sujeto, String correo) {
+    static String sinSegundoFactor(String tokenSubject, String email) {
         return token(
-                sujeto,
-                correo,
+                tokenSubject,
+                email,
                 true,
                 Instant.now().plus(5, ChronoUnit.MINUTES),
                 AUDIENCIA,
@@ -97,10 +97,10 @@ class TestTokenProvider {
      * negativo y el token "viejo" pasa como recien hecho. Costo un test en verde que no probaba
      * nada.
      */
-    static String conSegundoFactorEn(String sujeto, String correo, Instant autenticadoEn) {
+    static String conSegundoFactorEn(String tokenSubject, String email, Instant autenticadoEn) {
         return token(
-                sujeto,
-                correo,
+                tokenSubject,
+                email,
                 true,
                 Instant.now().plus(5, ChronoUnit.MINUTES),
                 AUDIENCIA,
@@ -110,32 +110,39 @@ class TestTokenProvider {
     }
 
     /** Sin {@code amr} ni {@code auth_time}: un proveedor que no los manda. */
-    static String sinAfirmacionesDeAutenticacion(String sujeto, String correo) {
-        return token(sujeto, correo, true, Instant.now().plus(5, ChronoUnit.MINUTES), AUDIENCIA, CLAVE, null, null);
+    static String sinAfirmacionesDeAutenticacion(String tokenSubject, String email) {
+        return token(
+                tokenSubject, email, true, Instant.now().plus(5, ChronoUnit.MINUTES), AUDIENCIA, CLAVE, null, null);
     }
 
     static String token(
-            String sujeto, String correo, boolean correoVerificado, Instant expira, String audiencia, RSAKey clave) {
-        return token(sujeto, correo, correoVerificado, expira, audiencia, clave, List.of("pwd", "otp"), Instant.now());
-    }
-
-    static String token(
-            String sujeto,
-            String correo,
+            String tokenSubject,
+            String email,
             boolean correoVerificado,
-            Instant expira,
+            Instant expiresAt,
             String audiencia,
-            RSAKey clave,
+            RSAKey key) {
+        return token(
+                tokenSubject, email, correoVerificado, expiresAt, audiencia, key, List.of("pwd", "otp"), Instant.now());
+    }
+
+    static String token(
+            String tokenSubject,
+            String email,
+            boolean correoVerificado,
+            Instant expiresAt,
+            String audiencia,
+            RSAKey key,
             @Nullable List<String> amr,
             @Nullable Instant autenticadoEn) {
         try {
             var constructor = new JWTClaimsSet.Builder()
-                    .subject(sujeto)
+                    .subject(tokenSubject)
                     .issuer(EMISOR)
                     .audience(audiencia)
-                    .issueTime(Date.from(expira.minus(5, ChronoUnit.MINUTES)))
-                    .expirationTime(Date.from(expira))
-                    .claim("email", correo)
+                    .issueTime(Date.from(expiresAt.minus(5, ChronoUnit.MINUTES)))
+                    .expirationTime(Date.from(expiresAt))
+                    .claim("email", email)
                     .claim("email_verified", correoVerificado);
             if (amr != null) {
                 constructor.claim("amr", amr);
@@ -149,10 +156,10 @@ class TestTokenProvider {
             var firmado = new SignedJWT(
                     new JWSHeader.Builder(JWSAlgorithm.RS256)
                             .type(JOSEObjectType.JWT)
-                            .keyID(clave.getKeyID())
+                            .keyID(key.getKeyID())
                             .build(),
                     afirmaciones);
-            firmado.sign(new RSASSASigner(clave.toPrivateKey()));
+            firmado.sign(new RSASSASigner(key.toPrivateKey()));
             return firmado.serialize();
         } catch (Exception fallo) {
             throw new IllegalStateException("No se pudo firmar el token de prueba", fallo);

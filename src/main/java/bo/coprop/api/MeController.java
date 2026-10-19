@@ -47,36 +47,36 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/me")
 class MeController {
 
-    private final People personas;
-    private final Identities identidades;
-    private final Memberships membresias;
-    private final Condominiums condominios;
+    private final People people;
+    private final Identities identities;
+    private final Memberships memberships;
+    private final Condominiums condominiums;
     private final UnitRelations relaciones;
 
     MeController(
-            People personas,
-            Identities identidades,
-            Memberships membresias,
-            Condominiums condominios,
+            People people,
+            Identities identities,
+            Memberships memberships,
+            Condominiums condominiums,
             UnitRelations relaciones) {
-        this.personas = personas;
-        this.identidades = identidades;
-        this.membresias = membresias;
-        this.condominios = condominios;
+        this.people = people;
+        this.identities = identities;
+        this.memberships = memberships;
+        this.condominiums = condominiums;
         this.relaciones = relaciones;
     }
 
     @GetMapping
-    MyProfile consultar(Authentication quien) {
-        var actor = AuthenticatedIdentity.actorDe(quien);
-        UUID cuenta = actor.accountId();
-        UUID persona = actor.personId();
+    MyProfile consultar(Authentication principal) {
+        var actor = AuthenticatedIdentity.actorOf(principal);
+        UUID account = actor.accountId();
+        UUID person = actor.personId();
 
         return new MyProfile(
-                personas.find(persona),
-                personas.findAccount(cuenta),
-                identidades.esSuperadministrador(cuenta),
-                misCondominios(cuenta, persona));
+                people.find(person),
+                people.findAccount(account),
+                identities.esSuperadministrador(account),
+                myCondominiums(account, person));
     }
 
     /**
@@ -86,19 +86,19 @@ class MeController {
      * son uno o dos y rara vez mas de cinco. Si algun dia una administradora de muchos edificios lo
      * nota, lo que toca es una consulta en bloque en {@code Condominiums}, no cachear esto.
      */
-    private List<MyProfile.MiCondominio> misCondominios(UUID cuenta, UUID persona) {
-        return membresias.ofAccount(cuenta).stream()
-                .filter(membresia -> membresia.status() == MembershipStatus.ACTIVE)
-                .map(membresia -> deLaMembresia(membresia, persona))
+    private List<MyProfile.MyCondominium> myCondominiums(UUID account, UUID person) {
+        return memberships.ofAccount(account).stream()
+                .filter(membership -> membership.status() == MembershipStatus.ACTIVE)
+                .map(membership -> ofTheMembership(membership, person))
                 // Por nombre y no por el orden en que se concedieron las membresias: el selector lo
                 // lee una persona, y un orden que cambia entre dos peticiones se nota.
-                .sorted(Comparator.comparing(mio -> mio.condominio().name()))
+                .sorted(Comparator.comparing(mio -> mio.condominium().name()))
                 .toList();
     }
 
-    private MyProfile.MiCondominio deLaMembresia(MembershipView membresia, UUID persona) {
-        UUID condominio = membresia.condominiumId();
-        return new MyProfile.MiCondominio(
-                condominios.find(condominio), membresia.roles(), relaciones.relatedTo(condominio, persona));
+    private MyProfile.MyCondominium ofTheMembership(MembershipView membership, UUID person) {
+        UUID condominium = membership.condominiumId();
+        return new MyProfile.MyCondominium(
+                condominiums.find(condominium), membership.roles(), relaciones.relatedTo(condominium, person));
     }
 }

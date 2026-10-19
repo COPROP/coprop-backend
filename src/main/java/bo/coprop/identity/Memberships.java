@@ -63,7 +63,7 @@ public interface Memberships {
      * @throws bo.coprop.shared.BusinessRuleViolated si quien la da de baja es su propio dueño, o si
      *     es la ultima membresia con {@code CONDO_ADMIN} del condominio
      */
-    MembershipView revoke(UUID condominiumId, UUID membershipId, String motivo, String actor);
+    MembershipView revoke(UUID condominiumId, UUID membershipId, String reason, String actor);
 
     /**
      * Suspende una membresia sin cerrarla. Issue <strong>#19</strong>.
@@ -84,7 +84,7 @@ public interface Memberships {
      * @throws bo.coprop.shared.BusinessRuleViolated si quien la suspende es su propio dueño, o si
      *     es la ultima membresia con {@code CONDO_ADMIN} del condominio
      */
-    MembershipView suspend(UUID condominiumId, UUID membershipId, String motivo, String actor);
+    MembershipView suspend(UUID condominiumId, UUID membershipId, String reason, String actor);
 
     /**
      * Levanta la suspension. Issue <strong>#19</strong>.
@@ -100,7 +100,7 @@ public interface Memberships {
      * @throws bo.coprop.shared.StateConflict si esta dada de baja --una baja no se deshace, se
      *     concede una membresia nueva-- o si ya estaba activa
      */
-    MembershipView reinstate(UUID condominiumId, UUID membershipId, String motivo, String actor);
+    MembershipView reinstate(UUID condominiumId, UUID membershipId, String reason, String actor);
 
     /**
      * Cambia los roles de una membresia vigente. Issue <strong>#20</strong>.
@@ -138,7 +138,7 @@ public interface Memberships {
      *     dejaria al condominio sin ningun {@code CONDO_ADMIN} activo
      */
     MembershipView changeRoles(
-            UUID condominiumId, UUID membershipId, Set<MembershipRole> roles, String motivo, String actor);
+            UUID condominiumId, UUID membershipId, Set<MembershipRole> roles, String reason, String actor);
 
     /**
      * Las membresias vigentes de un condominio.

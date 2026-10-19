@@ -59,10 +59,10 @@ class AuditController {
 
     private static final int TAMANO_MAXIMO = 200;
 
-    private final AuditTrail bitacora;
+    private final AuditTrail auditTrail;
 
-    AuditController(AuditTrail bitacora) {
-        this.bitacora = bitacora;
+    AuditController(AuditTrail auditTrail) {
+        this.auditTrail = auditTrail;
     }
 
     /**
@@ -78,17 +78,17 @@ class AuditController {
      * @param desde inclusive
      * @param hasta exclusive, para que dos rangos contiguos no repitan una fila
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'VIEW_AUDIT_LOG')")
+    @PreAuthorize("@authorization.can(authentication, 'VIEW_AUDIT_LOG')")
     @GetMapping("/condominios/{condominiumId}/auditoria")
     PagedResponse<AuditEntryView> consultar(
             @PathVariable UUID condominiumId,
             @RequestParam(required = false) @Nullable @Size(max = 100) String actor,
             @RequestParam(required = false) @Nullable @Size(max = 40) String entity,
             @RequestParam(required = false) @Nullable Instant desde,
-            @RequestParam(required = false) @Nullable Instant hasta,
-            @RequestParam(defaultValue = "0") @Min(0) int pagina,
+            @RequestParam(required = false) @Nullable Instant until,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "" + TAMANO_POR_DEFECTO) @Min(1) @Max(TAMANO_MAXIMO) int tamano) {
-        return bitacora.ofCondominium(condominiumId, actor, entity, desde, hasta, pagina, tamano);
+        return auditTrail.ofCondominium(condominiumId, actor, entity, desde, until, page, tamano);
     }
 
     /**
@@ -102,15 +102,15 @@ class AuditController {
      * <p>Mismos filtros y misma paginacion que la del condominio: lo que cambia es que filas se ven,
      * no como se piden.
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'VIEW_AUDIT_LOG')")
+    @PreAuthorize("@authorization.can(authentication, 'VIEW_AUDIT_LOG')")
     @GetMapping("/auditoria")
     PagedResponse<AuditEntryView> consultarLaDePlataforma(
             @RequestParam(required = false) @Nullable @Size(max = 100) String actor,
             @RequestParam(required = false) @Nullable @Size(max = 40) String entity,
             @RequestParam(required = false) @Nullable Instant desde,
-            @RequestParam(required = false) @Nullable Instant hasta,
-            @RequestParam(defaultValue = "0") @Min(0) int pagina,
+            @RequestParam(required = false) @Nullable Instant until,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "" + TAMANO_POR_DEFECTO) @Min(1) @Max(TAMANO_MAXIMO) int tamano) {
-        return bitacora.ofPlatform(actor, entity, desde, hasta, pagina, tamano);
+        return auditTrail.ofPlatform(actor, entity, desde, until, page, tamano);
     }
 }

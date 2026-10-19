@@ -41,13 +41,13 @@ class TraceFilter extends OncePerRequestFilter {
     static final String CABECERA = "X-Trace-Id";
 
     @Override
-    protected void doFilterInternal(HttpServletRequest peticion, HttpServletResponse respuesta, FilterChain cadena)
+    protected void doFilterInternal(HttpServletRequest peticion, HttpServletResponse response, FilterChain cadena)
             throws ServletException, IOException {
         String recibido = peticion.getHeader(CABECERA);
-        String traza =
+        String trace =
                 StringUtils.hasText(recibido) ? recibido : UUID.randomUUID().toString();
-        MDC.put(LogKeys.TRAZA, traza);
-        respuesta.setHeader(CABECERA, traza);
+        MDC.put(LogKeys.TRAZA, trace);
+        response.setHeader(CABECERA, trace);
 
         // La IP va al MDC junto con la traza, y por el mismo motivo: es un hecho de la peticion. La
         // bitacora del issue #21 la necesita --5.2 la pide en AuditLog-- y ningun evento de dominio
@@ -62,7 +62,7 @@ class TraceFilter extends OncePerRequestFilter {
             MDC.put(LogKeys.IP, desde);
         }
         try {
-            cadena.doFilter(peticion, respuesta);
+            cadena.doFilter(peticion, response);
         } finally {
             MDC.remove(LogKeys.TRAZA);
             MDC.remove(LogKeys.IP);

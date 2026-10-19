@@ -21,7 +21,7 @@ public interface Authorization {
     /**
      * Hasta donde le llega ese permiso a quien hace esta peticion, en el condominio de la ruta.
      *
-     * <p>Existe porque {@link #puede} aplasta tres valores en dos: para la cadena del issue
+     * <p>Existe porque {@link #can} aplasta tres valores en dos: para la cadena del issue
      * <strong>#15</strong> no es lo mismo un {@link Scope#NONE} --el rol no hace esto, y la
      * respuesta es 403-- que un {@link Scope#OWN}, donde falta comprobar si el recurso es
      * suyo y la respuesta, si no lo es, tiene que ser 404. Quien compone las dos cosas vive en
@@ -31,7 +31,7 @@ public interface Authorization {
      *
      * @param permiso el nombre de un {@link Permission}
      */
-    Scope alcanceDe(Authentication quien, String permiso);
+    Scope scopeOf(Authentication principal, String permission);
 
     /**
      * Si quien hace esta peticion puede hacer esto <strong>en el condominio de la ruta</strong>.
@@ -43,13 +43,13 @@ public interface Authorization {
      * <p>Un permiso de alcance {@link Scope#OWN} cuenta como permitido aqui, porque lo
      * contrario dejaria al propietario sin su propio estado de cuenta. <strong>Por eso este metodo
      * no basta para un endpoint que recibe un recurso en la ruta</strong>: ahi hay que preguntar
-     * por el recurso, con {@link #alcanceDe} y las relaciones de la unidad. Vale tal cual para las
+     * por el recurso, con {@link #scopeOf} y las relaciones de la unidad. Vale tal cual para las
      * operaciones de alcance de condominio --dar de alta una unidad, cambiar la configuracion--,
      * que son las que no nombran ningun recurso propio.
      *
      * @param permiso el nombre de un {@link Permission}
      */
-    boolean puede(Authentication quien, String permiso);
+    boolean can(Authentication principal, String permission);
 
     /**
      * Si puede hacerlo <strong>en algun condominio</strong>.
@@ -59,24 +59,24 @@ public interface Authorization {
      * que administre alguno. Esto si consulta la base, porque en una ruta global no hay autoridades
      * de condominio que leer.
      */
-    boolean puedeEnAlgunCondominio(Authentication quien, String permiso);
+    boolean canInAnyCondominium(Authentication principal, String permission);
 
     /**
      * Si puede conceder <strong>esos</strong> roles.
      *
-     * <p>Son dos reglas distintas y por eso no cabe en {@link #puede}: el administrador del
+     * <p>Son dos reglas distintas y por eso no cabe en {@link #can}: el administrador del
      * condominio puede asignar cualquier rol, incluidos {@code CONDO_ADMIN} y {@code FINANCE_ADMIN}
      * --decision explicita de Seguridad 10.1, que queda en auditoria--, mientras que el
      * superadministrador solo puede asignar roles administrativos, que es la celda "Solo
      * administradores" de la matriz.
      */
-    boolean puedeConceder(Authentication quien, java.util.Set<MembershipRole> roles);
+    boolean canGrant(Authentication principal, java.util.Set<MembershipRole> roles);
 
     /**
      * Si puede dar de baja, suspender o reactivar <strong>esa</strong> membresia. Issue
      * <strong>#19</strong>.
      *
-     * <p>Es {@link #puedeConceder} leido al reves, con los roles que la membresia tiene en vez de
+     * <p>Es {@link #canGrant} leido al reves, con los roles que la membresia tiene en vez de
      * los que se van a conceder: <strong>quien no puede nombrar a un administrador tampoco puede
      * quitarlo</strong>. Sin esto, el superadministrador --que segun la matriz solo reparte roles
      * administrativos-- podria dar de baja a cualquier propietario de cualquier edificio, que es
@@ -91,5 +91,5 @@ public interface Authorization {
      *     consigue un 404 donde un {@code false} daria 403: si la membresia no es de este
      *     condominio, la respuesta no puede confirmar que existe
      */
-    boolean puedeCambiar(Authentication quien, UUID condominiumId, UUID membershipId);
+    boolean canChange(Authentication principal, UUID condominiumId, UUID membershipId);
 }

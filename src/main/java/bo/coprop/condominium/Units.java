@@ -30,7 +30,7 @@ public interface Units {
      * @throws bo.coprop.shared.BusinessRuleViolated si el codigo ya existe en ese condominio, o
      *     si el bloque o el piso indicados no son de ese condominio
      */
-    UnitView register(UUID condominiumId, NewUnit nueva, String actor);
+    UnitView register(UUID condominiumId, NewUnit body, String actor);
 
     /**
      * Da de alta varias unidades de una vez.
@@ -42,7 +42,7 @@ public interface Units {
      * @throws bo.coprop.shared.BusinessRuleViolated si hay codigos repetidos dentro del propio
      *     lote, o si alguna unidad no pasa las validaciones de {@link #register}
      */
-    List<UnitView> registerAll(UUID condominiumId, List<NewUnit> nuevas, String actor);
+    List<UnitView> registerAll(UUID condominiumId, List<NewUnit> incoming, String actor);
 
     /**
      * Devuelve una unidad de este condominio.

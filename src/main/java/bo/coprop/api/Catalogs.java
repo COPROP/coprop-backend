@@ -22,4 +22,4 @@ import java.util.Map;
  *     declaro la enumeracion. El orden importa: una respuesta que cambia entre dos peticiones
  *     mueve las opciones de sitio en un desplegable
  */
-public record Catalogs(Map<String, List<String>> enumeraciones) {}
+public record Catalogs(Map<String, List<String>> enumerations) {}

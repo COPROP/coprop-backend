@@ -39,8 +39,8 @@ final class AuthenticatedIdentity extends AbstractAuthenticationToken {
     private final Autenticacion autenticacion;
 
     AuthenticatedIdentity(
-            Actor actor, Autenticacion autenticacion, Collection<? extends GrantedAuthority> autoridades) {
-        super(autoridades);
+            Actor actor, Autenticacion autenticacion, Collection<? extends GrantedAuthority> authorities) {
+        super(authorities);
         this.actor = actor;
         this.autenticacion = autenticacion;
         setAuthenticated(true);
@@ -72,12 +72,12 @@ final class AuthenticatedIdentity extends AbstractAuthenticationToken {
      * Como y cuando se autentico quien hace la peticion, o nada si esta autenticacion no paso por
      * el filtro de identidad.
      *
-     * <p>No revienta como {@link #actorDe}: lo usa la comprobacion de reautenticacion del issue
+     * <p>No revienta como {@link #actorOf}: lo usa la comprobacion de reautenticacion del issue
      * #22, que autoriza, y una autorizacion que no sabe como se autentico quien pregunta tiene que
      * <strong>exigir</strong> el segundo factor, no caerse.
      */
-    static @Nullable Autenticacion autenticacionDe(Authentication quien) {
-        return quien instanceof AuthenticatedIdentity identidad ? identidad.autenticacion : null;
+    static @Nullable Autenticacion autenticacionDe(Authentication principal) {
+        return principal instanceof AuthenticatedIdentity identity ? identity.autenticacion : null;
     }
 
     /**
@@ -93,13 +93,13 @@ final class AuthenticatedIdentity extends AbstractAuthenticationToken {
      * en la cadena de seguridad y no una peticion rara, asi que revienta con lo que hace falta para
      * encontrarlo en vez de responder un 403 que mandaria a mirar los permisos.
      */
-    static Actor actorDe(Authentication quien) {
-        if (quien instanceof AuthenticatedIdentity identidad) {
-            return identidad.actor;
+    static Actor actorOf(Authentication principal) {
+        if (principal instanceof AuthenticatedIdentity identity) {
+            return identity.actor;
         }
         throw new IllegalStateException(
                 "La peticion llego a un controlador sin identidad de COPROP resuelta; la autenticacion es %s. Revisar el orden del IdentityFilter en la cadena de seguridad."
-                        .formatted(quien.getClass().getName()));
+                        .formatted(principal.getClass().getName()));
     }
 
     /**

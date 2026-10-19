@@ -44,10 +44,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/superadministradores")
 class PlatformAdminController {
 
-    private final Identities identidades;
+    private final Identities identities;
 
-    PlatformAdminController(Identities identidades) {
-        this.identidades = identidades;
+    PlatformAdminController(Identities identities) {
+        this.identities = identities;
     }
 
     /**
@@ -57,10 +57,10 @@ class PlatformAdminController {
      * de la cuenta. Y no sale de aqui quien lo <em>tuvo</em>: la fila se borra al revocar, y esa
      * historia la cuenta la bitacora de plataforma.
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'INVITE_ADMINS_ONLY')")
+    @PreAuthorize("@authorization.can(authentication, 'INVITE_ADMINS_ONLY')")
     @GetMapping
-    List<PlatformAdminView> listar() {
-        return identidades.platformAdmins();
+    List<PlatformAdminView> list() {
+        return identities.platformAdmins();
     }
 
     /**
@@ -70,11 +70,11 @@ class PlatformAdminController {
      * 7.3 nombra asignarlos entre las operaciones sensibles. Aqui no hay condicion que poner, al
      * contrario que en el alta de una membresia: el unico rol que esta ruta reparte es este.
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'INVITE_ADMINS_ONLY')"
-            + " and @reautenticacion.reciente(authentication)")
+    @PreAuthorize("@authorization.can(authentication, 'INVITE_ADMINS_ONLY')"
+            + " and @reauthentication.recent(authentication)")
     @PostMapping
-    ResponseEntity<PlatformAdminView> conceder(@Valid @RequestBody NuevoSuperadministrador nuevo, Principal quien) {
-        PlatformAdminView concedido = identidades.grantPlatformAdmin(nuevo.accountId(), quien.getName());
+    ResponseEntity<PlatformAdminView> grant(@Valid @RequestBody NewPlatformAdmin body, Principal principal) {
+        PlatformAdminView concedido = identities.grantPlatformAdmin(body.accountId(), principal.getName());
         return ResponseEntity.created(URI.create("/api/v1/superadministradores"))
                 .body(concedido);
     }
@@ -89,17 +89,17 @@ class PlatformAdminController {
      *
      * <p>Responde <strong>204</strong>: no hay recurso que devolver, porque el rol ya no esta.
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'INVITE_ADMINS_ONLY')"
-            + " and @reautenticacion.reciente(authentication)")
+    @PreAuthorize("@authorization.can(authentication, 'INVITE_ADMINS_ONLY')"
+            + " and @reauthentication.recent(authentication)")
     @PostMapping("/{accountId}/revocacion")
-    ResponseEntity<Void> revocar(@PathVariable UUID accountId, @Valid @RequestBody Motivo motivo, Principal quien) {
-        identidades.revokePlatformAdmin(accountId, motivo.motivo(), quien.getName());
+    ResponseEntity<Void> revoke(@PathVariable UUID accountId, @Valid @RequestBody Reason reason, Principal principal) {
+        identities.revokePlatformAdmin(accountId, reason.reason(), principal.getName());
         return ResponseEntity.noContent().build();
     }
 
     /** A quien se le concede. Sin motivo: lo que hay que explicar es por que se quita. */
-    record NuevoSuperadministrador(@NotNull UUID accountId) {}
+    record NewPlatformAdmin(@NotNull UUID accountId) {}
 
     /** El motivo de la revocacion. Mismo minimo que el de una baja, y por lo mismo. */
-    record Motivo(@NotBlank @Size(min = 5, max = 500) String motivo) {}
+    record Reason(@NotBlank @Size(min = 5, max = 500) String reason) {}
 }

@@ -31,8 +31,8 @@ public record MembershipRevoked(
         UUID membershipId,
         UUID accountId,
         Set<MembershipRole> roles,
-        String motivo,
-        boolean sesionesCerradas,
+        String reason,
+        boolean closedSessions,
         String actor,
         Instant occurredAt)
         implements AuditableEvent {
@@ -70,6 +70,6 @@ public record MembershipRevoked(
      */
     @Override
     public Map<String, String> newValues() {
-        return Map.of("motivo", motivo, "sesionesCerradas", String.valueOf(sesionesCerradas));
+        return Map.of("motivo", reason, "sesionesCerradas", String.valueOf(closedSessions));
     }
 }

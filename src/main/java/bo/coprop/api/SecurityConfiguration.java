@@ -107,7 +107,7 @@ class SecurityConfiguration {
      * tarde o temprano es que quedan en desacuerdo, y el que sobra abre rutas que ya no sirven a
      * nada. En produccion el webjar ni siquiera esta en el artefacto.
      */
-    private String[] sinIdentidad() {
+    private String[] withoutIdentity() {
         if (!consolaEncendida) {
             return PUBLICAS;
         }
@@ -133,21 +133,21 @@ class SecurityConfiguration {
                         .anyRequest()
                         .denyAll())
                 .csrf(csrf -> csrf.disable())
-                .sessionManagement(sesion -> sesion.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(errores -> errores.authenticationEntryPoint((peticion, respuesta, fallo) ->
-                                problemas.escribir(peticion, respuesta, ErrorCode.NO_AUTENTICADO, SIN_TOKEN))
-                        .accessDeniedHandler((peticion, respuesta, fallo) ->
-                                problemas.escribir(peticion, respuesta, ErrorCode.SIN_PERMISO, SIN_ROL)))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(errors -> errors.authenticationEntryPoint((peticion, response, fallo) ->
+                                problemas.escribir(peticion, response, ErrorCode.NO_AUTENTICADO, SIN_TOKEN))
+                        .accessDeniedHandler((peticion, response, fallo) ->
+                                problemas.escribir(peticion, response, ErrorCode.SIN_PERMISO, SIN_ROL)))
                 .build();
     }
 
     @Bean
     @Order(2)
     SecurityFilterChain cadenaDeApiMovil(
-            HttpSecurity http, ProblemWriter problemas, Identities identidades, Memberships membresias)
+            HttpSecurity http, ProblemWriter problemas, Identities identities, Memberships memberships)
             throws Exception {
-        return http.securityMatcher(nuevaPeticionConBearer())
-                .authorizeHttpRequests(rutas -> rutas.requestMatchers(sinIdentidad())
+        return http.securityMatcher(newRequestWithBearer())
+                .authorizeHttpRequests(rutas -> rutas.requestMatchers(withoutIdentity())
                         .permitAll()
                         .anyRequest()
                         .authenticated())
@@ -155,18 +155,18 @@ class SecurityConfiguration {
                 // configurado en spring.security.oauth2.resourceserver. La rotacion de claves sale
                 // gratis: el decodificador relee el JWKS cuando aparece un "kid" que no conoce.
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults())
-                        .authenticationEntryPoint((peticion, respuesta, fallo) ->
-                                problemas.escribir(peticion, respuesta, ErrorCode.NO_AUTENTICADO, SIN_TOKEN))
-                        .accessDeniedHandler((peticion, respuesta, fallo) ->
-                                problemas.escribir(peticion, respuesta, ErrorCode.SIN_PERMISO, SIN_ROL)))
-                .addFilterBefore(new IdentityFilter(identidades, problemas), AuthorizationFilter.class)
+                        .authenticationEntryPoint((peticion, response, fallo) ->
+                                problemas.escribir(peticion, response, ErrorCode.NO_AUTENTICADO, SIN_TOKEN))
+                        .accessDeniedHandler((peticion, response, fallo) ->
+                                problemas.escribir(peticion, response, ErrorCode.SIN_PERMISO, SIN_ROL)))
+                .addFilterBefore(new IdentityFilter(identities, problemas), AuthorizationFilter.class)
                 // Despues del de identidad y no "tambien antes de la autorizacion": el de
                 // condominio necesita la cuenta que resuelve el otro, y dos filtros insertados en
                 // la misma posicion dependen del orden en que se registraron, que es justo lo que
                 // no conviene dejar al azar.
-                .addFilterAfter(new CondominiumFilter(membresias, problemas), IdentityFilter.class)
+                .addFilterAfter(new CondominiumFilter(memberships, problemas), IdentityFilter.class)
                 .csrf(csrf -> csrf.disable())
-                .sessionManagement(sesion -> sesion.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .build();
     }
 
@@ -175,12 +175,12 @@ class SecurityConfiguration {
     SecurityFilterChain cadenaDelBffWeb(
             HttpSecurity http,
             ProblemWriter problemas,
-            Identities identidades,
-            Memberships membresias,
+            Identities identities,
+            Memberships memberships,
             ClientRegistrationRepository registros,
-            Clock reloj)
+            Clock clock)
             throws Exception {
-        return http.authorizeHttpRequests(rutas -> rutas.requestMatchers(sinIdentidad())
+        return http.authorizeHttpRequests(rutas -> rutas.requestMatchers(withoutIdentity())
                         .permitAll()
                         .requestMatchers(BffController.LOGIN)
                         .permitAll()
@@ -195,25 +195,25 @@ class SecurityConfiguration {
                         // el nombre de atributo en null se resuelve siempre y la cookie sale desde
                         // la primera respuesta.
                         .csrfTokenRequestHandler(manejadorDeCsrf()))
-                .addFilterBefore(new IdentityFilter(identidades, problemas), AuthorizationFilter.class)
+                .addFilterBefore(new IdentityFilter(identities, problemas), AuthorizationFilter.class)
                 // Despues del de identidad y no "tambien antes de la autorizacion": el de
                 // condominio necesita la cuenta que resuelve el otro, y dos filtros insertados en
                 // la misma posicion dependen del orden en que se registraron, que es justo lo que
                 // no conviene dejar al azar.
-                .addFilterAfter(new CondominiumFilter(membresias, problemas), IdentityFilter.class)
+                .addFilterAfter(new CondominiumFilter(memberships, problemas), IdentityFilter.class)
                 // Solo en esta cadena: es la unica con sesion de servidor. Despues del de
                 // identidad, que es quien resuelve la cuenta cuyos roles deciden el tiempo.
-                .addFilterAfter(new SessionValidityFilter(membresias, problemas, reloj), CondominiumFilter.class)
-                .exceptionHandling(errores -> errores
+                .addFilterAfter(new SessionValidityFilter(memberships, problemas, clock), CondominiumFilter.class)
+                .exceptionHandling(errors -> errors
                         // Una llamada de la SPA que perdio la sesion tiene que recibir un 401 que
                         // pueda leer, no un 302 hacia Keycloak: la redireccion la haria el XHR y el
                         // navegador acabaria pintando el login dentro de una respuesta JSON.
                         .defaultAuthenticationEntryPointFor(
-                                (peticion, respuesta, fallo) ->
-                                        problemas.escribir(peticion, respuesta, ErrorCode.NO_AUTENTICADO, SIN_SESION),
+                                (peticion, response, fallo) ->
+                                        problemas.escribir(peticion, response, ErrorCode.NO_AUTENTICADO, SIN_SESION),
                                 esDeLaApi())
-                        .accessDeniedHandler((peticion, respuesta, fallo) ->
-                                problemas.escribir(peticion, respuesta, ErrorCode.SIN_PERMISO, SIN_ROL)))
+                        .accessDeniedHandler((peticion, response, fallo) ->
+                                problemas.escribir(peticion, response, ErrorCode.SIN_PERMISO, SIN_ROL)))
                 .build();
     }
 
@@ -248,7 +248,7 @@ class SecurityConfiguration {
      * <p>Se mira la cabecera y no la ruta porque la app movil y la web piden las mismas rutas. Sin
      * cabecera, la peticion cae en la cadena del BFF y se resuelve con la cookie.
      */
-    private static RequestMatcher nuevaPeticionConBearer() {
+    private static RequestMatcher newRequestWithBearer() {
         return (HttpServletRequest peticion) -> {
             String cabecera = peticion.getHeader(HttpHeaders.AUTHORIZATION);
             return cabecera != null && cabecera.toLowerCase(Locale.ROOT).startsWith("bearer ");

@@ -64,22 +64,22 @@ class AdminRolesTests {
     private MockMvc mockMvc;
 
     @Autowired
-    private Condominiums condominios;
+    private Condominiums condominiums;
 
     @Autowired
-    private People personas;
+    private People people;
 
     @Autowired
-    private Memberships membresias;
+    private Memberships memberships;
 
     @Autowired
     private DataSource dataSource;
 
     /** Una cuenta y el unico token con el que entra. */
-    private record Quien(AccountView cuenta, String token) {
+    private record Quien(AccountView account, String token) {
 
         UUID id() {
-            return cuenta.id();
+            return account.id();
         }
     }
 
@@ -87,9 +87,9 @@ class AdminRolesTests {
 
     @Test
     @DisplayName("un CONDO_ADMIN no concede el rol de plataforma: la ruta es global y alli no es nadie")
-    void elAdministradorDelCondominioNoConcedeElRolDePlataforma() throws Exception {
-        UUID condominio = altaDeCondominio();
-        Quien administrador = conRolEn(condominio, MembershipRole.CONDO_ADMIN);
+    void theCondoAdminDoesNotGrantThePlatformRole() throws Exception {
+        UUID condominium = altaDeCondominio();
+        Quien administrador = conRolEn(condominium, MembershipRole.CONDO_ADMIN);
         Quien alguien = cuentaNueva();
 
         // La ruta no cuelga de ningun condominio, asi que el filtro del #17 no corre y las unicas
@@ -110,26 +110,26 @@ class AdminRolesTests {
 
     @Test
     @DisplayName("un CONDO_ADMIN tampoco lo cuela por el cambio de roles de una membresia")
-    void tampocoLoCuelaPorLaMembresia() throws Exception {
-        UUID condominio = altaDeCondominio();
-        Quien administrador = conRolEn(condominio, MembershipRole.CONDO_ADMIN);
-        MembershipView deUnPropietario = membresiaDeUnPropietario(condominio);
+    void itDoesNotSlipThroughTheMembershipEither() throws Exception {
+        UUID condominium = altaDeCondominio();
+        Quien administrador = conRolEn(condominium, MembershipRole.CONDO_ADMIN);
+        MembershipView deUnPropietario = membresiaDeUnPropietario(condominium);
 
         // 422 y no 403, y la diferencia dice algo: aqui no le falta permiso --un CONDO_ADMIN puede
         // conceder cualquier rol de su condominio-- sino que PLATFORM_ADMIN no es un rol de
         // condominio. Ni el superadministrador puede concederlo por esta puerta.
         mockMvc.perform(peticion(
                         HttpMethod.PUT,
-                        laRutaDeRoles(condominio, deUnPropietario.id()),
+                        laRutaDeRoles(condominium, deUnPropietario.id()),
                         administrador.token(),
-                        "{\"roles\":[\"PLATFORM_ADMIN\"],\"motivo\":\"que lo administre todo\"}"))
+                        "{\"roles\":[\"PLATFORM_ADMIN\"],\"reason\":\"que lo administre todo\"}"))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.codigo").value("REGLA_DE_NEGOCIO"));
     }
 
     @Test
     @DisplayName("el superadministrador si concede el rol de plataforma, y el nuevo crea condominios")
-    void elSuperadministradorSiLoConcede() throws Exception {
+    void thePlatformAdminDoesGrantIt() throws Exception {
         Quien quienConcede = cuentaDeSuperadministrador();
         Quien quienRecibe = cuentaNueva();
 
@@ -156,7 +156,7 @@ class AdminRolesTests {
                         HttpMethod.POST,
                         "/api/v1/superadministradores/" + quienRecibe.id() + "/revocacion",
                         quienConcede.token(),
-                        "{\"motivo\":\"se equivocaron de cuenta\"}"))
+                        "{\"reason\":\"se equivocaron de account\"}"))
                 .andExpect(status().isNoContent());
 
         mockMvc.perform(peticion(HttpMethod.POST, "/api/v1/condominios", quienRecibe.token(), altaDeCondominioJson()))
@@ -167,13 +167,13 @@ class AdminRolesTests {
 
     @Test
     @DisplayName("un CONDO_ADMIN no cambia roles de otro condominio: 404 y no 403")
-    void nuncaFueraDelPropioCondominio() throws Exception {
+    void neverOutsideYourOwnCondominium() throws Exception {
         UUID propio = altaDeCondominio();
         UUID ajeno = altaDeCondominio();
         Quien administrador = conRolEn(propio, MembershipRole.CONDO_ADMIN);
         MembershipView enElAjeno = membresiaDeUnPropietario(ajeno);
 
-        String cuerpo = "{\"roles\":[\"CONDO_ADMIN\"],\"motivo\":\"administrador del edificio de al lado\"}";
+        String cuerpo = "{\"roles\":[\"CONDO_ADMIN\"],\"reason\":\"administrador del edificio de al lado\"}";
 
         // Por la ruta del condominio ajeno lo corta el filtro del #17, que ni le deja llegar.
         mockMvc.perform(peticion(HttpMethod.PUT, laRutaDeRoles(ajeno, enElAjeno.id()), administrador.token(), cuerpo))
@@ -192,26 +192,25 @@ class AdminRolesTests {
 
     @Test
     @DisplayName("el administrador nombra a otro administrador, y surte efecto en la siguiente peticion")
-    void elAdministradorNombraAOtro() throws Exception {
-        UUID condominio = altaDeCondominio();
-        Quien administrador = conRolEn(condominio, MembershipRole.CONDO_ADMIN);
-        Quien propietario = cuentaNueva();
-        MembershipView suya =
-                membresias.grant(condominio, propietario.id(), Set.of(MembershipRole.OWNER), null, "admin");
+    void theAdminAppointsAnother() throws Exception {
+        UUID condominium = altaDeCondominio();
+        Quien administrador = conRolEn(condominium, MembershipRole.CONDO_ADMIN);
+        Quien owner = cuentaNueva();
+        MembershipView suya = memberships.grant(condominium, owner.id(), Set.of(MembershipRole.OWNER), null, "admin");
 
         // Antes: un propietario no da de alta unidades.
         mockMvc.perform(peticion(
                         HttpMethod.POST,
-                        "/api/v1/condominios/" + condominio + "/unidades",
-                        propietario.token(),
+                        "/api/v1/condominios/" + condominium + "/unidades",
+                        owner.token(),
                         unidadConCodigo()))
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(peticion(
                         HttpMethod.PUT,
-                        laRutaDeRoles(condominio, suya.id()),
+                        laRutaDeRoles(condominium, suya.id()),
                         administrador.token(),
-                        "{\"roles\":[\"OWNER\",\"CONDO_ADMIN\"],\"motivo\":\"se hace cargo del edificio\"}"))
+                        "{\"roles\":[\"OWNER\",\"CONDO_ADMIN\"],\"reason\":\"se hace cargo del edificio\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(suya.id().toString()))
                 // La fila es la misma y sigue abierta: un cambio de rol no es una baja.
@@ -221,79 +220,79 @@ class AdminRolesTests {
         // Despues, con el MISMO token: los roles se releen en cada peticion.
         mockMvc.perform(peticion(
                         HttpMethod.POST,
-                        "/api/v1/condominios/" + condominio + "/unidades",
-                        propietario.token(),
+                        "/api/v1/condominios/" + condominium + "/unidades",
+                        owner.token(),
                         unidadConCodigo()))
                 .andExpect(status().isCreated());
     }
 
     @Test
     @DisplayName("el financiero no reparte roles, ni para quitarlos")
-    void elFinancieroNoRepartoRoles() throws Exception {
-        UUID condominio = altaDeCondominio();
-        Quien financiero = conRolEn(condominio, MembershipRole.FINANCE_ADMIN);
-        MembershipView deOtro = membresiaDeUnPropietario(condominio);
+    void theFinanceAdminHandsOutNoRoles() throws Exception {
+        UUID condominium = altaDeCondominio();
+        Quien financiero = conRolEn(condominium, MembershipRole.FINANCE_ADMIN);
+        MembershipView deOtro = membresiaDeUnPropietario(condominium);
 
         // Es la otra mitad de la separacion de funciones de Seguridad 3: si pudiera repartir roles se
         // daria CONDO_ADMIN y la separacion no existiria. Vale igual para quitarlos.
         mockMvc.perform(peticion(
                         HttpMethod.PUT,
-                        laRutaDeRoles(condominio, deOtro.id()),
+                        laRutaDeRoles(condominium, deOtro.id()),
                         financiero.token(),
-                        "{\"roles\":[\"TENANT\"],\"motivo\":\"ahora alquila su departamento\"}"))
+                        "{\"roles\":[\"TENANT\"],\"reason\":\"ahora alquila su departamento\"}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.codigo").value("SIN_PERMISO"));
     }
 
     @Test
     @DisplayName("el superadministrador no toca los roles de un propietario, solo los administrativos")
-    void elSuperadministradorSoloTocaLoAdministrativo() throws Exception {
-        UUID condominio = altaDeCondominio();
+    void thePlatformAdminTouchesOnlyAdminMatters() throws Exception {
+        UUID condominium = altaDeCondominio();
         Quien superadministrador = cuentaDeSuperadministrador();
-        MembershipView deUnPropietario = membresiaDeUnPropietario(condominio);
+        MembershipView deUnPropietario = membresiaDeUnPropietario(condominium);
         MembershipView deUnAdministrador =
-                membresias.grant(condominio, cuentaNueva().id(), Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
+                memberships.grant(condominium, cuentaNueva().id(), Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
 
         // La celda de la matriz dice "Solo administradores", y el cambio pide las DOS mitades: poder
         // quitar los que tiene y poder poner los que llegan. Sobre un propietario falla la primera.
         mockMvc.perform(peticion(
                         HttpMethod.PUT,
-                        laRutaDeRoles(condominio, deUnPropietario.id()),
+                        laRutaDeRoles(condominium, deUnPropietario.id()),
                         superadministrador.token(),
-                        "{\"roles\":[\"CONDO_ADMIN\"],\"motivo\":\"lo asciendo yo\"}"))
+                        "{\"roles\":[\"CONDO_ADMIN\"],\"reason\":\"lo asciendo yo\"}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.codigo").value("SIN_PERMISO"));
 
         // Sobre un administrador si, que es como pone al primero de un condominio recien creado...
         mockMvc.perform(peticion(
                         HttpMethod.PUT,
-                        laRutaDeRoles(condominio, deUnAdministrador.id()),
+                        laRutaDeRoles(condominium, deUnAdministrador.id()),
                         superadministrador.token(),
-                        "{\"roles\":[\"CONDO_ADMIN\",\"FINANCE_ADMIN\"],\"motivo\":\"tambien lleva el dinero\"}"))
+                        "{\"roles\":[\"CONDO_ADMIN\",\"FINANCE_ADMIN\"],\"reason\":\"tambien lleva el dinero\"}"))
                 .andExpect(status().isOk());
 
         // ...pero no para dejarle un rol que no es administrativo: eso es operar el condominio, y
         // Seguridad 10.1 dice que no opera. Aqui falla la segunda mitad.
         mockMvc.perform(peticion(
                         HttpMethod.PUT,
-                        laRutaDeRoles(condominio, deUnAdministrador.id()),
+                        laRutaDeRoles(condominium, deUnAdministrador.id()),
                         superadministrador.token(),
-                        "{\"roles\":[\"OWNER\"],\"motivo\":\"que solo sea vecino\"}"))
+                        "{\"roles\":[\"OWNER\"],\"reason\":\"que solo sea vecino\"}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.codigo").value("SIN_PERMISO"));
     }
 
-    private static String laRutaDeRoles(UUID condominio, UUID membresia) {
-        return "/api/v1/condominios/" + condominio + "/membresias/" + membresia + "/roles";
+    private static String laRutaDeRoles(UUID condominium, UUID membership) {
+        return "/api/v1/condominios/" + condominium + "/membresias/" + membership + "/roles";
     }
 
     /** Una membresia de propietario de alguien que no entra en ningun caso: solo se le cambia. */
-    private MembershipView membresiaDeUnPropietario(UUID condominio) {
-        return membresias.grant(condominio, cuentaNueva().id(), Set.of(MembershipRole.OWNER), null, "admin");
+    private MembershipView membresiaDeUnPropietario(UUID condominium) {
+        return memberships.grant(condominium, cuentaNueva().id(), Set.of(MembershipRole.OWNER), null, "admin");
     }
 
     private UUID altaDeCondominio() {
-        return condominios
+        return condominiums
                 .register(
                         new NewCondominium(
                                 "Roles " + UUID.randomUUID(),
@@ -323,16 +322,16 @@ class AdminRolesTests {
     }
 
     private Quien cuentaNueva() {
-        PersonView persona = personas.register(new NewPerson("Emma", "Tola", null), "admin");
-        AccountView cuenta = personas.openAccount(persona.id(), TestTokenProvider.correoNuevo(), null, "admin");
-        String token = "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), cuenta.email());
-        return new Quien(cuenta, token);
+        PersonView person = people.register(new NewPerson("Emma", "Tola", null), "admin");
+        AccountView account = people.openAccount(person.id(), TestTokenProvider.correoNuevo(), null, "admin");
+        String token = "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), account.email());
+        return new Quien(account, token);
     }
 
-    private Quien conRolEn(UUID condominio, MembershipRole rol) {
-        Quien quien = cuentaNueva();
-        membresias.grant(condominio, quien.id(), Set.of(rol), null, "admin");
-        return quien;
+    private Quien conRolEn(UUID condominium, MembershipRole rol) {
+        Quien principal = cuentaNueva();
+        memberships.grant(condominium, principal.id(), Set.of(rol), null, "admin");
+        return principal;
     }
 
     /**
@@ -342,10 +341,10 @@ class AdminRolesTests {
      * superadministrador con el que autenticarse, y el primero de todos no lo concede nadie.
      */
     private Quien cuentaDeSuperadministrador() {
-        Quien quien = cuentaNueva();
+        Quien principal = cuentaNueva();
         new JdbcTemplate(dataSource)
-                .update("insert into platform_admin (user_id, granted_at) values (?, now())", quien.id());
-        return quien;
+                .update("insert into platform_admin (user_id, granted_at) values (?, now())", principal.id());
+        return principal;
     }
 
     private MockHttpServletRequestBuilder peticion(

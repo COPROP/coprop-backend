@@ -31,11 +31,11 @@ public record MembershipRolesChanged(
         UUID condominiumId,
         UUID membershipId,
         UUID accountId,
-        Set<MembershipRole> antesDeLosRoles,
+        Set<MembershipRole> beforeTheRoles,
         Set<MembershipRole> roles,
-        String motivo,
+        String reason,
         boolean concentraFunciones,
-        boolean sesionesCerradas,
+        boolean closedSessions,
         String actor,
         Instant occurredAt)
         implements AuditableEvent {
@@ -58,7 +58,7 @@ public record MembershipRolesChanged(
     /** Lo que habia. La cuenta va en las dos mitades: la fila se lee sin consultar nada mas. */
     @Override
     public Map<String, String> oldValues() {
-        return Map.of("accountId", accountId.toString(), "roles", escritos(antesDeLosRoles));
+        return Map.of("accountId", accountId.toString(), "roles", escritos(beforeTheRoles));
     }
 
     @Override
@@ -67,11 +67,11 @@ public record MembershipRolesChanged(
                 "roles",
                 escritos(roles),
                 "motivo",
-                motivo,
+                reason,
                 "concentraFunciones",
                 String.valueOf(concentraFunciones),
                 "sesionesCerradas",
-                String.valueOf(sesionesCerradas));
+                String.valueOf(closedSessions));
     }
 
     /** Ordenados, para que dos cambios con los mismos roles se vean iguales. */

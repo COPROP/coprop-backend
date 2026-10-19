@@ -53,25 +53,25 @@ import org.springframework.jdbc.core.JdbcTemplate;
 class AuditTrailTests {
 
     @Autowired
-    private AuditTrail bitacora;
+    private AuditTrail auditTrail;
 
     @Autowired
-    private Condominiums condominios;
+    private Condominiums condominiums;
 
     @Autowired
-    private People personas;
+    private People people;
 
     @Autowired
-    private Memberships membresias;
+    private Memberships memberships;
 
     @Autowired
-    private bo.coprop.identity.Identities identidades;
+    private bo.coprop.identity.Identities identities;
 
     @Autowired
-    private Invitations invitaciones;
+    private Invitations invitations;
 
     @Autowired
-    private Units unidades;
+    private Units units;
 
     @Autowired
     private UnitRelations relaciones;
@@ -80,7 +80,7 @@ class AuditTrailTests {
     private DataSource fuenteDeDatos;
 
     @Autowired
-    private InvitationDoubles.RelojDePrueba reloj;
+    private InvitationDoubles.RelojDePrueba clock;
 
     @Autowired
     private InvitationDoubles.CorreoDePrueba buzon;
@@ -88,12 +88,12 @@ class AuditTrailTests {
     @Autowired
     private org.springframework.test.web.servlet.MockMvc mockMvc;
 
-    private UUID condominio;
+    private UUID condominium;
     private UUID administradora;
 
     @BeforeEach
-    void prepararUnCondominio() {
-        condominio = condominios
+    void prepareACondominium() {
+        condominium = condominiums
                 .register(
                         new NewCondominium(
                                 "Auditoria " + UUID.randomUUID(),
@@ -112,12 +112,13 @@ class AuditTrailTests {
     }
 
     private AccountView cuentaNueva() {
-        PersonView persona = personas.register(new NewPerson("Emma", "Tola", null), "admin");
-        return personas.openAccount(persona.id(), "emma-" + UUID.randomUUID() + "@coprop.bo", null, "admin");
+        PersonView person = people.register(new NewPerson("Emma", "Tola", null), "admin");
+        return people.openAccount(person.id(), "emma-" + UUID.randomUUID() + "@coprop.bo", null, "admin");
     }
 
     private List<AuditEntryView> delCondominio() {
-        return bitacora.ofCondominium(condominio, null, null, null, null, 0, 100)
+        return auditTrail
+                .ofCondominium(condominium, null, null, null, null, 0, 100)
                 .contenido();
     }
 
@@ -129,7 +130,7 @@ class AuditTrailTests {
      * asi que lo que hay ahi lo escribieron tambien los demas casos.
      */
     private List<AuditEntryView> deLaPlataforma() {
-        return bitacora.ofPlatform(null, null, null, null, 0, 200).contenido();
+        return auditTrail.ofPlatform(null, null, null, null, 0, 200).contenido();
     }
 
     /**
@@ -153,7 +154,7 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("el alta de un condominio queda en la bitacora, con su nombre")
-    void elAltaDelCondominioQueda() {
+    void theCondominiumRegistrationIsRecorded() {
         // Es el primer criterio del issue #9 --"un condominio se puede crear con su configuracion
         // minima y queda auditado"-- y estuvo sin cumplirse hasta el 16-oct-2026. El evento se
         // publicaba desde el principio, pero no implementaba AuditableEvent: nadie lo escuchaba,
@@ -164,21 +165,21 @@ class AuditTrailTests {
         assertThat(fila.actor()).isEqualTo("admin");
         assertThat(fila.entity()).isEqualTo("condominio");
         // La unica accion cuyo condominio y cuya entidad son la misma cosa.
-        assertThat(fila.condominio()).isEqualTo(condominio);
-        assertThat(fila.entityId()).isEqualTo(condominio);
+        assertThat(fila.condominium()).isEqualTo(condominium);
+        assertThat(fila.entityId()).isEqualTo(condominium);
         // Nulo y no vacio: no habia nada antes del alta.
         assertThat(fila.oldValues()).isNull();
         assertThat(fila.newValues())
-                .hasEntrySatisfying("name", nombre -> assertThat(nombre).startsWith("Auditoria "));
+                .hasEntrySatisfying("name", name -> assertThat(name).startsWith("Auditoria "));
     }
 
     @Test
     @DisplayName("conceder una membresia queda en la bitacora, con sus roles")
-    void laMembresiaQueda() {
+    void theMembershipIsRecorded() {
         UUID invitada = cuentaNueva().id();
 
-        membresias.grant(
-                condominio,
+        memberships.grant(
+                condominium,
                 invitada,
                 Set.of(MembershipRole.OWNER, MembershipRole.BOARD),
                 null,
@@ -187,7 +188,7 @@ class AuditTrailTests {
         AuditEntryView fila = laFilaDe("MEMBERSHIP_GRANTED");
         assertThat(fila.actor()).isEqualTo(administradora.toString());
         assertThat(fila.entity()).isEqualTo("membresia");
-        assertThat(fila.condominio()).isEqualTo(condominio);
+        assertThat(fila.condominium()).isEqualTo(condominium);
         // Antes es nulo porque no habia nada antes: la membresia nace aqui. Vacio querria decir
         // "existia y no tenia valores", que no es lo mismo.
         assertThat(fila.oldValues()).isNull();
@@ -198,34 +199,34 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("cambiar la configuracion queda con los valores de oldValues y de newValues")
-    void laConfiguracionQuedaConLasDosMitades() {
-        condominios.changeConfig(condominio, 7, 20, administradora.toString());
+    void theConfigIsStoredWithBothHalves() {
+        condominiums.changeConfig(condominium, 7, 20, administradora.toString());
 
         AuditEntryView fila = laFilaDe("CONFIGURATION_CHANGED");
         assertThat(fila.entity()).isEqualTo("configuracion");
         // La entidad es el CONDOMINIO y no la fila de configuracion: la configuracion lleva
         // vigencia, asi que su identificador cambia en cada cambio y no serviria para seguir la
         // historia.
-        assertThat(fila.entityId()).isEqualTo(condominio);
+        assertThat(fila.entityId()).isEqualTo(condominium);
         assertThat(fila.oldValues()).containsEntry("issueDay", "5").containsEntry("dueDay", "10");
         assertThat(fila.newValues()).containsEntry("issueDay", "7").containsEntry("dueDay", "20");
     }
 
     @Test
     @DisplayName("toda invitacion, aceptacion y revocacion queda en la bitacora")
-    void lasInvitacionesQuedan() {
+    void theInvitationsAreRecorded() {
         // Es el tercer criterio de aceptacion del issue #18, que quedo esperando a este modulo.
-        membresias.grant(condominio, administradora, Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
+        memberships.grant(condominium, administradora, Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
         AccountView unaInvitada = cuentaNueva();
         AccountView otraInvitada = cuentaNueva();
 
-        UUID aRevocar = invitaciones
-                .issue(condominio, unaInvitada.id(), Set.of(MembershipRole.OWNER), administradora.toString())
+        UUID aRevocar = invitations
+                .issue(condominium, unaInvitada.id(), Set.of(MembershipRole.OWNER), administradora.toString())
                 .id();
-        invitaciones.revoke(condominio, aRevocar, administradora.toString());
+        invitations.revoke(condominium, aRevocar, administradora.toString());
 
-        invitaciones.issue(condominio, otraInvitada.id(), Set.of(MembershipRole.TENANT), administradora.toString());
-        invitaciones.accept(tokenDe(otraInvitada), otraInvitada.id());
+        invitations.issue(condominium, otraInvitada.id(), Set.of(MembershipRole.TENANT), administradora.toString());
+        invitations.accept(tokenDe(otraInvitada), otraInvitada.id());
 
         assertThat(laFilaDe("INVITATION_ISSUED").entity()).isEqualTo("invitacion");
         assertThat(laFilaDe("INVITATION_REVOKED").oldValues())
@@ -235,44 +236,44 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("un reenvio es una action distinta de una emision")
-    void elReenvioEsOtraAccion() {
+    void theResendIsAnotherAction() {
         // Quien lee la bitacora busca "a quien se invito" o "a quien hubo que insistirle". Con una
         // bandera dentro del JSON eso no se filtra.
-        membresias.grant(condominio, administradora, Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
-        UUID primera = invitaciones
-                .issue(condominio, cuentaNueva().id(), Set.of(MembershipRole.OWNER), administradora.toString())
+        memberships.grant(condominium, administradora, Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
+        UUID primera = invitations
+                .issue(condominium, cuentaNueva().id(), Set.of(MembershipRole.OWNER), administradora.toString())
                 .id();
 
-        invitaciones.resend(condominio, primera, administradora.toString());
+        invitations.resend(condominium, primera, administradora.toString());
 
         laFilaDe("INVITATION_RESENT");
         laFilaDe("INVITATION_REVOKED_BY_RESEND");
         assertThat(delCondominio().stream().map(AuditEntryView::action)).doesNotContain("INVITATION_REVOKED");
     }
 
-    private String tokenDe(AccountView cuenta) {
-        return buzon.ultimoTokenPara(cuenta.email())
-                .orElseThrow(() -> new AssertionError("No llego la invitacion a " + cuenta.email()));
+    private String tokenDe(AccountView account) {
+        return buzon.ultimoTokenPara(account.email())
+                .orElseThrow(() -> new AssertionError("No llego la invitacion a " + account.email()));
     }
 
     @Test
     @DisplayName("la baja, la suspension y la reactivacion de una membresia quedan, con su motivo")
-    void lasBajasYSuspensionesQuedan() {
+    void terminationsAndSuspensionsAreRecorded() {
         // Seguridad 8 pide los cambios de rol en la bitacora, y una baja es el mayor de todos: le
         // quita todos los que tenia. Es tambien la primera pregunta de quien mira la bitacora
         // despues de una queja: por que esta persona dejo de ver el edificio.
         UUID queSeVa = cuentaNueva().id();
         UUID queSeSuspende = cuentaNueva().id();
-        UUID deLaQueSeVa = membresias
-                .grant(condominio, queSeVa, Set.of(MembershipRole.OWNER), null, administradora.toString())
+        UUID deLaQueSeVa = memberships
+                .grant(condominium, queSeVa, Set.of(MembershipRole.OWNER), null, administradora.toString())
                 .id();
-        UUID deLaQueSeSuspende = membresias
-                .grant(condominio, queSeSuspende, Set.of(MembershipRole.TENANT), null, administradora.toString())
+        UUID deLaQueSeSuspende = memberships
+                .grant(condominium, queSeSuspende, Set.of(MembershipRole.TENANT), null, administradora.toString())
                 .id();
 
-        membresias.revoke(condominio, deLaQueSeVa, "vendio su departamento", administradora.toString());
-        membresias.suspend(condominio, deLaQueSeSuspende, "cuota impaga", administradora.toString());
-        membresias.reinstate(condominio, deLaQueSeSuspende, "pago al dia", administradora.toString());
+        memberships.revoke(condominium, deLaQueSeVa, "vendio su departamento", administradora.toString());
+        memberships.suspend(condominium, deLaQueSeSuspende, "cuota impaga", administradora.toString());
+        memberships.reinstate(condominium, deLaQueSeSuspende, "pago al dia", administradora.toString());
 
         AuditEntryView baja = laFilaDe("MEMBERSHIP_ENDED");
         assertThat(baja.entity()).isEqualTo("membresia");
@@ -292,20 +293,19 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("la venta de una unidad queda como un solo hecho, con sus dos lados")
-    void laVentaQuedaComoUnSoloHecho() {
-        UUID unidad = unidades.register(
-                        condominio,
+    void theSaleIsRecordedAsASingleFact() {
+        UUID unit = units.register(
+                        condominium,
                         new NewUnit("AUD-101", UnitType.APARTMENT, new BigDecimal("1.000000"), null, null, null),
                         administradora.toString())
                 .id();
-        UUID vendedor = personas.register(new NewPerson("Vende", "Perez", null), "admin")
-                .id();
-        UUID comprador = personas.register(new NewPerson("Compra", "Perez", null), "admin")
-                .id();
-        relaciones.grantOwnership(
-                condominio, unidad, vendedor, new BigDecimal("100.000000"), administradora.toString());
+        UUID vendedor =
+                people.register(new NewPerson("Vende", "Perez", null), "admin").id();
+        UUID comprador =
+                people.register(new NewPerson("Compra", "Perez", null), "admin").id();
+        relaciones.grantOwnership(condominium, unit, vendedor, new BigDecimal("100.000000"), administradora.toString());
 
-        relaciones.transferOwnership(condominio, unidad, vendedor, comprador, administradora.toString());
+        relaciones.transferOwnership(condominium, unit, vendedor, comprador, administradora.toString());
 
         // Un evento propio y no dos --una cerrada y otra abierta-- porque lo que hay que poder
         // reconstruir dentro de un año es la venta, con sus dos lados.
@@ -313,7 +313,7 @@ class AuditTrailTests {
         assertThat(venta.entity()).isEqualTo("titularidad");
         // La entidad es la UNIDAD: la titularidad lleva vigencia, asi que su identificador cambia en
         // cada venta y no serviria para seguir la historia.
-        assertThat(venta.entityId()).isEqualTo(unidad);
+        assertThat(venta.entityId()).isEqualTo(unit);
         assertThat(venta.oldValues()).containsEntry("personId", vendedor.toString());
         assertThat(venta.newValues())
                 .containsEntry("personId", comprador.toString())
@@ -326,23 +326,23 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("el cambio de roles queda con las dos mitades, el motivo y la concentracion")
-    void elCambioDeRolesQueda() {
+    void theRoleChangeIsRecorded() {
         // Seguridad 8 pide los cambios de rol en la bitacora, y este es el caso de todos los dias:
         // la baja del #19 era el extremo --quitarlos todos--. Importa mas que las demas filas porque
         // la tabla solo guarda los roles de HOY: el cambio edita membership_role en el sitio, asi
         // que la historia de quien tuvo cual esta aqui y en ningun otro sitio.
         UUID aQuienSeLeCambian = cuentaNueva().id();
-        UUID suya = membresias
+        UUID suya = memberships
                 .grant(
-                        condominio,
+                        condominium,
                         aQuienSeLeCambian,
                         Set.of(MembershipRole.CONDO_ADMIN),
                         null,
                         administradora.toString())
                 .id();
 
-        membresias.changeRoles(
-                condominio,
+        memberships.changeRoles(
+                condominium,
                 suya,
                 Set.of(MembershipRole.CONDO_ADMIN, MembershipRole.FINANCE_ADMIN),
                 "en este edificio administra una sola persona",
@@ -365,17 +365,17 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("las acciones de plataforma no salen en la bitacora de un condominio, y si en la suya")
-    void loDePlataformaNoEsDeNingunCondominio() {
+    void platformMattersBelongToNoCondominium() {
         // El rol de superadministrador no cuelga de ningun condominio, asi que su fila va sin
         // condominio y la consulta de un condominio no la lista. Sin esto, el administrador de un
         // edificio veria acciones de la plataforma entera.
-        AccountView nueva = cuentaNueva();
+        AccountView body = cuentaNueva();
         AccountView quienConcede = cuentaNueva();
         new JdbcTemplate(fuenteDeDatos)
                 .update("insert into platform_admin (user_id, granted_at) values (?, now())", quienConcede.id());
-        identidades.grantPlatformAdmin(nueva.id(), quienConcede.id().toString());
+        identities.grantPlatformAdmin(body.id(), quienConcede.id().toString());
 
-        membresias.grant(condominio, nueva.id(), Set.of(MembershipRole.OWNER), null, administradora.toString());
+        memberships.grant(condominium, body.id(), Set.of(MembershipRole.OWNER), null, administradora.toString());
         laFilaDe("MEMBERSHIP_GRANTED");
 
         assertThat(delCondominio().stream().map(AuditEntryView::action)).doesNotContain("PLATFORM_GRANTED");
@@ -384,9 +384,9 @@ class AuditTrailTests {
         // actor de verdad --quien lo concedio-- y no el "arranque" de la unica fila que habia antes.
         assertThat(deLaPlataforma()).anySatisfy(fila -> assertThat(fila)
                 .returns("PLATFORM_GRANTED", AuditEntryView::action)
-                .returns(nueva.id(), AuditEntryView::entityId)
+                .returns(body.id(), AuditEntryView::entityId)
                 .returns(quienConcede.id().toString(), AuditEntryView::actor)
-                .returns(null, AuditEntryView::condominio));
+                .returns(null, AuditEntryView::condominium));
 
         // Y las del condominio no se cuelan en la de plataforma: el filtro es la columna, no el
         // orden en que se escribieron.
@@ -395,14 +395,14 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("la revocacion del rol de plataforma queda, con su motivo: la fila de platform_admin se borra")
-    void laRevocacionDePlataformaQueda() {
+    void thePlatformRevocationIsRecorded() {
         AccountView quienConcede = cuentaNueva();
         AccountView quienLoPierde = cuentaNueva();
         new JdbcTemplate(fuenteDeDatos)
                 .update("insert into platform_admin (user_id, granted_at) values (?, now())", quienConcede.id());
-        identidades.grantPlatformAdmin(quienLoPierde.id(), quienConcede.id().toString());
+        identities.grantPlatformAdmin(quienLoPierde.id(), quienConcede.id().toString());
 
-        identidades.revokePlatformAdmin(
+        identities.revokePlatformAdmin(
                 quienLoPierde.id(), "dejo la empresa", quienConcede.id().toString());
 
         // Esta fila importa mas que la mayoria: revocar BORRA la fila de platform_admin, asi que si
@@ -410,15 +410,15 @@ class AuditTrailTests {
         assertThat(deLaPlataforma()).anySatisfy(fila -> assertThat(fila)
                 .returns("PLATFORM_REVOKED", AuditEntryView::action)
                 .returns(quienLoPierde.id(), AuditEntryView::entityId));
-        assertThat(identidades.esSuperadministrador(quienLoPierde.id())).isFalse();
+        assertThat(identities.esSuperadministrador(quienLoPierde.id())).isFalse();
     }
 
     @Test
     @DisplayName("cerrar todas las sesiones queda en la bitacora de plataforma, con cuantas se cerraron")
-    void elCierreDeTodasLasSesionesQueda() {
-        AccountView quien = cuentaNueva();
+    void closingAllSessionsIsRecorded() {
+        AccountView principal = cuentaNueva();
 
-        identidades.signOutEverywhere(quien.id(), quien.id().toString());
+        identities.signOutEverywhere(principal.id(), principal.id().toString());
 
         // Va sin condominio, como el rol de plataforma y por lo mismo: una sesion no es de un
         // edificio. Y se audita, al contrario que un cierre de sesion normal, porque su motivo
@@ -426,9 +426,9 @@ class AuditTrailTests {
         // investigue despues necesita la hora a la que la persona se dio cuenta.
         assertThat(deLaPlataforma()).anySatisfy(fila -> assertThat(fila)
                 .returns("SESSIONS_CLOSED", AuditEntryView::action)
-                .returns(quien.id(), AuditEntryView::entityId)
-                .returns(quien.id().toString(), AuditEntryView::actor)
-                .returns(null, AuditEntryView::condominio));
+                .returns(principal.id(), AuditEntryView::entityId)
+                .returns(principal.id().toString(), AuditEntryView::actor)
+                .returns(null, AuditEntryView::condominium));
 
         assertThat(delCondominio().stream().map(AuditEntryView::action)).doesNotContain("SESSIONS_CLOSED");
     }
@@ -437,12 +437,13 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("un intento de modificar la bitacora falla en la base de datos")
-    void laBitacoraNoSeModifica() {
+    void theAuditTrailIsNotModified() {
         // El primer criterio del issue, y se comprueba por SQL a proposito: lo que tiene que
         // proteger la fila es la base, no el codigo Java que hay delante. Un disparador y no un
         // REVOKE porque la aplicacion se conecta como superusuario y los privilegios no le aplican,
         // que es lo que se descubrio evaluando RLS para el #17.
-        membresias.grant(condominio, cuentaNueva().id(), Set.of(MembershipRole.OWNER), null, administradora.toString());
+        memberships.grant(
+                condominium, cuentaNueva().id(), Set.of(MembershipRole.OWNER), null, administradora.toString());
         UUID fila = laFilaDe("MEMBERSHIP_GRANTED").id();
         var sql = new JdbcTemplate(fuenteDeDatos);
 
@@ -461,17 +462,18 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("la consulta filtra por actor, por entity y por rango de fechas")
-    void laConsultaFiltra() {
+    void theQueryFilters() {
         UUID otraActora = cuentaNueva().id();
-        membresias.grant(condominio, cuentaNueva().id(), Set.of(MembershipRole.OWNER), null, administradora.toString());
+        memberships.grant(
+                condominium, cuentaNueva().id(), Set.of(MembershipRole.OWNER), null, administradora.toString());
         laFilaDe("MEMBERSHIP_GRANTED");
 
         // El reloj se adelanta entre las dos acciones para que caigan en instantes distintos y el
         // filtro de fechas tenga algo que separar. Con el reloj real, dos acciones seguidas pueden
         // compartir milisegundo.
-        Instant corte = reloj.instant().plusSeconds(1);
-        reloj.adelantar(Duration.ofMinutes(5));
-        condominios.changeConfig(condominio, 8, 21, otraActora.toString());
+        Instant corte = clock.instant().plusSeconds(1);
+        clock.adelantar(Duration.ofMinutes(5));
+        condominiums.changeConfig(condominium, 8, 21, otraActora.toString());
         laFilaDe("CONFIGURATION_CHANGED");
 
         // Por actor.
@@ -508,32 +510,33 @@ class AuditTrailTests {
             @org.jspecify.annotations.Nullable String actor,
             @org.jspecify.annotations.Nullable String entity,
             @org.jspecify.annotations.Nullable Instant desde,
-            @org.jspecify.annotations.Nullable Instant hasta) {
-        return bitacora.ofCondominium(condominio, actor, entity, desde, hasta, 0, 100)
+            @org.jspecify.annotations.Nullable Instant until) {
+        return auditTrail
+                .ofCondominium(condominium, actor, entity, desde, until, 0, 100)
                 .contenido();
     }
 
     @Test
     @DisplayName("la consulta pagina y devuelve lo mas reciente primero")
-    void laConsultaPaginaYOrdena() {
+    void theQueryPagesAndSorts() {
         for (int i = 0; i < 3; i++) {
-            reloj.adelantar(Duration.ofMinutes(1));
-            condominios.changeConfig(condominio, 5 + i, 15 + i, administradora.toString());
+            clock.adelantar(Duration.ofMinutes(1));
+            condominiums.changeConfig(condominium, 5 + i, 15 + i, administradora.toString());
         }
         // Cuatro y no tres: el alta del condominio tambien esta, escrita por el @BeforeEach.
         assertThat(delCondominio()).hasSize(4);
 
-        PagedResponse<AuditEntryView> primera = bitacora.ofCondominium(condominio, null, null, null, null, 0, 2);
+        PagedResponse<AuditEntryView> primera = auditTrail.ofCondominium(condominium, null, null, null, null, 0, 2);
         assertThat(primera.contenido()).hasSize(2);
         assertThat(primera.total()).isEqualTo(4);
-        assertThat(primera.totalPaginas()).isEqualTo(2);
-        assertThat(primera.pagina()).isZero();
+        assertThat(primera.totalPages()).isEqualTo(2);
+        assertThat(primera.page()).isZero();
 
         // Lo mas reciente primero: una bitacora se lee empezando por lo ultimo.
         assertThat(primera.contenido().get(0).newValues()).containsEntry("issueDay", "7");
         assertThat(primera.contenido().get(1).newValues()).containsEntry("issueDay", "6");
 
-        PagedResponse<AuditEntryView> segunda = bitacora.ofCondominium(condominio, null, null, null, null, 1, 2);
+        PagedResponse<AuditEntryView> segunda = auditTrail.ofCondominium(condominium, null, null, null, null, 1, 2);
         assertThat(segunda.contenido()).hasSize(2);
         assertThat(segunda.contenido().get(0).newValues()).containsEntry("issueDay", "5");
         // Y al final de todo, el alta: es lo primero que le paso a este condominio.
@@ -544,9 +547,10 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("la purga borra lo viejo y deja lo del año")
-    void laPurgaRespetaLaRetencion() {
-        membresias.grant(condominio, cuentaNueva().id(), Set.of(MembershipRole.OWNER), null, administradora.toString());
-        UUID reciente = laFilaDe("MEMBERSHIP_GRANTED").id();
+    void thePurgeRespectsTheRetention() {
+        memberships.grant(
+                condominium, cuentaNueva().id(), Set.of(MembershipRole.OWNER), null, administradora.toString());
+        UUID recent = laFilaDe("MEMBERSHIP_GRANTED").id();
 
         // Una fila vieja, puesta por SQL: para tenerla de hace trece meses habria que mover el reloj
         // antes de que naciera, y lo que se prueba aqui es la purga, no como llego la fila.
@@ -561,29 +565,30 @@ class AuditTrailTests {
                         + " values (?, 'viejo', 'MEMBERSHIP_GRANTED', 'membresia', ?, ?, ?)",
                 vieja,
                 UUID.randomUUID(),
-                condominio,
-                java.sql.Timestamp.from(reloj.instant().minus(Duration.ofDays(400))));
+                condominium,
+                java.sql.Timestamp.from(clock.instant().minus(Duration.ofDays(400))));
 
-        long borradas = bitacora.purgar(reloj.instant().minus(Duration.ofDays(365)));
+        long deleted = auditTrail.purge(clock.instant().minus(Duration.ofDays(365)));
 
-        assertThat(borradas).isPositive();
+        assertThat(deleted).isPositive();
         assertThat(sql.queryForObject("select count(*) from audit_log where id = ?", Long.class, vieja))
                 .isZero();
         // Y la reciente sigue, que es la otra mitad: una purga que se llevara todo tambien pasaria
         // la primera comprobacion.
-        assertThat(sql.queryForObject("select count(*) from audit_log where id = ?", Long.class, reciente))
+        assertThat(sql.queryForObject("select count(*) from audit_log where id = ?", Long.class, recent))
                 .isEqualTo(1L);
     }
 
     @Test
     @DisplayName("la purga deja el disparador puesto")
-    void laPurgaNoDesarmaLaProteccion() {
+    void thePurgeDoesNotDisarmTheProtection() {
         // La funcion de purga apaga el disparador para poder borrar. Si lo dejara apagado, la
         // bitacora quedaria modificable desde la primera purga y nadie lo notaria.
-        membresias.grant(condominio, cuentaNueva().id(), Set.of(MembershipRole.OWNER), null, administradora.toString());
+        memberships.grant(
+                condominium, cuentaNueva().id(), Set.of(MembershipRole.OWNER), null, administradora.toString());
         UUID fila = laFilaDe("MEMBERSHIP_GRANTED").id();
 
-        bitacora.purgar(reloj.instant().minus(Duration.ofDays(365)));
+        auditTrail.purge(clock.instant().minus(Duration.ofDays(365)));
 
         var sql = new JdbcTemplate(fuenteDeDatos);
         assertThatThrownBy(() -> sql.update("delete from audit_log where id = ?", fila))
@@ -594,17 +599,17 @@ class AuditTrailTests {
 
     @Test
     @DisplayName("la IP y la traza de la peticion acaban en la fila")
-    void laIpYLaTrazaDeLaPeticionQuedan() throws Exception {
+    void theRequestIpAndTraceAreRecorded() throws Exception {
         // 5.2 pide la IP en AuditLog, y ningun evento de dominio puede llevarla: un evento no sabe
         // de HTTP. Las pone el filtro de trazas en el contexto de log, y llegan al oyente --que
         // corre en OTRO HILO-- porque PropagacionDelMdc copia el MDC. Sin eso, las dos salen nulas y
         // el criterio no se cumple.
-        membresias.grant(condominio, administradora, Set.of(MembershipRole.FINANCE_ADMIN), null, "admin");
+        memberships.grant(condominium, administradora, Set.of(MembershipRole.FINANCE_ADMIN), null, "admin");
         laFilaDe("MEMBERSHIP_GRANTED");
 
         mockMvc.perform(
                         org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(
-                                        "/api/v1/condominios/" + condominio + "/configuracion")
+                                        "/api/v1/condominios/" + condominium + "/configuracion")
                                 .with(org.springframework.security.test.web.servlet.request
                                         .SecurityMockMvcRequestPostProcessors.csrf())
                                 .with(org.springframework.security.test.web.servlet.request

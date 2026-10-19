@@ -26,7 +26,7 @@ class BffController {
     static final String LOGIN = "/bff/login";
 
     @GetMapping(LOGIN)
-    void iniciarSesion(HttpServletResponse respuesta) throws IOException {
-        respuesta.sendRedirect("/oauth2/authorization/" + SecurityConfiguration.REGISTRO_WEB);
+    void signIn(HttpServletResponse response) throws IOException {
+        response.sendRedirect("/oauth2/authorization/" + SecurityConfiguration.REGISTRO_WEB);
     }
 }

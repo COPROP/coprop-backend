@@ -25,7 +25,7 @@ public record AuditEntryView(
         String action,
         String entity,
         UUID entityId,
-        @Nullable UUID condominio,
+        @Nullable UUID condominium,
         @Nullable Map<String, String> oldValues,
         @Nullable Map<String, String> newValues,
         @Nullable String ip,
