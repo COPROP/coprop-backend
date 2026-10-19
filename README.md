@@ -73,7 +73,7 @@ token**: los tres quedan en la sesión del servidor, que vive en la base
 que también la cierra en Keycloak.
 
 Entrar no da acceso a nada por sí solo. Hace falta además una **cuenta de COPROP con ese correo**
-—si no la hay, la API responde 403 con `SIN_CUENTA`— y una **membresía activa** en el condominio que
+—si no la hay, la API responde 403 con `NO_ACCOUNT`— y una **membresía activa** en el condominio que
 se pida —si no la hay, 404—.
 
 ### El primer superadministrador
@@ -89,12 +89,12 @@ vincular: la propiedad dice a quién se le abre la puerta, no entra por él.
 Con eso, una base limpia arranca sin sembrar nada:
 
 ```
-POST /api/v1/condominios                      → 201   crea el condominio
-POST /api/v1/condominios/{id}/membresias      → 201   se pone de primer administrador
-POST /api/v1/condominios/{id}/unidades        → 201   y ya administra
+POST /api/v1/condominiums                      → 201   crea el condominio
+POST /api/v1/condominiums/{id}/memberships      → 201   se pone de primer administrador
+POST /api/v1/condominiums/{id}/units        → 201   y ya administra
 ```
 
-Entre medias verás algún **403 `SIN_PERMISO`, y es lo correcto**: el superadministrador no opera
+Entre medias verás algún **403 `NO_PERMISSION`, y es lo correcto**: el superadministrador no opera
 condominios (Seguridad §10.1). Antes de darse la membresía no puede crear unidades ni personas, y
 después sigue sin poder tocar lo que se cobra —eso es del `FINANCE_ADMIN`—. La matriz está en
 [ARCHITECTURE.md](ARCHITECTURE.md#quién-puede-qué).
@@ -105,9 +105,9 @@ después sigue sin poder tocar lo que se cobra —eso es del `FINANCE_ADMIN`—.
 El orden es el de §6.1 —primero la persona y su relación con la unidad, después la invitación—:
 
 ```
-POST /api/v1/personas                                 → 201   la persona
-POST /api/v1/personas/{id}/cuenta                     → 201   su cuenta, en estado INVITADO
-POST /api/v1/condominios/{id}/invitaciones            → 201   {"accountId": "...", "roles": ["OWNER"]}
+POST /api/v1/people                                 → 201   la persona
+POST /api/v1/people/{id}/account                     → 201   su cuenta, en estado INVITED
+POST /api/v1/condominiums/{id}/invitations            → 201   {"accountId": "...", "roles": ["OWNER"]}
 ```
 
 El correo sale al Mailpit del Compose. **Se lee en http://localhost:8025**, y de ahí se copia el
@@ -118,8 +118,8 @@ se pierde, se reenvía.
 Con ese token, las dos llamadas que hace la persona invitada:
 
 ```
-POST /api/v1/invitaciones/apertura    {"token": "..."}   sin autenticar; devuelve credencialEnviada
-POST /api/v1/invitaciones/aceptacion  {"token": "..."}   ya con sesión; concede la membresía
+POST /api/v1/invitations/opening    {"token": "..."}   sin autenticar; devuelve credencialEnviada
+POST /api/v1/invitations/acceptance  {"token": "..."}   ya con sesión; concede la membresía
 ```
 
 La apertura crea el usuario en Keycloak y le pide a Keycloak que le mande el correo para poner su
@@ -127,23 +127,23 @@ contraseña —ese segundo correo también llega a Mailpit—, porque el realm t
 COPROP no toca contraseñas. Si la cuenta ya había entrado antes, `credencialEnviada` viene en falso y
 solo le toca iniciar sesión.
 
-El enlace del correo apunta a `http://localhost:4200/invitaciones/{token}`, que es una página del
+El enlace del correo apunta a `http://localhost:4200/invitations/{token}`, que es una página del
 frontend y **todavía no existe**: hasta que exista, el token se copia a mano del correo.
 
 > El token vive **siete días** y sirve **una vez**. Un token usado, revocado o vencido responde `404
-> NO_ENCONTRADO`, igual que uno inventado: los cuatro casos tienen que ser indistinguibles.
+> NOT_FOUND`, igual que uno inventado: los cuatro casos tienen que ser indistinguibles.
 
 ### Ver la bitácora
 
 Todo lo sensible que pasa queda registrado: conceder una membresía, **cambiarle los roles**, darla de
 baja o suspenderla; conceder y revocar el rol de plataforma; emitir, reenviar, aceptar o revocar una
 invitación; cambiar la configuración, vender una unidad y el primer acceso de una cuenta. Se consulta
-así, con `CONSULTAR_AUDITORIA` —los dos administradores del condominio—:
+así, con `VIEW_AUDIT_LOG` —los dos administradores del condominio—:
 
 ```
-GET /api/v1/condominios/{id}/auditoria
-GET /api/v1/condominios/{id}/auditoria?entidad=invitacion&desde=2026-10-01T00:00:00Z
-GET /api/v1/condominios/{id}/auditoria?actor={accountId}&pagina=0&tamano=20
+GET /api/v1/condominiums/{id}/audit-log
+GET /api/v1/condominiums/{id}/audit-log?entidad=invitacion&desde=2026-10-01T00:00:00Z
+GET /api/v1/condominiums/{id}/audit-log?actor={accountId}&pagina=0&tamano=20
 ```
 
 Los tres filtros se combinan y todos son opcionales. `desde` es inclusivo y `hasta` exclusivo, así
@@ -167,8 +167,8 @@ no vea acciones de la plataforma entera. Tienen la suya, con los mismos filtros 
 superadministrador:
 
 ```
-GET /api/v1/auditoria
-GET /api/v1/auditoria?entidad=superadministrador
+GET /api/v1/audit-log
+GET /api/v1/audit-log?entidad=superadministrador
 ```
 
 Son dos consultas y no una con el condominio opcional, a propósito: una donde olvidarse de pasarlo
@@ -180,7 +180,7 @@ El administrador del condominio asigna y quita roles dentro de **su** condominio
 superadministrador (§10.1):
 
 ```
-PUT /api/v1/condominios/{id}/membresias/{membershipId}/roles
+PUT /api/v1/condominiums/{id}/memberships/{membershipId}/roles
     {"roles": ["OWNER", "CONDO_ADMIN"], "motivo": "se hace cargo del edificio"}
 ```
 
@@ -193,8 +193,8 @@ Cuatro rechazos que conviene conocer:
 
 | Qué | Respuesta |
 |---|---|
-| `PLATFORM_ADMIN` en el cuerpo | **422** `REGLA_DE_NEGOCIO`: no es un rol de condominio, y no lo es para nadie |
-| Una membresía de otro condominio | **404** `NO_ENCONTRADO`, nunca 403: un 403 confirmaría que existe |
+| `PLATFORM_ADMIN` en el cuerpo | **422** `BUSINESS_RULE`: no es un rol de condominio, y no lo es para nadie |
+| Una membresía de otro condominio | **404** `NOT_FOUND`, nunca 403: un 403 confirmaría que existe |
 | Quitarle `CONDO_ADMIN` al último administrador | **422**: el edificio quedaría sin nadie que pueda invitar |
 | Cambiarse los roles a sí mismo | **422**: se pide a otro administrador, por lo mismo que la baja |
 
@@ -211,9 +211,9 @@ permitida —§10.1 la contempla para edificios pequeños— a condición de que
 Lo concede y lo quita otro superadministrador, por una ruta global:
 
 ```
-GET    /api/v1/superadministradores                         quién administra hoy
-POST   /api/v1/superadministradores                         {"accountId": "..."}
-POST   /api/v1/superadministradores/{id}/revocacion         {"motivo": "dejó la empresa"}
+GET    /api/v1/platform-admins                         quién administra hoy
+POST   /api/v1/platform-admins                         {"accountId": "..."}
+POST   /api/v1/platform-admins/{id}/revocation         {"motivo": "dejó la empresa"}
 ```
 
 Un `CONDO_ADMIN` recibe **403** en las tres, y no hace falta ninguna regla para eso: la ruta no
@@ -255,7 +255,7 @@ es tuyo tiene que responder exactamente igual que uno inventado.
 > **Vuelve a correr la semilla cada vez que recrees el contenedor de Keycloak.** En `start-dev` no
 > persiste su base, así que `dev@coprop.local` nace con un `sub` nuevo mientras la cuenta de COPROP
 > sigue apuntando al viejo; como una cuenta ya vinculada no se revincula a otro sujeto, el login
-> responde `SIN_CUENTA` y parece que la cuenta está rota. La semilla suelta ese vínculo.
+> responde `NO_ACCOUNT` y parece que la cuenta está rota. La semilla suelta ese vínculo.
 
 ### Probar la API desde Postman
 
