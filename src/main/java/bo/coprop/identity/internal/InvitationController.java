@@ -44,37 +44,37 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/condominios/{condominiumId}/invitaciones")
 class InvitationController {
 
-    private final Invitations invitaciones;
+    private final Invitations invitations;
 
-    InvitationController(Invitations invitaciones) {
-        this.invitaciones = invitaciones;
+    InvitationController(Invitations invitations) {
+        this.invitations = invitations;
     }
 
     // Como el alta de una membresia (#22): una invitacion es una membresia diferida, asi que
     // invitar a alguien como CONDO_ADMIN es asignar un rol administrativo y pide segundo factor.
     // Invitar a un propietario no.
-    @PreAuthorize("@autorizacion.puedeConceder(authentication, #nueva.roles())"
-            + " and @reautenticacion.siHayRolAdministrativo(authentication, #nueva.roles())")
+    @PreAuthorize("@authorization.canGrant(authentication, #body.roles())"
+            + " and @reauthentication.ifAdminRole(authentication, #body.roles())")
     @PostMapping
-    ResponseEntity<InvitationView> emitir(
-            @PathVariable UUID condominiumId, @Valid @RequestBody NuevaInvitacion nueva, Principal quien) {
-        InvitationView emitida = invitaciones.issue(condominiumId, nueva.accountId(), nueva.roles(), quien.getName());
+    ResponseEntity<InvitationView> issue(
+            @PathVariable UUID condominiumId, @Valid @RequestBody NewInvitation body, Principal principal) {
+        InvitationView issued = invitations.issue(condominiumId, body.accountId(), body.roles(), principal.getName());
         return ResponseEntity.created(
-                        URI.create("/api/v1/condominios/" + condominiumId + "/invitaciones/" + emitida.id()))
-                .body(emitida);
+                        URI.create("/api/v1/condominios/" + condominiumId + "/invitaciones/" + issued.id()))
+                .body(issued);
     }
 
     /** Las vivas y las cerradas: quien administra necesita ver que ya invito a alguien y no entro. */
-    @PreAuthorize("@autorizacion.puede(authentication, 'INVITE_USERS')")
+    @PreAuthorize("@authorization.can(authentication, 'INVITE_USERS')")
     @GetMapping
-    List<InvitationView> listar(@PathVariable UUID condominiumId) {
-        return invitaciones.ofCondominium(condominiumId);
+    List<InvitationView> list(@PathVariable UUID condominiumId) {
+        return invitations.ofCondominium(condominiumId);
     }
 
-    @PreAuthorize("@autorizacion.puede(authentication, 'INVITE_USERS')")
+    @PreAuthorize("@authorization.can(authentication, 'INVITE_USERS')")
     @GetMapping("/{invitationId}")
     InvitationView consultar(@PathVariable UUID condominiumId, @PathVariable UUID invitationId) {
-        return invitaciones.find(condominiumId, invitationId);
+        return invitations.find(condominiumId, invitationId);
     }
 
     /**
@@ -84,14 +84,13 @@ class InvitationController {
      * pasa de verdad: el recurso que se devuelve no es el de la ruta. Un 200 daria a entender que la
      * invitacion de la URL sigue viva, y lo que queda vivo es su sustituta.
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'INVITE_USERS')")
+    @PreAuthorize("@authorization.can(authentication, 'INVITE_USERS')")
     @PostMapping("/{invitationId}/reenvio")
-    ResponseEntity<InvitationView> reenviar(
-            @PathVariable UUID condominiumId, @PathVariable UUID invitationId, Principal quien) {
-        InvitationView nueva = invitaciones.resend(condominiumId, invitationId, quien.getName());
-        return ResponseEntity.created(
-                        URI.create("/api/v1/condominios/" + condominiumId + "/invitaciones/" + nueva.id()))
-                .body(nueva);
+    ResponseEntity<InvitationView> resend(
+            @PathVariable UUID condominiumId, @PathVariable UUID invitationId, Principal principal) {
+        InvitationView body = invitations.resend(condominiumId, invitationId, principal.getName());
+        return ResponseEntity.created(URI.create("/api/v1/condominios/" + condominiumId + "/invitaciones/" + body.id()))
+                .body(body);
     }
 
     /**
@@ -102,10 +101,10 @@ class InvitationController {
      * emitido se cierra, no se actualiza en sitio-- y lo que el issue #21 querra en la bitacora es
      * precisamente la fila cerrada, no su ausencia.
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'INVITE_USERS')")
+    @PreAuthorize("@authorization.can(authentication, 'INVITE_USERS')")
     @PostMapping("/{invitationId}/revocacion")
-    InvitationView revocar(@PathVariable UUID condominiumId, @PathVariable UUID invitationId, Principal quien) {
-        return invitaciones.revoke(condominiumId, invitationId, quien.getName());
+    InvitationView revoke(@PathVariable UUID condominiumId, @PathVariable UUID invitationId, Principal principal) {
+        return invitations.revoke(condominiumId, invitationId, principal.getName());
     }
 
     /**
@@ -120,5 +119,5 @@ class InvitationController {
      *
      * @param roles al menos uno; los que tendra la membresia cuando se acepte
      */
-    record NuevaInvitacion(@NotNull UUID accountId, @NotEmpty Set<MembershipRole> roles) {}
+    record NewInvitation(@NotNull UUID accountId, @NotEmpty Set<MembershipRole> roles) {}
 }

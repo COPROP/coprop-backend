@@ -17,7 +17,7 @@ import java.util.UUID;
  * filtra.
  */
 public record MembershipReinstated(
-        UUID condominiumId, UUID membershipId, UUID accountId, String motivo, String actor, Instant occurredAt)
+        UUID condominiumId, UUID membershipId, UUID accountId, String reason, String actor, Instant occurredAt)
         implements AuditableEvent {
 
     @Override
@@ -42,6 +42,6 @@ public record MembershipReinstated(
 
     @Override
     public Map<String, String> newValues() {
-        return Map.of("status", MembershipStatus.ACTIVE.name(), "motivo", motivo);
+        return Map.of("status", MembershipStatus.ACTIVE.name(), "motivo", reason);
     }
 }

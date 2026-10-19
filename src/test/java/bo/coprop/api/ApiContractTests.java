@@ -58,8 +58,8 @@ class ApiContractTests {
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.codigo").value("VALIDACION"))
-                .andExpect(jsonPath("$.errores[0].campo").value("numero"))
-                .andExpect(jsonPath("$.errores[0].codigo").value("NotBlank"));
+                .andExpect(jsonPath("$.errores[0].field").value("numero"))
+                .andExpect(jsonPath("$.errores[0].code").value("NotBlank"));
     }
 
     @Test
@@ -165,11 +165,11 @@ class ApiContractTests {
                         .content("{\"color\":\"AZUL\"}"))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.codigo").value("VALIDACION"))
-                .andExpect(jsonPath("$.errores[0].campo").value("color"))
-                .andExpect(jsonPath("$.errores[0].codigo").value("VALOR_NO_ADMITIDO"))
-                .andExpect(jsonPath("$.errores[0].mensaje").value(containsString("ROJO, VERDE")))
+                .andExpect(jsonPath("$.errores[0].field").value("color"))
+                .andExpect(jsonPath("$.errores[0].code").value("VALOR_NO_ADMITIDO"))
+                .andExpect(jsonPath("$.errores[0].message").value(containsString("ROJO, VERDE")))
                 // El nombre de la clase destino no sale: es ruido para el cliente.
-                .andExpect(jsonPath("$.errores[0].mensaje").value(not(containsString("Color"))));
+                .andExpect(jsonPath("$.errores[0].message").value(not(containsString("Color"))));
     }
 
     @Test
@@ -182,8 +182,8 @@ class ApiContractTests {
                         .content("{\"numero\":{}}"))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.codigo").value("VALIDACION"))
-                .andExpect(jsonPath("$.errores[0].campo").value("numero"))
-                .andExpect(jsonPath("$.errores[0].codigo").value("FORMATO"));
+                .andExpect(jsonPath("$.errores[0].field").value("numero"))
+                .andExpect(jsonPath("$.errores[0].code").value("FORMATO"));
     }
 
     @Test

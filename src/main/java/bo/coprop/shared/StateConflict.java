@@ -6,7 +6,7 @@ package bo.coprop.shared;
  */
 public class StateConflict extends DomainError {
 
-    public StateConflict(String mensaje) {
-        super(ErrorCode.CONFLICTO, mensaje);
+    public StateConflict(String message) {
+        super(ErrorCode.CONFLICTO, message);
     }
 }

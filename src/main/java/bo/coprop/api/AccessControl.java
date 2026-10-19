@@ -53,7 +53,7 @@ import org.springframework.stereotype.Component;
  * autorizacion decida el estado: devolver {@code false} siempre acaba en 403. Esto lo prueba un
  * test, porque es un detalle del que depende el criterio entero y no esta a la vista en el codigo.
  */
-@Component("acceso")
+@Component("access")
 class AccessControl {
 
     private static final Logger log = LoggerFactory.getLogger(AccessControl.class);
@@ -87,10 +87,10 @@ class AccessControl {
      * @throws ResourceNotFound si el permiso le alcanza solo para lo propio y esta unidad no lo
      *     es
      */
-    public boolean puedeSobreLaUnidad(Authentication quien, String permiso, UUID condominiumId, UUID unitId) {
-        return switch (autorizacion.alcanceDe(quien, permiso)) {
+    public boolean canOnUnit(Authentication principal, String permission, UUID condominiumId, UUID unitId) {
+        return switch (autorizacion.scopeOf(principal, permission)) {
             case ALL -> true;
-            case OWN -> exigirQueSeaSuya(quien, condominiumId, unitId, permiso);
+            case OWN -> requireItIsTheirs(principal, condominiumId, unitId, permission);
             case NONE -> false;
         };
     }
@@ -111,11 +111,11 @@ class AccessControl {
      *
      * @throws ResourceNotFound si no administra unidades y esta no es suya
      */
-    public boolean puedeVerLaUnidad(Authentication quien, UUID condominiumId, UUID unitId) {
-        if (autorizacion.alcanceDe(quien, MANAGE_UNITS) == Scope.ALL) {
+    public boolean canViewUnit(Authentication principal, UUID condominiumId, UUID unitId) {
+        if (autorizacion.scopeOf(principal, MANAGE_UNITS) == Scope.ALL) {
             return true;
         }
-        return exigirQueSeaSuya(quien, condominiumId, unitId, "ver la unidad");
+        return requireItIsTheirs(principal, condominiumId, unitId, "ver la unidad");
     }
 
     /**
@@ -132,8 +132,8 @@ class AccessControl {
      * cualquier persona que no sea el, asi que no hay existencia que filtrar. El 404 es para cuando
      * la respuesta cambia con el recurso.
      */
-    public boolean puedeVerLaPersona(Authentication quien, UUID personId) {
-        return esSuPersona(quien, personId) || autorizacion.puedeEnAlgunCondominio(quien, MANAGE_UNITS);
+    public boolean canViewPerson(Authentication principal, UUID personId) {
+        return isTheirPerson(principal, personId) || autorizacion.canInAnyCondominium(principal, MANAGE_UNITS);
     }
 
     /**
@@ -144,8 +144,8 @@ class AccessControl {
      * invita-- la necesita; el resto, solo la suya. El perfil propio completo esta en
      * {@code GET /api/v1/me} y no pide ningun identificador.
      */
-    public boolean puedeVerLaCuenta(Authentication quien, UUID accountId) {
-        return esSuCuenta(quien, accountId) || autorizacion.puedeEnAlgunCondominio(quien, MANAGE_UNITS);
+    public boolean canViewAccount(Authentication principal, UUID accountId) {
+        return isTheirAccount(principal, accountId) || autorizacion.canInAnyCondominium(principal, MANAGE_UNITS);
     }
 
     /**
@@ -154,31 +154,31 @@ class AccessControl {
      * <p>Se registra en el log porque es una negativa que el cliente recibe como "no existe": sin
      * esta linea, un propietario que dice que no ve su unidad obliga a reproducirlo a ciegas.
      */
-    private boolean exigirQueSeaSuya(Authentication quien, UUID condominiumId, UUID unitId, String operacion) {
-        UUID persona = personaDe(quien);
-        if (persona != null && relaciones.isRelatedTo(condominiumId, unitId, persona)) {
+    private boolean requireItIsTheirs(Authentication principal, UUID condominiumId, UUID unitId, String operacion) {
+        UUID person = personOf(principal);
+        if (person != null && relaciones.isRelatedTo(condominiumId, unitId, person)) {
             return true;
         }
         log.info(
                 "La cuenta {} pidio {} sobre la unidad {} del condominio {} sin relacion vigente con ella; se responde 404.",
-                quien.getName(),
+                principal.getName(),
                 operacion,
                 unitId,
                 condominiumId);
         throw ResourceNotFound.de("la unidad", unitId);
     }
 
-    private static boolean esSuPersona(Authentication quien, UUID personId) {
-        return personId.equals(personaDe(quien));
+    private static boolean isTheirPerson(Authentication principal, UUID personId) {
+        return personId.equals(personOf(principal));
     }
 
-    private static boolean esSuCuenta(Authentication quien, UUID accountId) {
-        var actor = actorDe(quien);
+    private static boolean isTheirAccount(Authentication principal, UUID accountId) {
+        var actor = actorOf(principal);
         return actor != null && accountId.equals(actor.accountId());
     }
 
-    private static @Nullable UUID personaDe(Authentication quien) {
-        var actor = actorDe(quien);
+    private static @Nullable UUID personOf(Authentication principal) {
+        var actor = actorOf(principal);
         return actor == null ? null : actor.personId();
     }
 
@@ -191,7 +191,7 @@ class AccessControl {
      * pregunta tiene que <strong>negar</strong>, no caerse: sin identidad nada es suyo, que es la
      * respuesta segura.
      */
-    private static AuthenticatedIdentity.@Nullable Actor actorDe(Authentication quien) {
-        return quien.getPrincipal() instanceof AuthenticatedIdentity.Actor actor ? actor : null;
+    private static AuthenticatedIdentity.@Nullable Actor actorOf(Authentication principal) {
+        return principal.getPrincipal() instanceof AuthenticatedIdentity.Actor actor ? actor : null;
     }
 }

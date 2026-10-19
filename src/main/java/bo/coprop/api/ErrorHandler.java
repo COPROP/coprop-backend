@@ -39,17 +39,17 @@ class ErrorHandler extends ResponseEntityExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(ErrorHandler.class);
 
     /** Un campo rechazado por la validacion. El codigo es el de la anotacion que fallo. */
-    record ErrorDeCampo(String campo, String codigo, String mensaje) {}
+    record ApiFieldError(String field, String code, String message) {}
 
     @ExceptionHandler(DomainError.class)
     ResponseEntity<ProblemDetail> manejarDominio(DomainError error, HttpServletRequest peticion) {
         // getMessage() es @Nullable por contrato de Throwable, aunque nuestros constructores lo
         // exijan: nada impide que una subclase futura pase null.
         ProblemDetail problema = ProblemCatalog.problema(
-                error.codigo(),
+                error.code(),
                 requireNonNullElse(error.getMessage(), "La operacion fue rechazada."),
                 peticion.getRequestURI());
-        return ResponseEntity.status(ProblemCatalog.estadoDe(error.codigo())).body(problema);
+        return ResponseEntity.status(ProblemCatalog.statusOf(error.code())).body(problema);
     }
 
     /**
@@ -72,14 +72,14 @@ class ErrorHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(ReauthenticationRequired.class)
     ResponseEntity<ProblemDetail> manejarReautenticacion(ReauthenticationRequired error, HttpServletRequest peticion) {
         ProblemDetail problema = ProblemCatalog.problema(
-                error.codigo(),
+                error.code(),
                 requireNonNullElse(error.getMessage(), "Hace falta confirmar tu identidad."),
                 peticion.getRequestURI());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .header(
                         HttpHeaders.WWW_AUTHENTICATE,
-                        "Bearer error=\"insufficient_user_authentication\", error_description=\"se requiere un segundo factor reciente\", max_age="
-                                + error.vigencia().toSeconds())
+                        "Bearer error=\"insufficient_user_authentication\", error_description=\"se requiere un segundo factor recent\", max_age="
+                                + error.validity().toSeconds())
                 .body(problema);
     }
 
@@ -88,7 +88,7 @@ class ErrorHandler extends ResponseEntityExceptionHandler {
      * ocurre antes, en la cadena de filtros, la atiende la configuracion de seguridad.
      */
     @ExceptionHandler(AccessDeniedException.class)
-    ResponseEntity<ProblemDetail> manejarAccesoDenegado(AccessDeniedException error, HttpServletRequest peticion) {
+    ResponseEntity<ProblemDetail> handleAccessDenied(AccessDeniedException error, HttpServletRequest peticion) {
         ProblemDetail problema = ProblemCatalog.problema(
                 ErrorCode.SIN_PERMISO, "Tu rol no alcanza para esta operacion.", peticion.getRequestURI());
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(problema);
@@ -114,8 +114,8 @@ class ErrorHandler extends ResponseEntityExceptionHandler {
      */
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
-            MethodArgumentNotValidException error, HttpHeaders cabeceras, HttpStatusCode estado, WebRequest peticion) {
-        List<ErrorDeCampo> campos = error.getBindingResult().getFieldErrors().stream()
+            MethodArgumentNotValidException error, HttpHeaders cabeceras, HttpStatusCode status, WebRequest peticion) {
+        List<ApiFieldError> campos = error.getBindingResult().getFieldErrors().stream()
                 .map(ErrorHandler::aErrorDeCampo)
                 .toList();
         ProblemDetail problema =
@@ -146,7 +146,7 @@ class ErrorHandler extends ResponseEntityExceptionHandler {
      */
     @Override
     protected ResponseEntity<Object> handleHttpMessageNotReadable(
-            HttpMessageNotReadableException error, HttpHeaders cabeceras, HttpStatusCode estado, WebRequest peticion) {
+            HttpMessageNotReadableException error, HttpHeaders cabeceras, HttpStatusCode status, WebRequest peticion) {
         if (error.getCause() instanceof MismatchedInputException desajuste) {
             ProblemDetail problema =
                     ProblemCatalog.problema(ErrorCode.VALIDACION, "Revisa los campos indicados.", rutaDe(peticion));
@@ -168,18 +168,18 @@ class ErrorHandler extends ResponseEntityExceptionHandler {
      * clase destino y el fragmento del cuerpo. Para un enum si se enumeran los valores admitidos,
      * que son parte del contrato --el cliente los manda-- y es lo que de verdad necesita saber.
      */
-    private static ErrorDeCampo aErrorDeCampo(MismatchedInputException desajuste) {
-        String campo = rutaDe(desajuste);
-        if (desajuste instanceof InvalidFormatException formato) {
-            Class<?> destino = formato.getTargetType();
+    private static ApiFieldError aErrorDeCampo(MismatchedInputException desajuste) {
+        String field = rutaDe(desajuste);
+        if (desajuste instanceof InvalidFormatException format) {
+            Class<?> destino = format.getTargetType();
             if (destino != null && destino.isEnum()) {
                 String admitidos = Arrays.stream(destino.getEnumConstants())
                         .map(valor -> ((Enum<?>) valor).name())
                         .collect(Collectors.joining(", "));
-                return new ErrorDeCampo(campo, "VALOR_NO_ADMITIDO", "Valores admitidos: " + admitidos + ".");
+                return new ApiFieldError(field, "VALOR_NO_ADMITIDO", "Valores admitidos: " + admitidos + ".");
             }
         }
-        return new ErrorDeCampo(campo, "FORMATO", "El valor no tiene el formato esperado.");
+        return new ApiFieldError(field, "FORMATO", "El valor no tiene el formato esperado.");
     }
 
     /**
@@ -190,12 +190,12 @@ class ErrorHandler extends ResponseEntityExceptionHandler {
     private static String rutaDe(MismatchedInputException desajuste) {
         StringBuilder ruta = new StringBuilder();
         for (var referencia : desajuste.getPath()) {
-            String nombre = referencia.getPropertyName();
-            if (nombre != null) {
+            String name = referencia.getPropertyName();
+            if (name != null) {
                 if (!ruta.isEmpty()) {
                     ruta.append('.');
                 }
-                ruta.append(nombre);
+                ruta.append(name);
             } else if (referencia.getIndex() >= 0) {
                 ruta.append('[').append(referencia.getIndex()).append(']');
             }
@@ -208,8 +208,8 @@ class ErrorHandler extends ResponseEntityExceptionHandler {
      * rechazo no viene de una anotacion, y el mensaje cuando no hay plantilla resuelta. El cliente
      * ramifica por el codigo, asi que es mejor un valor explicito que un hueco en el JSON.
      */
-    private static ErrorDeCampo aErrorDeCampo(FieldError fallo) {
-        return new ErrorDeCampo(
+    private static ApiFieldError aErrorDeCampo(FieldError fallo) {
+        return new ApiFieldError(
                 fallo.getField(),
                 requireNonNullElse(fallo.getCode(), "INVALIDO"),
                 requireNonNullElse(fallo.getDefaultMessage(), "El valor no es valido."));

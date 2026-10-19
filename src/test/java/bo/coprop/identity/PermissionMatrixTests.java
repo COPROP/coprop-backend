@@ -35,21 +35,21 @@ class PermissionMatrixTests {
      * Una fila de la matriz: la accion, y que alcance tiene cada rol, en el orden de las columnas
      * del analisis.
      */
-    private record Fila(
+    private record Row(
             String action,
-            Permission permiso,
+            Permission permission,
             Scope plataforma,
-            Scope condominio,
+            Scope condominium,
             Scope finanzas,
-            Scope propietario,
+            Scope owner,
             Scope inquilino,
             Scope mantenimiento,
             Scope directiva) {}
 
     /** Las veintiuna filas del analisis, mas las dos que esta implementacion separa. */
-    private static List<Fila> matriz() {
+    private static List<Row> matriz() {
         return List.of(
-                new Fila(
+                new Row(
                         "Crear condominios y asignar su primer administrador",
                         Permission.CREATE_CONDOMINIUMS,
                         ALL,
@@ -59,7 +59,7 @@ class PermissionMatrixTests {
                         NONE,
                         NONE,
                         NONE),
-                new Fila(
+                new Row(
                         "Configurar proveedor de pagos y credenciales bancarias",
                         Permission.CONFIGURE_PAYMENT_PROVIDER,
                         ALL,
@@ -69,7 +69,7 @@ class PermissionMatrixTests {
                         NONE,
                         NONE,
                         NONE),
-                new Fila(
+                new Row(
                         "Gestionar bloques, unidades y personas",
                         Permission.MANAGE_UNITS,
                         NONE,
@@ -79,7 +79,7 @@ class PermissionMatrixTests {
                         NONE,
                         NONE,
                         NONE),
-                new Fila(
+                new Row(
                         "Invitar usuarios y asignar roles",
                         Permission.INVITE_USERS,
                         NONE,
@@ -89,7 +89,7 @@ class PermissionMatrixTests {
                         NONE,
                         NONE,
                         NONE),
-                new Fila(
+                new Row(
                         "Invitar, pero solo a administradores",
                         Permission.INVITE_ADMINS_ONLY,
                         ALL,
@@ -99,7 +99,7 @@ class PermissionMatrixTests {
                         NONE,
                         NONE,
                         NONE),
-                new Fila(
+                new Row(
                         "Configurar conceptos, tarifas de agua y politica de mora",
                         Permission.CONFIGURE_CHARGES,
                         NONE,
@@ -109,7 +109,7 @@ class PermissionMatrixTests {
                         NONE,
                         NONE,
                         NONE),
-                new Fila(
+                new Row(
                         "Emitir expensas y cobro de agua del periodo",
                         Permission.ISSUE_DUES,
                         NONE,
@@ -119,7 +119,7 @@ class PermissionMatrixTests {
                         NONE,
                         NONE,
                         NONE),
-                new Fila(
+                new Row(
                         "Registrar lecturas de medidores",
                         Permission.RECORD_METER_READINGS,
                         NONE,
@@ -129,9 +129,8 @@ class PermissionMatrixTests {
                         NONE,
                         ALL,
                         NONE),
-                new Fila(
-                        "Anular una obligacion", Permission.CANCEL_OBLIGATION, NONE, NONE, ALL, NONE, NONE, NONE, NONE),
-                new Fila(
+                new Row("Anular una obligacion", Permission.CANCEL_OBLIGATION, NONE, NONE, ALL, NONE, NONE, NONE, NONE),
+                new Row(
                         "Ver estado de cuenta",
                         Permission.VIEW_ACCOUNT_STATEMENT,
                         NONE,
@@ -141,8 +140,8 @@ class PermissionMatrixTests {
                         OWN,
                         NONE,
                         NONE),
-                new Fila("Generar QR de pago", Permission.GENERATE_QR, NONE, NONE, NONE, OWN, OWN, NONE, NONE),
-                new Fila(
+                new Row("Generar QR de pago", Permission.GENERATE_QR, NONE, NONE, NONE, OWN, OWN, NONE, NONE),
+                new Row(
                         "Subir comprobante de pago manual",
                         Permission.UPLOAD_RECEIPT,
                         NONE,
@@ -152,7 +151,7 @@ class PermissionMatrixTests {
                         OWN,
                         NONE,
                         NONE),
-                new Fila(
+                new Row(
                         "Validar pago manual",
                         Permission.VALIDATE_MANUAL_PAYMENT,
                         NONE,
@@ -162,7 +161,7 @@ class PermissionMatrixTests {
                         NONE,
                         NONE,
                         NONE),
-                new Fila(
+                new Row(
                         "Bandeja de excepciones y conciliacion",
                         Permission.RECONCILE,
                         NONE,
@@ -172,8 +171,8 @@ class PermissionMatrixTests {
                         NONE,
                         NONE,
                         NONE),
-                new Fila("Ver saldos a favor", Permission.VIEW_CREDIT_BALANCES, NONE, ALL, ALL, OWN, OWN, NONE, NONE),
-                new Fila(
+                new Row("Ver saldos a favor", Permission.VIEW_CREDIT_BALANCES, NONE, ALL, ALL, OWN, OWN, NONE, NONE),
+                new Row(
                         "Registrar devolucion de saldo a favor",
                         Permission.REFUND_CREDIT_BALANCE,
                         NONE,
@@ -183,7 +182,7 @@ class PermissionMatrixTests {
                         NONE,
                         NONE,
                         NONE),
-                new Fila(
+                new Row(
                         "Gestionar areas comunes y reglas de reserva",
                         Permission.MANAGE_AMENITIES,
                         NONE,
@@ -193,8 +192,8 @@ class PermissionMatrixTests {
                         NONE,
                         NONE,
                         NONE),
-                new Fila("Crear o cancelar reservas", Permission.RESERVE, NONE, ALL, NONE, OWN, OWN, NONE, NONE),
-                new Fila(
+                new Row("Crear o cancelar reservas", Permission.RESERVE, NONE, ALL, NONE, OWN, OWN, NONE, NONE),
+                new Row(
                         "Ver reservas del dia y bloquear areas por mantenimiento",
                         Permission.OPERATE_AMENITIES,
                         NONE,
@@ -204,7 +203,7 @@ class PermissionMatrixTests {
                         NONE,
                         ALL,
                         NONE),
-                new Fila(
+                new Row(
                         "Reportes de recaudacion y morosidad (agregados)",
                         Permission.VIEW_REPORTS,
                         NONE,
@@ -214,7 +213,7 @@ class PermissionMatrixTests {
                         NONE,
                         NONE,
                         ALL),
-                new Fila(
+                new Row(
                         "Morosidad unidad por unidad",
                         Permission.VIEW_DELINQUENCY_BY_UNIT,
                         NONE,
@@ -224,7 +223,7 @@ class PermissionMatrixTests {
                         NONE,
                         NONE,
                         NONE),
-                new Fila(
+                new Row(
                         "Consultar auditoria del condominio",
                         Permission.VIEW_AUDIT_LOG,
                         ALL,
@@ -234,7 +233,7 @@ class PermissionMatrixTests {
                         NONE,
                         NONE,
                         NONE),
-                new Fila(
+                new Row(
                         "Acceder a datos de un condominio para soporte",
                         Permission.ACCESS_FOR_SUPPORT,
                         ALL,
@@ -249,14 +248,14 @@ class PermissionMatrixTests {
     @ParameterizedTest(name = "{0}")
     @MethodSource("matriz")
     @DisplayName("cada fila de la matriz dice lo mismo que el analisis, en las siete columnas")
-    void laFilaCoincideConElAnalisis(Fila fila) {
-        assertThat(PermissionMatrix.alcanceDe(PLATFORM_ADMIN, fila.permiso())).isEqualTo(fila.plataforma());
-        assertThat(PermissionMatrix.alcanceDe(CONDO_ADMIN, fila.permiso())).isEqualTo(fila.condominio());
-        assertThat(PermissionMatrix.alcanceDe(FINANCE_ADMIN, fila.permiso())).isEqualTo(fila.finanzas());
-        assertThat(PermissionMatrix.alcanceDe(OWNER, fila.permiso())).isEqualTo(fila.propietario());
-        assertThat(PermissionMatrix.alcanceDe(TENANT, fila.permiso())).isEqualTo(fila.inquilino());
-        assertThat(PermissionMatrix.alcanceDe(MAINTENANCE, fila.permiso())).isEqualTo(fila.mantenimiento());
-        assertThat(PermissionMatrix.alcanceDe(BOARD, fila.permiso())).isEqualTo(fila.directiva());
+    void laFilaCoincideConElAnalisis(Row fila) {
+        assertThat(PermissionMatrix.scopeOf(PLATFORM_ADMIN, fila.permission())).isEqualTo(fila.plataforma());
+        assertThat(PermissionMatrix.scopeOf(CONDO_ADMIN, fila.permission())).isEqualTo(fila.condominium());
+        assertThat(PermissionMatrix.scopeOf(FINANCE_ADMIN, fila.permission())).isEqualTo(fila.finanzas());
+        assertThat(PermissionMatrix.scopeOf(OWNER, fila.permission())).isEqualTo(fila.owner());
+        assertThat(PermissionMatrix.scopeOf(TENANT, fila.permission())).isEqualTo(fila.inquilino());
+        assertThat(PermissionMatrix.scopeOf(MAINTENANCE, fila.permission())).isEqualTo(fila.mantenimiento());
+        assertThat(PermissionMatrix.scopeOf(BOARD, fila.permission())).isEqualTo(fila.directiva());
     }
 
     @Test
@@ -264,7 +263,7 @@ class PermissionMatrixTests {
     void ningunPermisoSeQuedaSinFila() {
         // Si entra un permiso nuevo al catalogo y nadie escribe su fila, este test lo dice. Sin
         // esto, un permiso sin declarar se comporta como "nadie puede" y nadie se entera.
-        var conFila = matriz().stream().map(Fila::permiso).toList();
+        var conFila = matriz().stream().map(Row::permission).toList();
 
         assertThat(conFila).containsExactlyInAnyOrder(Permission.values());
     }
@@ -275,8 +274,8 @@ class PermissionMatrixTests {
         // El segundo criterio de aceptacion del issue #16. Esta aparte de la fila porque es la linea
         // que no se cruza: expone lo que debe un vecino a otro vecino, y 10.1 lo deja fuera salvo
         // que el administrador lo habilite --y esa habilitacion es M2, cuando exista el reporte--.
-        assertThat(PermissionMatrix.alcanceDe(BOARD, Permission.VIEW_REPORTS)).isEqualTo(ALL);
-        assertThat(PermissionMatrix.alcanceDe(BOARD, Permission.VIEW_DELINQUENCY_BY_UNIT))
+        assertThat(PermissionMatrix.scopeOf(BOARD, Permission.VIEW_REPORTS)).isEqualTo(ALL);
+        assertThat(PermissionMatrix.scopeOf(BOARD, Permission.VIEW_DELINQUENCY_BY_UNIT))
                 .isEqualTo(NONE);
     }
 
@@ -285,13 +284,12 @@ class PermissionMatrixTests {
     void laSeparacionDeFuncionesSeSostiene() {
         // Seguridad 3. Son las dos mitades de la misma regla, y romper cualquiera deja a una sola
         // persona pudiendo darse a si misma el control del dinero.
-        assertThat(PermissionMatrix.alcanceDe(CONDO_ADMIN, Permission.ISSUE_DUES))
+        assertThat(PermissionMatrix.scopeOf(CONDO_ADMIN, Permission.ISSUE_DUES)).isEqualTo(NONE);
+        assertThat(PermissionMatrix.scopeOf(CONDO_ADMIN, Permission.VALIDATE_MANUAL_PAYMENT))
                 .isEqualTo(NONE);
-        assertThat(PermissionMatrix.alcanceDe(CONDO_ADMIN, Permission.VALIDATE_MANUAL_PAYMENT))
+        assertThat(PermissionMatrix.scopeOf(FINANCE_ADMIN, Permission.INVITE_USERS))
                 .isEqualTo(NONE);
-        assertThat(PermissionMatrix.alcanceDe(FINANCE_ADMIN, Permission.INVITE_USERS))
-                .isEqualTo(NONE);
-        assertThat(PermissionMatrix.alcanceDe(FINANCE_ADMIN, Permission.MANAGE_UNITS))
+        assertThat(PermissionMatrix.scopeOf(FINANCE_ADMIN, Permission.MANAGE_UNITS))
                 .isEqualTo(NONE);
     }
 
@@ -302,8 +300,8 @@ class PermissionMatrixTests {
         // cosas. Lo que no puede es pasar desapercibido, y de eso se encarga la auditoria.
         var ambos = Set.of(CONDO_ADMIN, FINANCE_ADMIN);
 
-        assertThat(PermissionMatrix.alcanceDe(ambos, Permission.MANAGE_UNITS)).isEqualTo(ALL);
-        assertThat(PermissionMatrix.alcanceDe(ambos, Permission.ISSUE_DUES)).isEqualTo(ALL);
+        assertThat(PermissionMatrix.scopeOf(ambos, Permission.MANAGE_UNITS)).isEqualTo(ALL);
+        assertThat(PermissionMatrix.scopeOf(ambos, Permission.ISSUE_DUES)).isEqualTo(ALL);
     }
 
     @Test
@@ -311,13 +309,13 @@ class PermissionMatrixTests {
     void elSuperadministradorNoOperaCondominios() {
         // 10.1: no ve deudas ni pagos por defecto. Crea condominios, pone administradores, lee
         // auditoria y abre soporte. Nada de lo que mueve plata del condominio.
-        assertThat(PermissionMatrix.alcanceDe(PLATFORM_ADMIN, Permission.VIEW_ACCOUNT_STATEMENT))
+        assertThat(PermissionMatrix.scopeOf(PLATFORM_ADMIN, Permission.VIEW_ACCOUNT_STATEMENT))
                 .isEqualTo(NONE);
-        assertThat(PermissionMatrix.alcanceDe(PLATFORM_ADMIN, Permission.VIEW_REPORTS))
+        assertThat(PermissionMatrix.scopeOf(PLATFORM_ADMIN, Permission.VIEW_REPORTS))
                 .isEqualTo(NONE);
-        assertThat(PermissionMatrix.alcanceDe(PLATFORM_ADMIN, Permission.ISSUE_DUES))
+        assertThat(PermissionMatrix.scopeOf(PLATFORM_ADMIN, Permission.ISSUE_DUES))
                 .isEqualTo(NONE);
-        assertThat(PermissionMatrix.alcanceDe(PLATFORM_ADMIN, Permission.MANAGE_UNITS))
+        assertThat(PermissionMatrix.scopeOf(PLATFORM_ADMIN, Permission.MANAGE_UNITS))
                 .isEqualTo(NONE);
     }
 
@@ -325,7 +323,7 @@ class PermissionMatrixTests {
     @DisplayName("las tres celdas de step-up son las que mueven dinero")
     void elStepUpEsSoloDondeLoDiceLaMatriz() {
         assertThat(Permission.values())
-                .filteredOn(PermissionMatrix::pideSegundoFactor)
+                .filteredOn(PermissionMatrix::requiresSecondFactor)
                 .containsExactlyInAnyOrder(
                         Permission.CONFIGURE_PAYMENT_PROVIDER,
                         Permission.CANCEL_OBLIGATION,

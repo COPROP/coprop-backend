@@ -64,13 +64,13 @@ import org.springframework.session.jdbc.JdbcIndexedSessionRepository;
 class SessionValidityTests {
 
     @Autowired
-    private Memberships membresias;
+    private Memberships memberships;
 
     @Autowired
-    private Condominiums condominios;
+    private Condominiums condominiums;
 
     @Autowired
-    private People personas;
+    private People people;
 
     @Autowired
     private ProblemWriter problemas;
@@ -93,40 +93,40 @@ class SessionValidityTests {
     @Test
     @DisplayName("la sesion de quien administra un condominio se queda en una hora")
     void unaHoraParaElAdministrador() throws Exception {
-        UUID condominio = altaDeCondominio();
-        AccountView cuenta = cuentaNueva();
-        membresias.grant(condominio, cuenta.id(), Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
+        UUID condominium = altaDeCondominio();
+        AccountView account = cuentaNueva();
+        memberships.grant(condominium, account.id(), Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
 
-        MockHttpSession sesion = pasarPorElFiltro(cuenta, List.of(), Clock.systemUTC());
+        MockHttpSession session = pasarPorElFiltro(account, List.of(), Clock.systemUTC());
 
-        assertThat(sesion.getMaxInactiveInterval())
+        assertThat(session.getMaxInactiveInterval())
                 .isEqualTo((int) Duration.ofHours(1).toSeconds());
-        assertThat(sesion.isInvalid()).isFalse();
+        assertThat(session.isInvalid()).isFalse();
     }
 
     @Test
     @DisplayName("la del financiero tambien: lo que cuenta es que el rol sea administrativo")
     void unaHoraParaElFinanciero() throws Exception {
-        UUID condominio = altaDeCondominio();
-        AccountView cuenta = cuentaNueva();
-        membresias.grant(condominio, cuenta.id(), Set.of(MembershipRole.FINANCE_ADMIN), null, "admin");
+        UUID condominium = altaDeCondominio();
+        AccountView account = cuentaNueva();
+        memberships.grant(condominium, account.id(), Set.of(MembershipRole.FINANCE_ADMIN), null, "admin");
 
-        MockHttpSession sesion = pasarPorElFiltro(cuenta, List.of(), Clock.systemUTC());
+        MockHttpSession session = pasarPorElFiltro(account, List.of(), Clock.systemUTC());
 
-        assertThat(sesion.getMaxInactiveInterval())
+        assertThat(session.getMaxInactiveInterval())
                 .isEqualTo((int) Duration.ofHours(1).toSeconds());
     }
 
     @Test
     @DisplayName("la de un propietario se queda en veinticuatro horas")
     void veinticuatroHorasParaElPropietario() throws Exception {
-        UUID condominio = altaDeCondominio();
-        AccountView cuenta = cuentaNueva();
-        membresias.grant(condominio, cuenta.id(), Set.of(MembershipRole.OWNER), null, "admin");
+        UUID condominium = altaDeCondominio();
+        AccountView account = cuentaNueva();
+        memberships.grant(condominium, account.id(), Set.of(MembershipRole.OWNER), null, "admin");
 
-        MockHttpSession sesion = pasarPorElFiltro(cuenta, List.of(), Clock.systemUTC());
+        MockHttpSession session = pasarPorElFiltro(account, List.of(), Clock.systemUTC());
 
-        assertThat(sesion.getMaxInactiveInterval())
+        assertThat(session.getMaxInactiveInterval())
                 .isEqualTo((int) Duration.ofHours(24).toSeconds());
     }
 
@@ -135,52 +135,53 @@ class SessionValidityTests {
     void ganaLaMasEstricta() throws Exception {
         UUID unEdificio = altaDeCondominio();
         UUID otro = altaDeCondominio();
-        AccountView cuenta = cuentaNueva();
-        membresias.grant(unEdificio, cuenta.id(), Set.of(MembershipRole.OWNER), null, "admin");
-        membresias.grant(otro, cuenta.id(), Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
+        AccountView account = cuentaNueva();
+        memberships.grant(unEdificio, account.id(), Set.of(MembershipRole.OWNER), null, "admin");
+        memberships.grant(otro, account.id(), Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
 
         // La sesion es una sola y vale para los dos edificios: desde ella puede administrar, asi
         // que la politica que le toca es la del administrador. Tomar la del primer condominio que
         // apareciera seria una decision al azar.
-        MockHttpSession sesion = pasarPorElFiltro(cuenta, List.of(), Clock.systemUTC());
+        MockHttpSession session = pasarPorElFiltro(account, List.of(), Clock.systemUTC());
 
-        assertThat(sesion.getMaxInactiveInterval())
+        assertThat(session.getMaxInactiveInterval())
                 .isEqualTo((int) Duration.ofHours(1).toSeconds());
     }
 
     @Test
     @DisplayName("quien administra la plataforma tambien, y sin membresia ninguna")
     void unaHoraParaElSuperadministrador() throws Exception {
-        AccountView cuenta = cuentaNueva();
+        AccountView account = cuentaNueva();
         new JdbcTemplate(dataSource)
-                .update("insert into platform_admin (user_id, granted_at) values (?, now())", cuenta.id());
+                .update("insert into platform_admin (user_id, granted_at) values (?, now())", account.id());
 
         // La autoridad de plataforma la pone el filtro de identidad y no cuelga de ningun
         // condominio, asi que esta se lee de la autenticacion y no de la base.
-        MockHttpSession sesion = pasarPorElFiltro(
-                cuenta,
+        MockHttpSession session = pasarPorElFiltro(
+                account,
                 List.of(new SimpleGrantedAuthority("ROLE_" + MembershipRole.PLATFORM_ADMIN.name())),
                 Clock.systemUTC());
 
-        assertThat(sesion.getMaxInactiveInterval())
+        assertThat(session.getMaxInactiveInterval())
                 .isEqualTo((int) Duration.ofHours(1).toSeconds());
     }
 
     @Test
     @DisplayName("una membresia administrativa suspendida no endurece nada")
     void laSuspendidaNoCuenta() throws Exception {
-        UUID condominio = altaDeCondominio();
-        AccountView cuenta = cuentaNueva();
+        UUID condominium = altaDeCondominio();
+        AccountView account = cuentaNueva();
         // FINANCE_ADMIN y no CONDO_ADMIN: el #19 no deja suspender la ultima membresia con
         // CONDO_ADMIN del condominio, que es lo que esta seria. El rol financiero es igual de
         // administrativo para lo que aqui se mide.
-        var membresia = membresias.grant(condominio, cuenta.id(), Set.of(MembershipRole.FINANCE_ADMIN), null, "admin");
-        membresias.suspend(condominio, membresia.id(), "se va de viaje tres meses", "admin");
+        var membership =
+                memberships.grant(condominium, account.id(), Set.of(MembershipRole.FINANCE_ADMIN), null, "admin");
+        memberships.suspend(condominium, membership.id(), "se va de viaje tres meses", "admin");
 
         // No da acceso a nada, asi que tampoco hay nada que proteger con una hora.
-        MockHttpSession sesion = pasarPorElFiltro(cuenta, List.of(), Clock.systemUTC());
+        MockHttpSession session = pasarPorElFiltro(account, List.of(), Clock.systemUTC());
 
-        assertThat(sesion.getMaxInactiveInterval())
+        assertThat(session.getMaxInactiveInterval())
                 .isEqualTo((int) Duration.ofHours(24).toSeconds());
     }
 
@@ -189,36 +190,36 @@ class SessionValidityTests {
     @Test
     @DisplayName("a las veinticuatro horas la sesion se cierra aunque se este usando")
     void elTopeAbsolutoCierraLaSesion() throws Exception {
-        UUID condominio = altaDeCondominio();
-        AccountView cuenta = cuentaNueva();
-        membresias.grant(condominio, cuenta.id(), Set.of(MembershipRole.OWNER), null, "admin");
+        UUID condominium = altaDeCondominio();
+        AccountView account = cuentaNueva();
+        memberships.grant(condominium, account.id(), Set.of(MembershipRole.OWNER), null, "admin");
 
         // El reloj veinticinco horas por delante: la sesion se acaba de crear, asi que para el
         // filtro lleva veinticinco horas abierta. Es justo lo que la inactividad no puede atrapar,
         // porque esta peticion la mantiene viva.
         var dentroDeVeinticincoHoras = Clock.offset(Clock.systemUTC(), Duration.ofHours(25));
-        var respuesta = new MockHttpServletResponse();
-        MockHttpSession sesion = pasarPorElFiltro(cuenta, List.of(), dentroDeVeinticincoHoras, respuesta);
+        var response = new MockHttpServletResponse();
+        MockHttpSession session = pasarPorElFiltro(account, List.of(), dentroDeVeinticincoHoras, response);
 
-        assertThat(sesion.isInvalid()).isTrue();
-        assertThat(respuesta.getStatus()).isEqualTo(401);
-        assertThat(respuesta.getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
-        assertThat(respuesta.getContentAsString()).contains("NO_AUTENTICADO");
+        assertThat(session.isInvalid()).isTrue();
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(response.getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
+        assertThat(response.getContentAsString()).contains("NO_AUTENTICADO");
     }
 
     @Test
     @DisplayName("a las veintitres no: el tope es un tope, no un redondeo")
     void aLasVeintitresTodaviaNo() throws Exception {
-        UUID condominio = altaDeCondominio();
-        AccountView cuenta = cuentaNueva();
-        membresias.grant(condominio, cuenta.id(), Set.of(MembershipRole.OWNER), null, "admin");
+        UUID condominium = altaDeCondominio();
+        AccountView account = cuentaNueva();
+        memberships.grant(condominium, account.id(), Set.of(MembershipRole.OWNER), null, "admin");
 
         var dentroDeVeintitresHoras = Clock.offset(Clock.systemUTC(), Duration.ofHours(23));
-        var respuesta = new MockHttpServletResponse();
-        MockHttpSession sesion = pasarPorElFiltro(cuenta, List.of(), dentroDeVeintitresHoras, respuesta);
+        var response = new MockHttpServletResponse();
+        MockHttpSession session = pasarPorElFiltro(account, List.of(), dentroDeVeintitresHoras, response);
 
-        assertThat(sesion.isInvalid()).isFalse();
-        assertThat(respuesta.getStatus()).isEqualTo(200);
+        assertThat(session.isInvalid()).isFalse();
+        assertThat(response.getStatus()).isEqualTo(200);
     }
 
     // --- Segunda mitad: que una sesion con ese tiempo caduque de verdad ---------------------
@@ -262,38 +263,38 @@ class SessionValidityTests {
      */
     private static <S extends Session> String guardar(
             SessionRepository<S> repositorio, Duration inactividad, Duration sinUsarse) {
-        S sesion = repositorio.createSession();
-        sesion.setMaxInactiveInterval(inactividad);
-        sesion.setLastAccessedTime(Instant.now().minus(sinUsarse));
-        repositorio.save(sesion);
-        return sesion.getId();
+        S session = repositorio.createSession();
+        session.setMaxInactiveInterval(inactividad);
+        session.setLastAccessedTime(Instant.now().minus(sinUsarse));
+        repositorio.save(session);
+        return session.getId();
     }
 
-    private MockHttpSession pasarPorElFiltro(AccountView cuenta, List<GrantedAuthority> autoridades, Clock reloj)
+    private MockHttpSession pasarPorElFiltro(AccountView account, List<GrantedAuthority> authorities, Clock clock)
             throws Exception {
-        return pasarPorElFiltro(cuenta, autoridades, reloj, new MockHttpServletResponse());
+        return pasarPorElFiltro(account, authorities, clock, new MockHttpServletResponse());
     }
 
     /** Una peticion con sesion y con la identidad ya resuelta, tal como la deja el filtro del #13. */
     private MockHttpSession pasarPorElFiltro(
-            AccountView cuenta, List<GrantedAuthority> autoridades, Clock reloj, MockHttpServletResponse respuesta)
+            AccountView account, List<GrantedAuthority> authorities, Clock clock, MockHttpServletResponse response)
             throws Exception {
-        var identidad = new AuthenticatedIdentity(
-                new AuthenticatedIdentity.Actor(cuenta.id(), cuenta.personId()),
+        var identity = new AuthenticatedIdentity(
+                new AuthenticatedIdentity.Actor(account.id(), account.personId()),
                 AuthenticatedIdentity.Autenticacion.DESCONOCIDA,
-                autoridades);
-        SecurityContextHolder.getContext().setAuthentication(identidad);
+                authorities);
+        SecurityContextHolder.getContext().setAuthentication(identity);
 
         var peticion = new MockHttpServletRequest("GET", "/api/v1/me");
-        var sesion = new MockHttpSession();
-        peticion.setSession(sesion);
+        var session = new MockHttpSession();
+        peticion.setSession(session);
 
-        new SessionValidityFilter(membresias, problemas, reloj).doFilter(peticion, respuesta, new MockFilterChain());
-        return sesion;
+        new SessionValidityFilter(memberships, problemas, clock).doFilter(peticion, response, new MockFilterChain());
+        return session;
     }
 
     private UUID altaDeCondominio() {
-        return condominios
+        return condominiums
                 .register(
                         new NewCondominium(
                                 "Vigencia " + UUID.randomUUID(),
@@ -311,7 +312,7 @@ class SessionValidityTests {
     }
 
     private AccountView cuentaNueva() {
-        PersonView persona = personas.register(new NewPerson("Emma", "Tola", null), "admin");
-        return personas.openAccount(persona.id(), "emma-" + UUID.randomUUID() + "@coprop.bo", null, "admin");
+        PersonView person = people.register(new NewPerson("Emma", "Tola", null), "admin");
+        return people.openAccount(person.id(), "emma-" + UUID.randomUUID() + "@coprop.bo", null, "admin");
     }
 }

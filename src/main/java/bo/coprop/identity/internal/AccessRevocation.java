@@ -55,22 +55,22 @@ class AccessRevocation {
 
     private static final Logger log = LoggerFactory.getLogger(AccessRevocation.class);
 
-    private final MembershipRepository membresias;
+    private final MembershipRepository memberships;
     private final PlatformAdminRepository superadministradores;
-    private final UserAccountRepository cuentas;
-    private final Sessions sesionesDelBff;
+    private final UserAccountRepository accounts;
+    private final Sessions bffSessions;
     private final IdentityProvider proveedor;
 
     AccessRevocation(
-            MembershipRepository membresias,
+            MembershipRepository memberships,
             PlatformAdminRepository superadministradores,
-            UserAccountRepository cuentas,
-            Sessions sesionesDelBff,
+            UserAccountRepository accounts,
+            Sessions bffSessions,
             IdentityProvider proveedor) {
-        this.membresias = membresias;
+        this.memberships = memberships;
         this.superadministradores = superadministradores;
-        this.cuentas = cuentas;
-        this.sesionesDelBff = sesionesDelBff;
+        this.accounts = accounts;
+        this.bffSessions = bffSessions;
         this.proveedor = proveedor;
     }
 
@@ -85,18 +85,18 @@ class AccessRevocation {
      *     por eso lo que se guarda en la bitacora es esto y no "se intento": lo que importa dentro
      *     de un año es si las sesiones quedaron cerradas
      */
-    boolean siSeQuedaSinCondominios(UUID accountId) {
+    boolean ifLeftWithoutCondominiums(UUID accountId) {
         if (superadministradores.existsById(accountId)) {
             // Entra a cualquier condominio sin membresia (Seguridad 3), asi que perder una no le
             // deja sin sitio al que entrar.
             return false;
         }
-        boolean leQuedaAlguna = membresias.findByAccountIdAndValidToIsNull(accountId).stream()
-                .anyMatch(membresia -> membresia.getStatus() == MembershipStatus.ACTIVE);
+        boolean leQuedaAlguna = memberships.findByAccountIdAndValidToIsNull(accountId).stream()
+                .anyMatch(membership -> membership.getStatus() == MembershipStatus.ACTIVE);
         if (leQuedaAlguna) {
             return false;
         }
-        return cerrar(accountId).enElProveedor();
+        return close(accountId).enElProveedor();
     }
 
     /**
@@ -132,7 +132,7 @@ class AccessRevocation {
                 "A la cuenta {} se le retiraron los roles administrativos {}; se le cierran las sesiones (Seguridad 8).",
                 accountId,
                 retirados);
-        return cerrar(accountId).enElProveedor();
+        return close(accountId).enElProveedor();
     }
 
     /**
@@ -143,7 +143,7 @@ class AccessRevocation {
      * rol que se fue.
      */
     boolean deTodasFormas(UUID accountId) {
-        return cerrar(accountId).enElProveedor();
+        return close(accountId).enElProveedor();
     }
 
     /**
@@ -154,8 +154,8 @@ class AccessRevocation {
      * que Seguridad 5.3 pone en la tabla--. Por eso no hay nada que condicionar, como en
      * {@link #deTodasFormas}, y por eso devuelve el detalle: lo que se audita es cuantas habia.
      */
-    Cerradas porPeticionPropia(UUID accountId) {
-        return cerrar(accountId);
+    Cerradas byOwnRequest(UUID accountId) {
+        return close(accountId);
     }
 
     /**
@@ -173,25 +173,25 @@ class AccessRevocation {
      * <p>El del BFF primero porque no sale a la red: si el de Keycloak falla, al menos la cookie ya
      * no vale. Al reves, un Keycloak caido dejaria las dos puertas abiertas.
      */
-    private Cerradas cerrar(UUID accountId) {
-        UserAccount cuenta = cuentas.findById(accountId).orElse(null);
-        if (cuenta == null) {
+    private Cerradas close(UUID accountId) {
+        UserAccount account = accounts.findById(accountId).orElse(null);
+        if (account == null) {
             // No puede pasar: la membresia tiene clave foranea a la cuenta. Si pasara, no hay nada
             // que cerrar y tampoco hay nada que reparar aqui.
             log.warn("Se pidio cerrar las sesiones de la cuenta {}, que no existe.", accountId);
             return new Cerradas(0, false);
         }
 
-        Set<String> nombres = new HashSet<>();
-        nombres.add(accountId.toString());
-        String sujeto = cuenta.getIdpSubject();
-        if (sujeto != null) {
-            nombres.add(sujeto);
+        Set<String> names = new HashSet<>();
+        names.add(accountId.toString());
+        String tokenSubject = account.getIdpSubject();
+        if (tokenSubject != null) {
+            names.add(tokenSubject);
         }
 
-        int delBff = sesionesDelBff.cerrarLasDe(nombres);
+        int delBff = bffSessions.closeThoseOf(names);
         try {
-            proveedor.cerrarSesiones(cuenta.getEmail());
+            proveedor.closeSessions(account.getEmail());
         } catch (IdentityProvider.FalloDelProveedorDeIdentidad fallo) {
             log.error(
                     "No se pudieron cerrar las sesiones de la cuenta {} en el proveedor de identidad; se cerraron {} del BFF. La baja NO se deshace: el filtro de condominio ya le niega el acceso en la siguiente peticion. Si tiene la app movil instalada, su refresh token sigue sirviendo hasta que caduque.",

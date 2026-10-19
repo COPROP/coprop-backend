@@ -38,10 +38,10 @@ class BffSessions implements Sessions {
      * tocar esto el dia que las sesiones se muden a otro sitio. El comodin del tipo es porque cada
      * implementacion trae su propio tipo de sesion y aqui solo se usan identificadores.
      */
-    private final FindByIndexNameSessionRepository<? extends Session> sesiones;
+    private final FindByIndexNameSessionRepository<? extends Session> sessions;
 
-    BffSessions(FindByIndexNameSessionRepository<? extends Session> sesiones) {
-        this.sesiones = sesiones;
+    BffSessions(FindByIndexNameSessionRepository<? extends Session> sessions) {
+        this.sessions = sessions;
     }
 
     /**
@@ -53,12 +53,12 @@ class BffSessions implements Sessions {
      * mentiria.
      */
     @Override
-    public int cerrarLasDe(Set<String> nombres) {
+    public int closeThoseOf(Set<String> names) {
         Set<String> encontradas = new HashSet<>();
-        for (String nombre : nombres) {
-            encontradas.addAll(sesiones.findByPrincipalName(nombre).keySet());
+        for (String name : names) {
+            encontradas.addAll(sessions.findByPrincipalName(name).keySet());
         }
-        encontradas.forEach(sesiones::deleteById);
+        encontradas.forEach(sessions::deleteById);
         if (!encontradas.isEmpty()) {
             log.info("Cerradas {} sesiones del BFF.", encontradas.size());
         }
@@ -77,22 +77,22 @@ class BffSessions implements Sessions {
      * y una ordinaria veinticuatro. Es un dato de la sesion y no una constante.
      */
     @Override
-    public List<SesionDelBff> listarLasDe(Set<String> nombres) {
+    public List<BffSession> listThoseOf(Set<String> names) {
         Map<String, Session> encontradas = new HashMap<>();
-        for (String nombre : nombres) {
-            encontradas.putAll(sesiones.findByPrincipalName(nombre));
+        for (String name : names) {
+            encontradas.putAll(sessions.findByPrincipalName(name));
         }
         return encontradas.values().stream()
-                .map(BffSessions::aVista)
-                .sorted(Comparator.comparing(SesionDelBff::ultimoAcceso).reversed())
+                .map(BffSessions::toView)
+                .sorted(Comparator.comparing(BffSession::lastAccess).reversed())
                 .toList();
     }
 
-    private static SesionDelBff aVista(Session sesion) {
-        return new SesionDelBff(
-                sesion.getId(),
-                sesion.getCreationTime(),
-                sesion.getLastAccessedTime(),
-                sesion.getMaxInactiveInterval());
+    private static BffSession toView(Session session) {
+        return new BffSession(
+                session.getId(),
+                session.getCreationTime(),
+                session.getLastAccessedTime(),
+                session.getMaxInactiveInterval());
     }
 }

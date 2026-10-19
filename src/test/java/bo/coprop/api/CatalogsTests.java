@@ -53,27 +53,26 @@ class CatalogsTests {
     private MockMvc mockMvc;
 
     @Autowired
-    private People personas;
+    private People people;
 
     @Test
     @DisplayName("El catalogo trae cada enumeracion con sus valores en el orden en que se declararon")
     void elCatalogoTraeCadaEnumeracionConSusValores() throws Exception {
         mockMvc.perform(get(PARAMETRICAS).header(HttpHeaders.AUTHORIZATION, token()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.enumeraciones.CondominiumType.length()").value(3))
-                .andExpect(jsonPath("$.enumeraciones.CondominiumType[0]").value("BUILDING"))
-                .andExpect(
-                        jsonPath("$.enumeraciones.CondominiumStatus.length()").value(2))
-                .andExpect(jsonPath("$.enumeraciones.UnitType.length()").value(5))
-                .andExpect(jsonPath("$.enumeraciones.AccountStatus.length()").value(4))
+                .andExpect(jsonPath("$.enumerations.CondominiumType.length()").value(3))
+                .andExpect(jsonPath("$.enumerations.CondominiumType[0]").value("BUILDING"))
+                .andExpect(jsonPath("$.enumerations.CondominiumStatus.length()").value(2))
+                .andExpect(jsonPath("$.enumerations.UnitType.length()").value(5))
+                .andExpect(jsonPath("$.enumerations.AccountStatus.length()").value(4))
                 // El orden de los valores es el de la declaracion y no el alfabetico: un
                 // desplegable que ofrece INVITED antes que ACTIVE sigue el ciclo de vida de la
                 // cuenta, y ordenarlo alfabeticamente lo romperia.
-                .andExpect(jsonPath("$.enumeraciones.AccountStatus[0]").value("INVITED"))
-                .andExpect(jsonPath("$.enumeraciones.MembershipRole.length()").value(7))
-                .andExpect(jsonPath("$.enumeraciones.MembershipRole[0]").value("PLATFORM_ADMIN"))
-                .andExpect(jsonPath("$.enumeraciones.Permission.length()").value(23))
-                .andExpect(jsonPath("$.enumeraciones.ErrorCode.length()").value(10));
+                .andExpect(jsonPath("$.enumerations.AccountStatus[0]").value("INVITED"))
+                .andExpect(jsonPath("$.enumerations.MembershipRole.length()").value(7))
+                .andExpect(jsonPath("$.enumerations.MembershipRole[0]").value("PLATFORM_ADMIN"))
+                .andExpect(jsonPath("$.enumerations.Permission.length()").value(23))
+                .andExpect(jsonPath("$.enumerations.ErrorCode.length()").value(10));
     }
 
     @Test
@@ -89,7 +88,7 @@ class CatalogsTests {
                 .getResponse()
                 .getContentAsString();
         var expuestas = new ArrayList<String>();
-        new ObjectMapper().readTree(cuerpo).get("enumeraciones").propertyNames().forEach(expuestas::add);
+        new ObjectMapper().readTree(cuerpo).get("enumerations").propertyNames().forEach(expuestas::add);
 
         assertThat(expuestas).containsExactlyInAnyOrderElementsOf(enumeracionesPublicasDelDominio());
     }
@@ -97,22 +96,22 @@ class CatalogsTests {
     @Test
     @DisplayName("La matriz declara los siete roles en las veintitres filas, y cada celda es la del codigo")
     void laMatrizDeclaraCadaCeldaComoLaDelCodigo() throws Exception {
-        var respuesta = mockMvc.perform(get(MATRIZ).header(HttpHeaders.AUTHORIZATION, token()))
+        var response = mockMvc.perform(get(MATRIZ).header(HttpHeaders.AUTHORIZATION, token()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.roles.length()").value(MembershipRole.values().length))
-                .andExpect(jsonPath("$.permisos.length()").value(Permission.values().length));
+                .andExpect(jsonPath("$.permissions.length()").value(Permission.values().length));
 
-        Permission[] permisos = Permission.values();
-        for (int fila = 0; fila < permisos.length; fila++) {
-            Permission permiso = permisos[fila];
-            String ruta = "$.permisos[" + fila + "]";
-            respuesta
-                    .andExpect(jsonPath(ruta + ".permiso").value(permiso.name()))
-                    .andExpect(jsonPath(ruta + ".pideSegundoFactor").value(PermissionMatrix.pideSegundoFactor(permiso)))
-                    .andExpect(jsonPath(ruta + ".alcances.length()").value(MembershipRole.values().length));
+        Permission[] permissions = Permission.values();
+        for (int fila = 0; fila < permissions.length; fila++) {
+            Permission permission = permissions[fila];
+            String ruta = "$.permissions[" + fila + "]";
+            response.andExpect(jsonPath(ruta + ".permission").value(permission.name()))
+                    .andExpect(jsonPath(ruta + ".requiresSecondFactor")
+                            .value(PermissionMatrix.requiresSecondFactor(permission)))
+                    .andExpect(jsonPath(ruta + ".scopes.length()").value(MembershipRole.values().length));
             for (MembershipRole rol : MembershipRole.values()) {
-                Scope esperado = PermissionMatrix.alcanceDe(rol, permiso);
-                respuesta.andExpect(jsonPath(ruta + ".alcances." + rol.name()).value(esperado.name()));
+                Scope esperado = PermissionMatrix.scopeOf(rol, permission);
+                response.andExpect(jsonPath(ruta + ".scopes." + rol.name()).value(esperado.name()));
             }
         }
     }
@@ -124,10 +123,10 @@ class CatalogsTests {
                 .andExpect(status().isOk())
                 // CREATE_CONDOMINIUMS es la primera fila y solo la tiene el superadministrador: los
                 // otros seis roles tienen que aparecer igual, con NONE.
-                .andExpect(jsonPath("$.permisos[0].permiso").value("CREATE_CONDOMINIUMS"))
-                .andExpect(jsonPath("$.permisos[0].alcances.PLATFORM_ADMIN").value("ALL"))
-                .andExpect(jsonPath("$.permisos[0].alcances.CONDO_ADMIN").value("NONE"))
-                .andExpect(jsonPath("$.permisos[0].alcances.BOARD").value("NONE"));
+                .andExpect(jsonPath("$.permissions[0].permission").value("CREATE_CONDOMINIUMS"))
+                .andExpect(jsonPath("$.permissions[0].scopes.PLATFORM_ADMIN").value("ALL"))
+                .andExpect(jsonPath("$.permissions[0].scopes.CONDO_ADMIN").value("NONE"))
+                .andExpect(jsonPath("$.permissions[0].scopes.BOARD").value("NONE"));
     }
 
     @Test
@@ -149,24 +148,24 @@ class CatalogsTests {
     private static List<String> enumeracionesPublicasDelDominio() {
         var escaner = new ClassPathScanningCandidateComponentProvider(false);
         escaner.addIncludeFilter(new AssignableTypeFilter(Enum.class));
-        var nombres = new ArrayList<String>();
+        var names = new ArrayList<String>();
         for (String paquete : PAQUETES) {
             escaner.findCandidateComponents(paquete).stream()
                     .map(definicion -> definicion.getBeanClassName())
                     .filter(Objects::nonNull)
-                    .filter(nombre -> !nombre.contains(".internal."))
+                    .filter(name -> !name.contains(".internal."))
                     // Las clases anidadas que genera un valor de enum con cuerpo propio no son
                     // enumeraciones del contrato: son un detalle del compilador.
-                    .filter(nombre -> !nombre.contains("$"))
-                    .map(nombre -> nombre.substring(nombre.lastIndexOf(".") + 1))
-                    .forEach(nombres::add);
+                    .filter(name -> !name.contains("$"))
+                    .map(name -> name.substring(name.lastIndexOf(".") + 1))
+                    .forEach(names::add);
         }
-        return nombres;
+        return names;
     }
 
     private String token() {
-        var persona = personas.register(new NewPerson("Emma", "Tola", null), "admin");
-        AccountView cuenta = personas.openAccount(persona.id(), TestTokenProvider.correoNuevo(), null, "admin");
-        return "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), cuenta.email());
+        var person = people.register(new NewPerson("Emma", "Tola", null), "admin");
+        AccountView account = people.openAccount(person.id(), TestTokenProvider.correoNuevo(), null, "admin");
+        return "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), account.email());
     }
 }

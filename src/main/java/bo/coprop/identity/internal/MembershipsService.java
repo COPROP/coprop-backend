@@ -30,38 +30,38 @@ class MembershipsService implements Memberships {
 
     private static final Logger log = LoggerFactory.getLogger(MembershipsService.class);
 
-    private final MembershipRepository membresias;
-    private final UserAccountRepository cuentas;
+    private final MembershipRepository memberships;
+    private final UserAccountRepository accounts;
     private final AccessRevocation cierre;
     private final ApplicationEventPublisher eventos;
-    private final Clock reloj;
+    private final Clock clock;
 
     MembershipsService(
-            MembershipRepository membresias,
-            UserAccountRepository cuentas,
+            MembershipRepository memberships,
+            UserAccountRepository accounts,
             AccessRevocation cierre,
             ApplicationEventPublisher eventos,
-            Clock reloj) {
-        this.membresias = membresias;
-        this.cuentas = cuentas;
+            Clock clock) {
+        this.memberships = memberships;
+        this.accounts = accounts;
         this.cierre = cierre;
         this.eventos = eventos;
-        this.reloj = reloj;
+        this.clock = clock;
     }
 
     @Override
     @Transactional
     public MembershipView grant(
             UUID condominiumId, UUID accountId, Set<MembershipRole> roles, @Nullable UUID invitedBy, String actor) {
-        if (!cuentas.existsById(accountId)) {
+        if (!accounts.existsById(accountId)) {
             throw ResourceNotFound.de("la cuenta", accountId);
         }
         // Al menos un rol, y ninguno de plataforma. Las dos reglas y sus motivos estan en
         // exigirRolesDeMembresia, compartido con el cambio de roles del #20.
-        exigirRolesDeMembresia(roles);
+        requireMembershipRoles(roles);
         // El segundo criterio de aceptacion del issue #11. Tambien lo impone un indice parcial;
         // comprobarlo aqui permite explicar que pasa.
-        if (membresias.existsByCondominiumIdAndAccountIdAndValidToIsNull(condominiumId, accountId)) {
+        if (memberships.existsByCondominiumIdAndAccountIdAndValidToIsNull(condominiumId, accountId)) {
             throw new BusinessRuleViolated(
                     "La cuenta %s ya tiene membresia vigente en el condominio %s.".formatted(accountId, condominiumId));
         }
@@ -69,56 +69,56 @@ class MembershipsService implements Memberships {
             throw new BusinessRuleViolated("Nadie se invita a si mismo.");
         }
 
-        Instant ahora = reloj.instant();
-        Membership membresia = membresias.save(new Membership(condominiumId, accountId, roles, invitedBy, ahora));
-        avisarSiConcentraFunciones(membresia.getRoles(), condominiumId, accountId, actor);
+        Instant ahora = clock.instant();
+        Membership membership = memberships.save(new Membership(condominiumId, accountId, roles, invitedBy, ahora));
+        avisarSiConcentraFunciones(membership.getRoles(), condominiumId, accountId, actor);
 
-        eventos.publishEvent(
-                new MembershipGranted(condominiumId, membresia.getId(), accountId, membresia.getRoles(), actor, ahora));
+        eventos.publishEvent(new MembershipGranted(
+                condominiumId, membership.getId(), accountId, membership.getRoles(), actor, ahora));
 
-        return vista(membresia);
+        return view(membership);
     }
 
     @Override
     @Transactional
-    public MembershipView revoke(UUID condominiumId, UUID membershipId, String motivo, String actor) {
-        Membership membresia = vigenteParaCambiar(condominiumId, membershipId, actor);
-        exigirQueNoSeaElUltimoAdministrador(membresia, "dar de baja");
+    public MembershipView revoke(UUID condominiumId, UUID membershipId, String reason, String actor) {
+        Membership membership = currentForChange(condominiumId, membershipId, actor);
+        requireNotTheLastAdmin(membership, "dar de baja");
 
-        Instant ahora = reloj.instant();
-        membresia.close(ahora);
-        boolean sesionesCerradas = cierre.siSeQuedaSinCondominios(membresia.getAccountId());
+        Instant ahora = clock.instant();
+        membership.close(ahora);
+        boolean closedSessions = cierre.ifLeftWithoutCondominiums(membership.getAccountId());
 
         eventos.publishEvent(new MembershipRevoked(
                 condominiumId,
-                membresia.getId(),
-                membresia.getAccountId(),
-                membresia.getRoles(),
-                motivo,
-                sesionesCerradas,
+                membership.getId(),
+                membership.getAccountId(),
+                membership.getRoles(),
+                reason,
+                closedSessions,
                 actor,
                 ahora));
 
-        return vista(membresia);
+        return view(membership);
     }
 
     @Override
     @Transactional
-    public MembershipView suspend(UUID condominiumId, UUID membershipId, String motivo, String actor) {
-        Membership membresia = vigenteParaCambiar(condominiumId, membershipId, actor);
-        if (membresia.getStatus() == MembershipStatus.SUSPENDED) {
+    public MembershipView suspend(UUID condominiumId, UUID membershipId, String reason, String actor) {
+        Membership membership = currentForChange(condominiumId, membershipId, actor);
+        if (membership.getStatus() == MembershipStatus.SUSPENDED) {
             throw new StateConflict("La membresia %s ya esta suspendida.".formatted(membershipId));
         }
-        exigirQueNoSeaElUltimoAdministrador(membresia, "suspender");
+        requireNotTheLastAdmin(membership, "suspender");
 
-        Instant ahora = reloj.instant();
-        membresia.suspender();
-        boolean sesionesCerradas = cierre.siSeQuedaSinCondominios(membresia.getAccountId());
+        Instant ahora = clock.instant();
+        membership.suspend();
+        boolean closedSessions = cierre.ifLeftWithoutCondominiums(membership.getAccountId());
 
         eventos.publishEvent(new MembershipSuspended(
-                condominiumId, membresia.getId(), membresia.getAccountId(), motivo, sesionesCerradas, actor, ahora));
+                condominiumId, membership.getId(), membership.getAccountId(), reason, closedSessions, actor, ahora));
 
-        return vista(membresia);
+        return view(membership);
     }
 
     /**
@@ -131,20 +131,20 @@ class MembershipsService implements Memberships {
      */
     @Override
     @Transactional
-    public MembershipView reinstate(UUID condominiumId, UUID membershipId, String motivo, String actor) {
-        Membership membresia = deEsteCondominio(condominiumId, membershipId);
-        exigirVigente(membresia, "reactivar");
-        if (membresia.getStatus() == MembershipStatus.ACTIVE) {
+    public MembershipView reinstate(UUID condominiumId, UUID membershipId, String reason, String actor) {
+        Membership membership = ofThisCondominium(condominiumId, membershipId);
+        requireCurrent(membership, "reactivar");
+        if (membership.getStatus() == MembershipStatus.ACTIVE) {
             throw new StateConflict("La membresia %s no esta suspendida.".formatted(membershipId));
         }
 
-        Instant ahora = reloj.instant();
-        membresia.reactivar();
+        Instant ahora = clock.instant();
+        membership.reinstate();
 
         eventos.publishEvent(new MembershipReinstated(
-                condominiumId, membresia.getId(), membresia.getAccountId(), motivo, actor, ahora));
+                condominiumId, membership.getId(), membership.getAccountId(), reason, actor, ahora));
 
-        return vista(membresia);
+        return view(membership);
     }
 
     /**
@@ -158,49 +158,49 @@ class MembershipsService implements Memberships {
     @Override
     @Transactional
     public MembershipView changeRoles(
-            UUID condominiumId, UUID membershipId, Set<MembershipRole> roles, String motivo, String actor) {
-        Membership membresia = vigenteParaCambiar(condominiumId, membershipId, actor);
-        exigirRolesDeMembresia(roles);
+            UUID condominiumId, UUID membershipId, Set<MembershipRole> roles, String reason, String actor) {
+        Membership membership = currentForChange(condominiumId, membershipId, actor);
+        requireMembershipRoles(roles);
 
-        Set<MembershipRole> oldValues = membresia.getRoles();
+        Set<MembershipRole> oldValues = membership.getRoles();
         if (oldValues.equals(roles)) {
             // Un PUT es idempotente, asi que repetir los roles que ya hay no es un error. Pero
             // tampoco es un cambio: publicar el evento dejaria en la bitacora una fila que dice que
             // alguien cambio algo cuando no cambio nada, y la bitacora registra cambios, no
             // peticiones.
-            return vista(membresia);
+            return view(membership);
         }
 
         // Si deja de tener CONDO_ADMIN, la misma regla que la baja: el edificio no se queda sin
         // nadie que pueda invitar ni repartir roles. Con el guarda, el metodo compartido hace lo
         // que toca --sale por donde entra si la membresia no lo tenia--.
         if (!roles.contains(MembershipRole.CONDO_ADMIN)) {
-            exigirQueNoSeaElUltimoAdministrador(membresia, "quitarle CONDO_ADMIN a");
+            requireNotTheLastAdmin(membership, "quitarle CONDO_ADMIN a");
         }
 
-        Instant ahora = reloj.instant();
-        membresia.cambiarRoles(roles);
+        Instant ahora = clock.instant();
+        membership.changeRoles(roles);
 
         Set<MembershipRole> retirados = EnumSet.noneOf(MembershipRole.class);
         retirados.addAll(oldValues);
         retirados.removeAll(roles);
-        boolean sesionesCerradas = cierre.siPierdeAlgunRolAdministrativo(membresia.getAccountId(), retirados);
+        boolean closedSessions = cierre.siPierdeAlgunRolAdministrativo(membership.getAccountId(), retirados);
         boolean concentraFunciones =
-                avisarSiConcentraFunciones(membresia.getRoles(), condominiumId, membresia.getAccountId(), actor);
+                avisarSiConcentraFunciones(membership.getRoles(), condominiumId, membership.getAccountId(), actor);
 
         eventos.publishEvent(new MembershipRolesChanged(
                 condominiumId,
-                membresia.getId(),
-                membresia.getAccountId(),
+                membership.getId(),
+                membership.getAccountId(),
                 oldValues,
-                membresia.getRoles(),
-                motivo,
+                membership.getRoles(),
+                reason,
                 concentraFunciones,
-                sesionesCerradas,
+                closedSessions,
                 actor,
                 ahora));
 
-        return vista(membresia);
+        return view(membership);
     }
 
     /**
@@ -221,7 +221,7 @@ class MembershipsService implements Memberships {
      * {@code PLATFORM_ADMIN} y un cambio que lo admite dejarian entrar por la segunda puerta justo
      * lo que la primera prohibe.
      */
-    private static void exigirRolesDeMembresia(Set<MembershipRole> roles) {
+    private static void requireMembershipRoles(Set<MembershipRole> roles) {
         if (roles.isEmpty()) {
             throw new BusinessRuleViolated("Una membresia necesita al menos un rol.");
         }
@@ -283,28 +283,28 @@ class MembershipsService implements Memberships {
      * salvo que se quite {@code CONDO_ADMIN}-- es una regla mas y no cierra nada que esta no cierre,
      * porque la ultima membresia administrativa ya la protege {@code exigirQueNoSeaElUltimoAdministrador}.
      */
-    private Membership vigenteParaCambiar(UUID condominiumId, UUID membershipId, String actor) {
-        Membership membresia = deEsteCondominio(condominiumId, membershipId);
-        exigirVigente(membresia, "cambiar");
-        if (membresia.getAccountId().toString().equals(actor)) {
+    private Membership currentForChange(UUID condominiumId, UUID membershipId, String actor) {
+        Membership membership = ofThisCondominium(condominiumId, membershipId);
+        requireCurrent(membership, "cambiar");
+        if (membership.getAccountId().toString().equals(actor)) {
             throw new BusinessRuleViolated(
                     "Nadie se da de baja, se suspende ni se cambia los roles a si mismo: pidelo a otro administrador del condominio.");
         }
-        return membresia;
+        return membership;
     }
 
-    private Membership deEsteCondominio(UUID condominiumId, UUID membershipId) {
-        return membresias
+    private Membership ofThisCondominium(UUID condominiumId, UUID membershipId) {
+        return memberships
                 .findById(membershipId)
-                .filter(membresia -> membresia.getCondominiumId().equals(condominiumId))
+                .filter(membership -> membership.getCondominiumId().equals(condominiumId))
                 .orElseThrow(() -> ResourceNotFound.de("la membresia", membershipId));
     }
 
-    private static void exigirVigente(Membership membresia, String queSeQueriaHacer) {
-        if (membresia.getValidTo() != null) {
+    private static void requireCurrent(Membership membership, String queSeQueriaHacer) {
+        if (membership.getValidTo() != null) {
             throw new StateConflict(
                     "La membresia %s esta dada de baja desde %s y no se puede %s; lo que se hace es conceder una membresia nueva."
-                            .formatted(membresia.getId(), membresia.getValidTo(), queSeQueriaHacer));
+                            .formatted(membership.getId(), membership.getValidTo(), queSeQueriaHacer));
         }
     }
 
@@ -317,48 +317,48 @@ class MembershipsService implements Memberships {
      * segun la matriz solo puede conceder roles administrativos, asi que podria arreglarlo, pero es
      * una llamada a soporte que no tiene por que existir--.
      */
-    private void exigirQueNoSeaElUltimoAdministrador(Membership membresia, String queSeQueriaHacer) {
-        if (!membresia.getRoles().contains(MembershipRole.CONDO_ADMIN)) {
+    private void requireNotTheLastAdmin(Membership membership, String queSeQueriaHacer) {
+        if (!membership.getRoles().contains(MembershipRole.CONDO_ADMIN)) {
             return;
         }
-        if (!membresias.existeOtraVigenteConRol(
-                membresia.getCondominiumId(), MembershipRole.CONDO_ADMIN, membresia.getId())) {
+        if (!memberships.anotherCurrentExistsWithRole(
+                membership.getCondominiumId(), MembershipRole.CONDO_ADMIN, membership.getId())) {
             throw new BusinessRuleViolated(
                     "No se puede %s la ultima membresia con CONDO_ADMIN del condominio %s: nombra oldValues a otro administrador."
-                            .formatted(queSeQueriaHacer, membresia.getCondominiumId()));
+                            .formatted(queSeQueriaHacer, membership.getCondominiumId()));
         }
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<MembershipView> allOfCondominium(UUID condominiumId) {
-        return membresias.findByCondominiumIdOrderByValidFromDescIdDesc(condominiumId).stream()
-                .map(MembershipsService::vista)
+        return memberships.findByCondominiumIdOrderByValidFromDescIdDesc(condominiumId).stream()
+                .map(MembershipsService::view)
                 .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<MembershipView> ofCondominium(UUID condominiumId) {
-        return membresias.findByCondominiumIdAndValidToIsNull(condominiumId).stream()
-                .map(MembershipsService::vista)
+        return memberships.findByCondominiumIdAndValidToIsNull(condominiumId).stream()
+                .map(MembershipsService::view)
                 .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<MembershipView> ofAccount(UUID accountId) {
-        return membresias.findByAccountIdAndValidToIsNull(accountId).stream()
-                .map(MembershipsService::vista)
+        return memberships.findByAccountIdAndValidToIsNull(accountId).stream()
+                .map(MembershipsService::view)
                 .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
     public @Nullable MembershipView of(UUID condominiumId, UUID accountId) {
-        return membresias
+        return memberships
                 .findByCondominiumIdAndAccountIdAndValidToIsNull(condominiumId, accountId)
-                .map(MembershipsService::vista)
+                .map(MembershipsService::view)
                 .orElse(null);
     }
 
@@ -371,17 +371,17 @@ class MembershipsService implements Memberships {
     @Override
     @Transactional(readOnly = true)
     public MembershipView find(UUID condominiumId, UUID membershipId) {
-        return vista(deEsteCondominio(condominiumId, membershipId));
+        return view(ofThisCondominium(condominiumId, membershipId));
     }
 
-    private static MembershipView vista(Membership membresia) {
+    private static MembershipView view(Membership membership) {
         return new MembershipView(
-                membresia.getId(),
-                membresia.getAccountId(),
-                membresia.getCondominiumId(),
-                membresia.getStatus(),
-                membresia.getRoles(),
-                membresia.getValidFrom(),
-                membresia.getValidTo());
+                membership.getId(),
+                membership.getAccountId(),
+                membership.getCondominiumId(),
+                membership.getStatus(),
+                membership.getRoles(),
+                membership.getValidFrom(),
+                membership.getValidTo());
     }
 }

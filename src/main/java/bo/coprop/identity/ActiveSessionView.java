@@ -29,8 +29,8 @@ import org.jspecify.annotations.Nullable;
  */
 public record ActiveSessionView(
         String id,
-        SessionOrigin origen,
+        SessionOrigin origin,
         @Nullable String ip,
-        Instant creada,
-        Instant ultimoAcceso,
-        @Nullable Instant expira) {}
+        Instant created,
+        Instant lastAccess,
+        @Nullable Instant expiresAt) {}

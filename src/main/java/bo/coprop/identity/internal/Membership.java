@@ -111,12 +111,12 @@ class Membership {
      * aislamiento en cada peticion; vaciarle los roles obligaria a guardarlos en algun sitio para
      * devolverlos al reactivar.
      */
-    void suspender() {
+    void suspend() {
         this.status = MembershipStatus.SUSPENDED;
     }
 
     /** Levanta la suspension. Vuelve a dar acceso en la siguiente peticion. */
-    void reactivar() {
+    void reinstate() {
         this.status = MembershipStatus.ACTIVE;
     }
 
@@ -134,8 +134,8 @@ class Membership {
      * <p>El conjunto llega completo y se copia a un {@link EnumSet} nuevo, como en el constructor:
      * el llamante puede seguir tocando el suyo.
      */
-    void cambiarRoles(Set<MembershipRole> nuevos) {
-        this.roles = EnumSet.copyOf(nuevos);
+    void changeRoles(Set<MembershipRole> incoming) {
+        this.roles = EnumSet.copyOf(incoming);
     }
 
     UUID getId() {

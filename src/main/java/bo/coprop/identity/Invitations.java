@@ -109,7 +109,7 @@ public interface Invitations {
      *     vencio. Los cuatro responden igual a proposito: distinguirlos le diria a quien prueba
      *     tokens cuales existieron
      */
-    Apertura open(String token);
+    Opening open(String token);
 
     /**
      * Lo que la pantalla de la invitacion necesita saber antes de mandar a nadie al login.
@@ -118,7 +118,7 @@ public interface Invitations {
      *     persona la accion para poner su contraseña. En falso, ya puede iniciar sesion.
      * @param condominiumId a que condominio la invitan, para poder decir su nombre
      */
-    record Apertura(UUID condominiumId, boolean credencialEnviada) {}
+    record Opening(UUID condominiumId, boolean credentialSent) {}
 
     /**
      * Acepta la invitacion: la sella y concede la membresia.

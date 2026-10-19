@@ -40,10 +40,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/me/sesiones")
 class SessionsController {
 
-    private final Identities identidades;
+    private final Identities identities;
 
-    SessionsController(Identities identidades) {
-        this.identidades = identidades;
+    SessionsController(Identities identities) {
+        this.identities = identities;
     }
 
     /**
@@ -57,13 +57,13 @@ class SessionsController {
      * pasa a quien entra por primera vez con la app movil y nunca por la web.
      */
     @GetMapping
-    List<MiSesion> listar(Principal quien, HttpServletRequest peticion) {
-        String sesionActual = idDeLaSesion(peticion);
-        return identidades
-                .sessionsOf(
-                        AuthenticatedIdentity.actorDe(autenticacionDe(quien)).accountId())
+    List<MySession> list(Principal principal, HttpServletRequest peticion) {
+        String currentSession = sessionId(peticion);
+        return identities
+                .sessionsOf(AuthenticatedIdentity.actorOf(autenticacionDe(principal))
+                        .accountId())
                 .stream()
-                .map(sesion -> MiSesion.de(sesion, sesionActual))
+                .map(session -> MySession.de(session, currentSession))
                 .toList();
     }
 
@@ -83,9 +83,9 @@ class SessionsController {
      * nombre que deja rastro en la bitacora.
      */
     @PostMapping("/cierre")
-    ResponseEntity<Void> cerrarTodas(Principal quien) {
-        var actor = AuthenticatedIdentity.actorDe(autenticacionDe(quien));
-        identidades.signOutEverywhere(actor.accountId(), quien.getName());
+    ResponseEntity<Void> closeAll(Principal principal) {
+        var actor = AuthenticatedIdentity.actorOf(autenticacionDe(principal));
+        identities.signOutEverywhere(actor.accountId(), principal.getName());
         return ResponseEntity.noContent().build();
     }
 
@@ -98,19 +98,19 @@ class SessionsController {
      * cadena de seguridad, y {@link AuthenticatedIdentity#actorDe} ya explica por que eso revienta
      * en vez de responder un 403.
      */
-    private static org.springframework.security.core.Authentication autenticacionDe(Principal quien) {
-        if (quien instanceof org.springframework.security.core.Authentication autenticacion) {
+    private static org.springframework.security.core.Authentication autenticacionDe(Principal principal) {
+        if (principal instanceof org.springframework.security.core.Authentication autenticacion) {
             return autenticacion;
         }
         throw new IllegalStateException(
                 "La peticion llego a /me/sesiones con un Principal que no es una Authentication: %s."
-                        .formatted(quien.getClass().getName()));
+                        .formatted(principal.getClass().getName()));
     }
 
     /** El identificador de la sesion de esta peticion, o nada si viene por la app movil. */
-    private static @Nullable String idDeLaSesion(HttpServletRequest peticion) {
-        HttpSession sesion = peticion.getSession(false);
-        return sesion == null ? null : sesion.getId();
+    private static @Nullable String sessionId(HttpServletRequest peticion) {
+        HttpSession session = peticion.getSession(false);
+        return session == null ? null : session.getId();
     }
 
     /**
@@ -124,24 +124,24 @@ class SessionsController {
      *     proveedor: sus identificadores son de otro espacio y no se pueden emparejar con el de la
      *     sesion del navegador
      */
-    record MiSesion(
+    record MySession(
             String id,
-            SessionOrigin origen,
+            SessionOrigin origin,
             @Nullable String ip,
-            Instant creada,
-            Instant ultimoAcceso,
-            @Nullable Instant expira,
-            boolean actual) {
+            Instant created,
+            Instant lastAccess,
+            @Nullable Instant expiresAt,
+            boolean current) {
 
-        static MiSesion de(ActiveSessionView sesion, @Nullable String sesionActual) {
-            return new MiSesion(
-                    sesion.id(),
-                    sesion.origen(),
-                    sesion.ip(),
-                    sesion.creada(),
-                    sesion.ultimoAcceso(),
-                    sesion.expira(),
-                    sesion.origen() == SessionOrigin.BROWSER && sesion.id().equals(sesionActual));
+        static MySession de(ActiveSessionView session, @Nullable String currentSession) {
+            return new MySession(
+                    session.id(),
+                    session.origin(),
+                    session.ip(),
+                    session.created(),
+                    session.lastAccess(),
+                    session.expiresAt(),
+                    session.origin() == SessionOrigin.BROWSER && session.id().equals(currentSession));
         }
     }
 }

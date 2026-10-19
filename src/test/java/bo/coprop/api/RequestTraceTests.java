@@ -93,10 +93,10 @@ class RequestTraceTests {
 
         assertThat(primera).isNotEqualTo(segunda);
 
-        Set<String> trazas = capturados.list.stream()
+        Set<String> traces = capturados.list.stream()
                 .map(evento -> evento.getMDCPropertyMap().get(LogKeys.TRAZA))
                 .collect(java.util.stream.Collectors.toSet());
-        assertThat(trazas).containsExactlyInAnyOrder(primera, segunda);
+        assertThat(traces).containsExactlyInAnyOrder(primera, segunda);
     }
 
     /** Controlador de mentira que escribe varias lineas durante una misma peticion. */

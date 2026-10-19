@@ -35,15 +35,15 @@ import org.springframework.security.oauth2.core.oidc.IdTokenClaimNames;
 @Configuration(proxyBeanMethods = false)
 class OidcConfiguration {
 
-    private final String emisor;
+    private final String issuer;
     private final String clienteId;
     private final String clienteSecreto;
 
     OidcConfiguration(
-            @Value("${coprop.oidc.emisor}") String emisor,
+            @Value("${coprop.oidc.emisor}") String issuer,
             @Value("${coprop.oidc.cliente-id}") String clienteId,
             @Value("${coprop.oidc.cliente-secreto}") String clienteSecreto) {
-        this.emisor = emisor;
+        this.issuer = issuer;
         this.clienteId = clienteId;
         this.clienteSecreto = clienteSecreto;
     }
@@ -65,12 +65,12 @@ class OidcConfiguration {
                 // Sin "profile": el nombre no sale del token, sale de la persona. De Keycloak solo
                 // hace falta a quien identifica y con que correo.
                 .scope("openid", "email")
-                .authorizationUri(emisor + "/protocol/openid-connect/auth")
-                .tokenUri(emisor + "/protocol/openid-connect/token")
-                .jwkSetUri(emisor + "/protocol/openid-connect/certs")
-                .userInfoUri(emisor + "/protocol/openid-connect/userinfo")
+                .authorizationUri(issuer + "/protocol/openid-connect/auth")
+                .tokenUri(issuer + "/protocol/openid-connect/token")
+                .jwkSetUri(issuer + "/protocol/openid-connect/certs")
+                .userInfoUri(issuer + "/protocol/openid-connect/userinfo")
                 .userNameAttributeName(IdTokenClaimNames.SUB)
-                .issuerUri(emisor)
+                .issuerUri(issuer)
                 .clientName("COPROP web")
                 .build();
     }

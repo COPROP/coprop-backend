@@ -51,19 +51,19 @@ class ApiPermissionsTests {
     private MockMvc mockMvc;
 
     @Autowired
-    private Condominiums condominios;
+    private Condominiums condominiums;
 
     @Autowired
-    private People personas;
+    private People people;
 
     @Autowired
-    private Memberships membresias;
+    private Memberships memberships;
 
     @Autowired
     private DataSource dataSource;
 
     private UUID condominioNuevo() {
-        return condominios
+        return condominiums
                 .register(
                         new NewCondominium(
                                 "Torre " + UUID.randomUUID(),
@@ -81,15 +81,15 @@ class ApiPermissionsTests {
     }
 
     private AccountView cuentaNueva() {
-        PersonView persona = personas.register(new NewPerson("Emma", "Tola", null), "admin");
-        return personas.openAccount(persona.id(), TestTokenProvider.correoNuevo(), null, "admin");
+        PersonView person = people.register(new NewPerson("Emma", "Tola", null), "admin");
+        return people.openAccount(person.id(), TestTokenProvider.correoNuevo(), null, "admin");
     }
 
     /** Una cuenta con esos roles en ese condominio, y el token con el que entra. */
-    private String tokenDe(UUID condominio, MembershipRole... roles) {
-        AccountView cuenta = cuentaNueva();
-        membresias.grant(condominio, cuenta.id(), Set.of(roles), null, "admin");
-        return "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), cuenta.email());
+    private String tokenDe(UUID condominium, MembershipRole... roles) {
+        AccountView account = cuentaNueva();
+        memberships.grant(condominium, account.id(), Set.of(roles), null, "admin");
+        return "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), account.email());
     }
 
     /**
@@ -101,10 +101,10 @@ class ApiPermissionsTests {
      * {@code PlatformAdminsTests} y {@code AdminRolesTests}.
      */
     private String tokenDeSuperadministrador() {
-        AccountView cuenta = cuentaNueva();
+        AccountView account = cuentaNueva();
         new JdbcTemplate(dataSource)
-                .update("insert into platform_admin (user_id, granted_at) values (?, now())", cuenta.id());
-        return "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), cuenta.email());
+                .update("insert into platform_admin (user_id, granted_at) values (?, now())", account.id());
+        return "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), account.email());
     }
 
     private static final String UNIDAD = "{\"code\":\"A-1\",\"type\":\"APARTMENT\",\"aliquot\":\"1.000000\"}";
@@ -123,12 +123,12 @@ class ApiPermissionsTests {
     @Test
     @DisplayName("el propietario no da de alta unidades: eso es del administrador del condominio")
     void elPropietarioNoDaDeAltaUnidades() throws Exception {
-        UUID condominio = condominioNuevo();
+        UUID condominium = condominioNuevo();
 
         mockMvc.perform(peticion(
                         HttpMethod.POST,
-                        "/api/v1/condominios/" + condominio + "/unidades",
-                        tokenDe(condominio, MembershipRole.OWNER),
+                        "/api/v1/condominios/" + condominium + "/unidades",
+                        tokenDe(condominium, MembershipRole.OWNER),
                         UNIDAD))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.codigo").value("SIN_PERMISO"));
@@ -137,12 +137,12 @@ class ApiPermissionsTests {
     @Test
     @DisplayName("el administrador del condominio si da de alta unidades")
     void elAdministradorSiDaDeAltaUnidades() throws Exception {
-        UUID condominio = condominioNuevo();
+        UUID condominium = condominioNuevo();
 
         mockMvc.perform(peticion(
                         HttpMethod.POST,
-                        "/api/v1/condominios/" + condominio + "/unidades",
-                        tokenDe(condominio, MembershipRole.CONDO_ADMIN),
+                        "/api/v1/condominios/" + condominium + "/unidades",
+                        tokenDe(condominium, MembershipRole.CONDO_ADMIN),
                         UNIDAD))
                 .andExpect(status().isCreated());
     }
@@ -150,20 +150,20 @@ class ApiPermissionsTests {
     @Test
     @DisplayName("el administrador del condominio no toca lo que se cobra: separacion de funciones")
     void elAdministradorNoTocaLoQueSeCobra() throws Exception {
-        UUID condominio = condominioNuevo();
+        UUID condominium = condominioNuevo();
 
         mockMvc.perform(peticion(
                         HttpMethod.PUT,
-                        "/api/v1/condominios/" + condominio + "/configuracion",
-                        tokenDe(condominio, MembershipRole.CONDO_ADMIN),
+                        "/api/v1/condominios/" + condominium + "/configuracion",
+                        tokenDe(condominium, MembershipRole.CONDO_ADMIN),
                         "{\"issueDay\":7,\"dueDay\":15}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.codigo").value("SIN_PERMISO"));
 
         mockMvc.perform(peticion(
                         HttpMethod.PUT,
-                        "/api/v1/condominios/" + condominio + "/configuracion",
-                        tokenDe(condominio, MembershipRole.FINANCE_ADMIN),
+                        "/api/v1/condominios/" + condominium + "/configuracion",
+                        tokenDe(condominium, MembershipRole.FINANCE_ADMIN),
                         "{\"issueDay\":7,\"dueDay\":15}"))
                 .andExpect(status().isOk());
     }
@@ -171,13 +171,13 @@ class ApiPermissionsTests {
     @Test
     @DisplayName("el financiero no reparte roles: la otra mitad de la separacion de funciones")
     void elFinancieroNoReparteRoles() throws Exception {
-        UUID condominio = condominioNuevo();
+        UUID condominium = condominioNuevo();
         AccountView invitada = cuentaNueva();
 
         mockMvc.perform(peticion(
                         HttpMethod.POST,
-                        "/api/v1/condominios/" + condominio + "/membresias",
-                        tokenDe(condominio, MembershipRole.FINANCE_ADMIN),
+                        "/api/v1/condominios/" + condominium + "/membresias",
+                        tokenDe(condominium, MembershipRole.FINANCE_ADMIN),
                         "{\"accountId\":\"" + invitada.id() + "\",\"roles\":[\"OWNER\"]}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.codigo").value("SIN_PERMISO"));
@@ -186,12 +186,12 @@ class ApiPermissionsTests {
     @Test
     @DisplayName("crear condominios es del superadministrador, y de nadie mas")
     void crearCondominiosEsDelSuperadministrador() throws Exception {
-        UUID condominio = condominioNuevo();
-        String alta = "{\"name\":\"Torre nueva\",\"nit\":\"" + nitNuevo()
+        UUID condominium = condominioNuevo();
+        String alta = "{\"name\":\"Torre body\",\"nit\":\"" + nitNuevo()
                 + "\",\"type\":\"BUILDING\",\"timeZone\":\"America/La_Paz\",\"issueDay\":5,\"dueDay\":10}";
 
         mockMvc.perform(peticion(
-                        HttpMethod.POST, "/api/v1/condominios", tokenDe(condominio, MembershipRole.CONDO_ADMIN), alta))
+                        HttpMethod.POST, "/api/v1/condominios", tokenDe(condominium, MembershipRole.CONDO_ADMIN), alta))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.codigo").value("SIN_PERMISO"));
 
@@ -204,12 +204,12 @@ class ApiPermissionsTests {
     void elSuperadministradorPoneAlPrimerAdministrador() throws Exception {
         // Es el arranque de un condominio, y la razon de que el filtro del #17 lo deje pasar sin
         // membresia: sin esto, un condominio recien creado no tendria forma de tener a nadie dentro.
-        UUID condominio = condominioNuevo();
+        UUID condominium = condominioNuevo();
         AccountView primero = cuentaNueva();
 
         mockMvc.perform(peticion(
                         HttpMethod.POST,
-                        "/api/v1/condominios/" + condominio + "/membresias",
+                        "/api/v1/condominios/" + condominium + "/membresias",
                         tokenDeSuperadministrador(),
                         "{\"accountId\":\"" + primero.id() + "\",\"roles\":[\"CONDO_ADMIN\"]}"))
                 .andExpect(status().isCreated());
@@ -220,12 +220,12 @@ class ApiPermissionsTests {
     void elSuperadministradorSoloRepartoAdministrativo() throws Exception {
         // La celda dice "Solo administradores". Que pueda poner un CONDO_ADMIN no lo convierte en
         // alguien que reparte propietarios: eso es operar el condominio, y 10.1 dice que no opera.
-        UUID condominio = condominioNuevo();
+        UUID condominium = condominioNuevo();
         AccountView alguien = cuentaNueva();
 
         mockMvc.perform(peticion(
                         HttpMethod.POST,
-                        "/api/v1/condominios/" + condominio + "/membresias",
+                        "/api/v1/condominios/" + condominium + "/membresias",
                         tokenDeSuperadministrador(),
                         "{\"accountId\":\"" + alguien.id() + "\",\"roles\":[\"OWNER\"]}"))
                 .andExpect(status().isForbidden())
@@ -237,13 +237,13 @@ class ApiPermissionsTests {
     void elAdministradorConcedeAmbosRolesAdministrativos() throws Exception {
         // Decision explicita de Seguridad 10.1: en condominios pequenos una sola persona hace las
         // dos cosas. Lo que no puede es pasar desapercibido, y de eso se encarga la auditoria.
-        UUID condominio = condominioNuevo();
+        UUID condominium = condominioNuevo();
         AccountView invitada = cuentaNueva();
 
         mockMvc.perform(peticion(
                         HttpMethod.POST,
-                        "/api/v1/condominios/" + condominio + "/membresias",
-                        tokenDe(condominio, MembershipRole.CONDO_ADMIN),
+                        "/api/v1/condominios/" + condominium + "/membresias",
+                        tokenDe(condominium, MembershipRole.CONDO_ADMIN),
                         "{\"accountId\":\"" + invitada.id() + "\",\"roles\":[\"CONDO_ADMIN\",\"FINANCE_ADMIN\"]}"))
                 .andExpect(status().isCreated());
     }
@@ -254,12 +254,12 @@ class ApiPermissionsTests {
         // Su alcance es la plataforma y vive en su propia tabla. Concederlo aqui daria un
         // "superadministrador de un condominio", que no significa nada, y dejaria dos sitios donde
         // mirar quien administra la plataforma.
-        UUID condominio = condominioNuevo();
+        UUID condominium = condominioNuevo();
         AccountView alguien = cuentaNueva();
 
         mockMvc.perform(peticion(
                         HttpMethod.POST,
-                        "/api/v1/condominios/" + condominio + "/membresias",
+                        "/api/v1/condominios/" + condominium + "/membresias",
                         tokenDeSuperadministrador(),
                         "{\"accountId\":\"" + alguien.id() + "\",\"roles\":[\"PLATFORM_ADMIN\"]}"))
                 .andExpect(status().isUnprocessableContent())
@@ -273,15 +273,15 @@ class ApiPermissionsTests {
         // primer administrador hasta que haya a quien invitar. Si al entrar perdiera los roles de
         // su membresia --porque el filtro se conformara con que es de plataforma-- no podria
         // administrar el condominio que acaba de abrir, y el fallo saldria como un 403 raro.
-        UUID condominio = condominioNuevo();
-        AccountView cuenta = cuentaNueva();
+        UUID condominium = condominioNuevo();
+        AccountView account = cuentaNueva();
         new JdbcTemplate(dataSource)
-                .update("insert into platform_admin (user_id, granted_at) values (?, now())", cuenta.id());
-        membresias.grant(condominio, cuenta.id(), Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
-        String token = "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), cuenta.email());
+                .update("insert into platform_admin (user_id, granted_at) values (?, now())", account.id());
+        memberships.grant(condominium, account.id(), Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
+        String token = "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), account.email());
 
         // De la membresia.
-        mockMvc.perform(peticion(HttpMethod.POST, "/api/v1/condominios/" + condominio + "/unidades", token, UNIDAD))
+        mockMvc.perform(peticion(HttpMethod.POST, "/api/v1/condominios/" + condominium + "/unidades", token, UNIDAD))
                 .andExpect(status().isCreated());
 
         // De la plataforma, en la misma sesion.
@@ -298,18 +298,18 @@ class ApiPermissionsTests {
     @Test
     @DisplayName("dar de alta una persona pide administrar algun condominio")
     void darDeAltaUnaPersonaPideAdministrarAlguno() throws Exception {
-        UUID condominio = condominioNuevo();
-        String persona = "{\"firstNames\":\"Ana\",\"lastNames\":\"Perez\"}";
+        UUID condominium = condominioNuevo();
+        String person = "{\"firstNames\":\"Ana\",\"lastNames\":\"Perez\"}";
 
         // La ruta es global --la persona no cuelga de un condominio-- pero quien la da de alta lo
         // hace para su edificio. Un propietario no administra ninguno.
         mockMvc.perform(peticion(
-                        HttpMethod.POST, "/api/v1/personas", tokenDe(condominio, MembershipRole.OWNER), persona))
+                        HttpMethod.POST, "/api/v1/personas", tokenDe(condominium, MembershipRole.OWNER), person))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.codigo").value("SIN_PERMISO"));
 
         mockMvc.perform(peticion(
-                        HttpMethod.POST, "/api/v1/personas", tokenDe(condominio, MembershipRole.CONDO_ADMIN), persona))
+                        HttpMethod.POST, "/api/v1/personas", tokenDe(condominium, MembershipRole.CONDO_ADMIN), person))
                 .andExpect(status().isCreated());
     }
 }

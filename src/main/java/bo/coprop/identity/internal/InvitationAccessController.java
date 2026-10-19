@@ -38,10 +38,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/invitaciones")
 class InvitationAccessController {
 
-    private final Invitations invitaciones;
+    private final Invitations invitations;
 
-    InvitationAccessController(Invitations invitaciones) {
-        this.invitaciones = invitaciones;
+    InvitationAccessController(Invitations invitations) {
+        this.invitations = invitations;
     }
 
     /**
@@ -57,9 +57,9 @@ class InvitationAccessController {
      * sesion".
      */
     @PostMapping("/apertura")
-    Apertura abrir(@Valid @RequestBody ConToken cuerpo) {
-        Invitations.Apertura apertura = invitaciones.open(cuerpo.token());
-        return new Apertura(apertura.condominiumId(), apertura.credencialEnviada());
+    Opening open(@Valid @RequestBody ConToken cuerpo) {
+        Invitations.Opening opening = invitations.open(cuerpo.token());
+        return new Opening(opening.condominiumId(), opening.credentialSent());
     }
 
     /**
@@ -72,8 +72,8 @@ class InvitationAccessController {
      * entro.
      */
     @PostMapping("/aceptacion")
-    InvitationView aceptar(@Valid @RequestBody ConToken cuerpo, Principal quien) {
-        return invitaciones.accept(cuerpo.token(), UUID.fromString(quien.getName()));
+    InvitationView accept(@Valid @RequestBody ConToken cuerpo, Principal principal) {
+        return invitations.accept(cuerpo.token(), UUID.fromString(principal.getName()));
     }
 
     /**
@@ -93,5 +93,5 @@ class InvitationAccessController {
      *     todavia no puede iniciar sesion. En falso, ya tiene cuenta en el proveedor --participa en
      *     otro condominio-- y solo le toca entrar.
      */
-    record Apertura(UUID condominio, boolean credencialEnviada) {}
+    record Opening(UUID condominium, boolean credentialSent) {}
 }

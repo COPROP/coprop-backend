@@ -25,7 +25,7 @@ import java.util.Map;
  * @param permisos una fila por permiso, en el orden de {@link Permission}, que agrupa por ambito
  *     --plataforma, administracion, dinero, lo propio, reportes-- y no alfabeticamente
  */
-public record RolePermissionMatrix(List<MembershipRole> roles, List<Fila> permisos) {
+public record RolePermissionMatrix(List<MembershipRole> roles, List<Row> permissions) {
 
     /**
      * Un permiso y hasta donde llega cada rol con el.
@@ -35,5 +35,5 @@ public record RolePermissionMatrix(List<MembershipRole> roles, List<Fila> permis
      *     la operacion, a todos por igual
      * @param alcances los siete roles, siempre los siete
      */
-    public record Fila(Permission permiso, boolean pideSegundoFactor, Map<MembershipRole, Scope> alcances) {}
+    public record Row(Permission permission, boolean requiresSecondFactor, Map<MembershipRole, Scope> scopes) {}
 }

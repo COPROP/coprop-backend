@@ -51,18 +51,18 @@ class KeycloakIdentityProvider implements IdentityProvider {
     private static final List<String> ACCIONES = List.of("UPDATE_PASSWORD", "VERIFY_EMAIL");
 
     private final RestClient http;
-    private final String emisor;
+    private final String issuer;
     private final String admin;
     private final String clienteId;
     private final String clienteSecreto;
 
     KeycloakIdentityProvider(
-            @Value("${coprop.oidc.emisor}") String emisor,
+            @Value("${coprop.oidc.emisor}") String issuer,
             @Value("${coprop.oidc.admin-cliente-id}") String clienteId,
             @Value("${coprop.oidc.admin-cliente-secreto}") String clienteSecreto) {
         this.http = clienteHttp();
-        this.emisor = emisor;
-        this.admin = baseDeAdministracion(emisor);
+        this.issuer = issuer;
+        this.admin = baseDeAdministracion(issuer);
         this.clienteId = clienteId;
         this.clienteSecreto = clienteSecreto;
     }
@@ -94,29 +94,29 @@ class KeycloakIdentityProvider implements IdentityProvider {
      * puedan quedar apuntando a realms distintos, que es un fallo silencioso: las operaciones irian
      * a un realm y los tokens vendrian de otro.
      */
-    private static String baseDeAdministracion(String emisor) {
-        int realms = emisor.lastIndexOf("/realms/");
+    private static String baseDeAdministracion(String issuer) {
+        int realms = issuer.lastIndexOf("/realms/");
         if (realms < 0) {
             throw new IllegalArgumentException(
-                    "El emisor %s no tiene la forma de un realm de Keycloak (.../realms/<nombre>).".formatted(emisor));
+                    "El emisor %s no tiene la forma de un realm de Keycloak (.../realms/<nombre>).".formatted(issuer));
         }
-        return emisor.substring(0, realms) + "/admin" + emisor.substring(realms);
+        return issuer.substring(0, realms) + "/admin" + issuer.substring(realms);
     }
 
     @Override
     public void prepararCredencial(String email) {
         String token = tokenDeAdministracion();
-        String usuario = buscar(email, token);
+        String usuario = find(email, token);
         if (usuario == null) {
-            crear(email, token);
-            usuario = buscar(email, token);
+            create(email, token);
+            usuario = find(email, token);
             if (usuario == null) {
                 throw new FalloDelProveedorDeIdentidad(
                         "Keycloak acepto crear el usuario pero newValues no lo encuentra; revisar el realm.");
             }
             log.info("Usuario creado en el proveedor de identidad para correo={}", email);
         }
-        pedirAccionesPorCorreo(usuario, token);
+        requestEmailActions(usuario, token);
     }
 
     /**
@@ -131,9 +131,9 @@ class KeycloakIdentityProvider implements IdentityProvider {
      * perfectamente normal pareciera un error de integracion.
      */
     @Override
-    public void cerrarSesiones(String email) {
+    public void closeSessions(String email) {
         String token = tokenDeAdministracion();
-        String usuario = buscar(email, token);
+        String usuario = find(email, token);
         if (usuario == null) {
             log.info("No hay usuario en el proveedor de identidad para correo={}; no hay sesiones que cerrar.", email);
             return;
@@ -157,22 +157,22 @@ class KeycloakIdentityProvider implements IdentityProvider {
      * que nunca entro no tiene sesiones, y eso no es un fallo de integracion.
      */
     @Override
-    public List<SesionDelProveedor> sesionesDe(String email) {
+    public List<ProviderSession> sessionsOf(String email) {
         String token = tokenDeAdministracion();
-        String usuario = buscar(email, token);
+        String usuario = find(email, token);
         if (usuario == null) {
             return List.of();
         }
-        List<Map<String, Object>> sesiones = pedir("listar las sesiones del usuario", () -> http.get()
+        List<Map<String, Object>> sessions = pedir("listar las sesiones del usuario", () -> http.get()
                 .uri(admin + "/users/{id}/sessions", usuario)
                 .header("Authorization", "Bearer " + token)
                 .retrieve()
                 .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {}));
-        if (sesiones == null) {
+        if (sessions == null) {
             return List.of();
         }
-        return sesiones.stream()
-                .map(KeycloakIdentityProvider::aSesion)
+        return sessions.stream()
+                .map(KeycloakIdentityProvider::toSession)
                 .filter(Objects::nonNull)
                 .toList();
     }
@@ -184,17 +184,17 @@ class KeycloakIdentityProvider implements IdentityProvider {
      * revienta: una sesion que no se puede describir no es motivo para dejar al usuario sin ver las
      * demas, que es justo la pantalla desde la que cerraria una que no reconoce.
      */
-    private static @org.jspecify.annotations.Nullable SesionDelProveedor aSesion(Map<String, Object> fila) {
+    private static @org.jspecify.annotations.Nullable ProviderSession toSession(Map<String, Object> fila) {
         if (!(fila.get("id") instanceof String id)) {
             return null;
         }
-        Instant creada = instanteDe(fila.get("start"));
-        Instant ultimoAcceso = instanteDe(fila.get("lastAccess"));
-        if (creada == null || ultimoAcceso == null) {
+        Instant created = instanteDe(fila.get("start"));
+        Instant lastAccess = instanteDe(fila.get("lastAccess"));
+        if (created == null || lastAccess == null) {
             return null;
         }
         String ip = fila.get("ipAddress") instanceof String valor && !valor.isBlank() ? valor : null;
-        return new SesionDelProveedor(id, ip, creada, ultimoAcceso);
+        return new ProviderSession(id, ip, created, lastAccess);
     }
 
     /**
@@ -215,14 +215,14 @@ class KeycloakIdentityProvider implements IdentityProvider {
         credenciales.add("client_id", clienteId);
         credenciales.add("client_secret", clienteSecreto);
 
-        Map<String, Object> respuesta = pedir("obtener el token de administracion", () -> http.post()
-                .uri(emisor + "/protocol/openid-connect/token")
+        Map<String, Object> response = pedir("obtener el token de administracion", () -> http.post()
+                .uri(issuer + "/protocol/openid-connect/token")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(credenciales)
                 .retrieve()
                 .body(new ParameterizedTypeReference<Map<String, Object>>() {}));
 
-        Object token = respuesta == null ? null : respuesta.get("access_token");
+        Object token = response == null ? null : response.get("access_token");
         if (!(token instanceof String valor) || valor.isBlank()) {
             throw new FalloDelProveedorDeIdentidad(
                     "Keycloak no devolvio access_token al pedirle el token de administracion.");
@@ -231,7 +231,7 @@ class KeycloakIdentityProvider implements IdentityProvider {
     }
 
     /** El identificador del usuario con ese correo, o nulo si no hay ninguno. */
-    private @org.jspecify.annotations.Nullable String buscar(String email, String token) {
+    private @org.jspecify.annotations.Nullable String find(String email, String token) {
         List<Map<String, Object>> encontrados = pedir("buscar el usuario", () -> http.get()
                 // exact: sin esto Keycloak busca por coincidencia parcial y un correo que
                 // sea prefijo de otro devolveria el ajeno primero.
@@ -246,7 +246,7 @@ class KeycloakIdentityProvider implements IdentityProvider {
         return id instanceof String valor ? valor : null;
     }
 
-    private void crear(String email, String token) {
+    private void create(String email, String token) {
         // El correo es tambien el nombre de usuario: el realm tiene loginWithEmailAllowed y
         // editUsernameAllowed en falso, asi que no hay dos nombres que puedan separarse.
         //
@@ -284,7 +284,7 @@ class KeycloakIdentityProvider implements IdentityProvider {
      * <p>Se llama tambien cuando el usuario ya existia, y por eso el puerto promete ser idempotente:
      * abrir el enlace dos veces vuelve a mandar el correo en vez de reventar.
      */
-    private void pedirAccionesPorCorreo(String usuario, String token) {
+    private void requestEmailActions(String usuario, String token) {
         pedir("pedir las acciones por correo", () -> http.put()
                 .uri(admin + "/users/{id}/execute-actions-email", usuario)
                 .header("Authorization", "Bearer " + token)

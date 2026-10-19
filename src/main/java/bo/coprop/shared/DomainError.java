@@ -8,14 +8,14 @@ package bo.coprop.shared;
  */
 public abstract class DomainError extends RuntimeException {
 
-    private final ErrorCode codigo;
+    private final ErrorCode code;
 
-    protected DomainError(ErrorCode codigo, String mensaje) {
-        super(mensaje);
-        this.codigo = codigo;
+    protected DomainError(ErrorCode code, String message) {
+        super(message);
+        this.code = code;
     }
 
-    public ErrorCode codigo() {
-        return codigo;
+    public ErrorCode code() {
+        return code;
     }
 }

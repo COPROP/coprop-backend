@@ -45,7 +45,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
  * bancarias, anular obligaciones, devolver saldo, asignar roles administrativos y abrir acceso de
  * soporte-- y hoy existe una sola, la que trajo el #20. Las otras cuatro son de M2 y M3. Lo que se
  * comprueba es el <em>mecanismo</em>, que es el mismo para las cinco: cuando llegue
- * {@code POST .../devoluciones} le bastara con añadir {@code @reautenticacion.reciente} a su
+ * {@code POST .../devoluciones} le bastara con añadir {@code @reauthentication.recent} a su
  * expresion.
  *
  * <p><strong>Responde 401 y no el 403 que el ticket escribio.</strong> Lo decide Seguridad 7.3, que
@@ -62,13 +62,13 @@ class ReauthenticationTests {
     private MockMvc mockMvc;
 
     @Autowired
-    private Condominiums condominios;
+    private Condominiums condominiums;
 
     @Autowired
-    private People personas;
+    private People people;
 
     @Autowired
-    private Memberships membresias;
+    private Memberships memberships;
 
     @Autowired
     private DataSource dataSource;
@@ -81,13 +81,13 @@ class ReauthenticationTests {
      * futuro y la resta sale negativa.
      */
     @Autowired
-    private java.time.Clock reloj;
+    private java.time.Clock clock;
 
     /** Una cuenta y el unico token con el que entra, igual que en los tests del #20. */
-    private record Quien(AccountView cuenta, String token) {
+    private record Quien(AccountView account, String token) {
 
         UUID id() {
-            return cuenta.id();
+            return account.id();
         }
     }
 
@@ -96,15 +96,15 @@ class ReauthenticationTests {
     @Test
     @DisplayName("cambiar roles sin segundo factor: 401 con REAUTENTICACION_REQUERIDA y el desafio del RFC 9470")
     void sinSegundoFactorNoSeCambianRoles() throws Exception {
-        UUID condominio = altaDeCondominio();
-        Quien administrador = conRolEn(condominio, MembershipRole.CONDO_ADMIN, Autenticacion.SOLO_CONTRASENA);
-        MembershipView deUnPropietario = membresiaDeUnPropietario(condominio);
+        UUID condominium = altaDeCondominio();
+        Quien administrador = conRolEn(condominium, MembershipRole.CONDO_ADMIN, Autenticacion.SOLO_CONTRASENA);
+        MembershipView deUnPropietario = membresiaDeUnPropietario(condominium);
 
         mockMvc.perform(peticion(
                         HttpMethod.PUT,
-                        laRutaDeRoles(condominio, deUnPropietario.id()),
+                        laRutaDeRoles(condominium, deUnPropietario.id()),
                         administrador.token(),
-                        "{\"roles\":[\"TENANT\"],\"motivo\":\"ahora alquila su departamento\"}"))
+                        "{\"roles\":[\"TENANT\"],\"reason\":\"ahora alquila su departamento\"}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.codigo").value("REAUTENTICACION_REQUERIDA"))
                 // La cabecera es lo que convierte el 401 en una instruccion: el cliente sabe que
@@ -119,18 +119,18 @@ class ReauthenticationTests {
     @Test
     @DisplayName("un segundo factor de hace una hora tampoco vale: la ventana es de cinco minutos")
     void elSegundoFactorCaduca() throws Exception {
-        UUID condominio = altaDeCondominio();
-        Quien administrador = conRolEn(condominio, MembershipRole.CONDO_ADMIN, Autenticacion.FACTOR_VIEJO);
-        MembershipView deUnPropietario = membresiaDeUnPropietario(condominio);
+        UUID condominium = altaDeCondominio();
+        Quien administrador = conRolEn(condominium, MembershipRole.CONDO_ADMIN, Autenticacion.FACTOR_VIEJO);
+        MembershipView deUnPropietario = membresiaDeUnPropietario(condominium);
 
         // El token esta perfectamente vigente --expira en cinco minutos-- y aun asi no pasa. Es la
         // diferencia entre cuando se emitio el token y cuando la persona se autentico de verdad:
         // lo que caduca aqui es lo segundo, que es lo que auth_time dice.
         mockMvc.perform(peticion(
                         HttpMethod.PUT,
-                        laRutaDeRoles(condominio, deUnPropietario.id()),
+                        laRutaDeRoles(condominium, deUnPropietario.id()),
                         administrador.token(),
-                        "{\"roles\":[\"TENANT\"],\"motivo\":\"ahora alquila su departamento\"}"))
+                        "{\"roles\":[\"TENANT\"],\"reason\":\"ahora alquila su departamento\"}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.codigo").value("REAUTENTICACION_REQUERIDA"));
     }
@@ -138,18 +138,18 @@ class ReauthenticationTests {
     @Test
     @DisplayName("un proveedor que no manda amr ni auth_time: se exige, porque no se sabe")
     void sinAfirmacionesSeExige() throws Exception {
-        UUID condominio = altaDeCondominio();
-        Quien administrador = conRolEn(condominio, MembershipRole.CONDO_ADMIN, Autenticacion.SIN_AFIRMACIONES);
-        MembershipView deUnPropietario = membresiaDeUnPropietario(condominio);
+        UUID condominium = altaDeCondominio();
+        Quien administrador = conRolEn(condominium, MembershipRole.CONDO_ADMIN, Autenticacion.SIN_AFIRMACIONES);
+        MembershipView deUnPropietario = membresiaDeUnPropietario(condominium);
 
         // La respuesta segura ante un token que no dice nada es exigir, no dar por bueno. Si algun
         // dia el realm deja de mandar esas afirmaciones, las operaciones sensibles se cierran en
         // vez de abrirse, que es el lado por el que conviene equivocarse.
         mockMvc.perform(peticion(
                         HttpMethod.PUT,
-                        laRutaDeRoles(condominio, deUnPropietario.id()),
+                        laRutaDeRoles(condominium, deUnPropietario.id()),
                         administrador.token(),
-                        "{\"roles\":[\"TENANT\"],\"motivo\":\"ahora alquila su departamento\"}"))
+                        "{\"roles\":[\"TENANT\"],\"reason\":\"ahora alquila su departamento\"}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.codigo").value("REAUTENTICACION_REQUERIDA"));
     }
@@ -157,17 +157,17 @@ class ReauthenticationTests {
     @Test
     @DisplayName("con segundo factor reciente, la misma peticion pasa")
     void conSegundoFactorPasa() throws Exception {
-        UUID condominio = altaDeCondominio();
-        Quien administrador = conRolEn(condominio, MembershipRole.CONDO_ADMIN, Autenticacion.CON_SEGUNDO_FACTOR);
-        MembershipView deUnPropietario = membresiaDeUnPropietario(condominio);
+        UUID condominium = altaDeCondominio();
+        Quien administrador = conRolEn(condominium, MembershipRole.CONDO_ADMIN, Autenticacion.CON_SEGUNDO_FACTOR);
+        MembershipView deUnPropietario = membresiaDeUnPropietario(condominium);
 
         // Es el control del caso anterior y hace falta: sin el, los tres de arriba pasarian igual
         // con la ruta mal escrita o con el endpoint roto.
         mockMvc.perform(peticion(
                         HttpMethod.PUT,
-                        laRutaDeRoles(condominio, deUnPropietario.id()),
+                        laRutaDeRoles(condominium, deUnPropietario.id()),
                         administrador.token(),
-                        "{\"roles\":[\"TENANT\"],\"motivo\":\"ahora alquila su departamento\"}"))
+                        "{\"roles\":[\"TENANT\"],\"reason\":\"ahora alquila su departamento\"}"))
                 .andExpect(status().isOk());
     }
 
@@ -176,18 +176,18 @@ class ReauthenticationTests {
     @Test
     @DisplayName("a quien no puede se le responde 403, no se le pide un segundo factor que no le serviria")
     void elPermisoVaPrimero() throws Exception {
-        UUID condominio = altaDeCondominio();
+        UUID condominium = altaDeCondominio();
         // Sin permiso para repartir roles Y sin segundo factor: las dos cosas fallan a la vez, y la
         // respuesta tiene que ser la del permiso. Pedirle el factor seria mandarle a buscar su
         // telefono para recibir un 403 igual, y de paso confirmarle que la operacion existe.
-        Quien financiero = conRolEn(condominio, MembershipRole.FINANCE_ADMIN, Autenticacion.SOLO_CONTRASENA);
-        MembershipView deUnPropietario = membresiaDeUnPropietario(condominio);
+        Quien financiero = conRolEn(condominium, MembershipRole.FINANCE_ADMIN, Autenticacion.SOLO_CONTRASENA);
+        MembershipView deUnPropietario = membresiaDeUnPropietario(condominium);
 
         mockMvc.perform(peticion(
                         HttpMethod.PUT,
-                        laRutaDeRoles(condominio, deUnPropietario.id()),
+                        laRutaDeRoles(condominium, deUnPropietario.id()),
                         financiero.token(),
-                        "{\"roles\":[\"TENANT\"],\"motivo\":\"ahora alquila su departamento\"}"))
+                        "{\"roles\":[\"TENANT\"],\"reason\":\"ahora alquila su departamento\"}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.codigo").value("SIN_PERMISO"));
     }
@@ -206,7 +206,7 @@ class ReauthenticationTests {
                         HttpMethod.PUT,
                         laRutaDeRoles(propio, enElAjeno.id()),
                         administrador.token(),
-                        "{\"roles\":[\"TENANT\"],\"motivo\":\"ahora alquila su departamento\"}"))
+                        "{\"roles\":[\"TENANT\"],\"reason\":\"ahora alquila su departamento\"}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
     }
@@ -244,7 +244,7 @@ class ReauthenticationTests {
                         HttpMethod.POST,
                         "/api/v1/superadministradores/" + destinatario.id() + "/revocacion",
                         sinFactor.token(),
-                        "{\"motivo\":\"se equivocaron de cuenta\"}"))
+                        "{\"reason\":\"se equivocaron de account\"}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.codigo").value("REAUTENTICACION_REQUERIDA"));
 
@@ -252,7 +252,7 @@ class ReauthenticationTests {
                         HttpMethod.POST,
                         "/api/v1/superadministradores/" + destinatario.id() + "/revocacion",
                         conFactor.token(),
-                        "{\"motivo\":\"se equivocaron de cuenta\"}"))
+                        "{\"reason\":\"se equivocaron de account\"}"))
                 .andExpect(status().isNoContent());
     }
 
@@ -261,8 +261,8 @@ class ReauthenticationTests {
     @Test
     @DisplayName("dar de alta a un propietario no pide segundo factor; nombrar a un administrador si")
     void soloLoAdministrativoPideFactor() throws Exception {
-        UUID condominio = altaDeCondominio();
-        Quien administrador = conRolEn(condominio, MembershipRole.CONDO_ADMIN, Autenticacion.SOLO_CONTRASENA);
+        UUID condominium = altaDeCondominio();
+        Quien administrador = conRolEn(condominium, MembershipRole.CONDO_ADMIN, Autenticacion.SOLO_CONTRASENA);
         Quien vecino = cuentaNueva(Autenticacion.CON_SEGUNDO_FACTOR);
         Quien futuroAdministrador = cuentaNueva(Autenticacion.CON_SEGUNDO_FACTOR);
 
@@ -270,14 +270,14 @@ class ReauthenticationTests {
         // el control estorbaria donde no protege nada.
         mockMvc.perform(peticion(
                         HttpMethod.POST,
-                        "/api/v1/condominios/" + condominio + "/membresias",
+                        "/api/v1/condominios/" + condominium + "/membresias",
                         administrador.token(),
                         "{\"accountId\":\"" + vecino.id() + "\",\"roles\":[\"OWNER\"]}"))
                 .andExpect(status().isCreated());
 
         mockMvc.perform(peticion(
                         HttpMethod.POST,
-                        "/api/v1/condominios/" + condominio + "/membresias",
+                        "/api/v1/condominios/" + condominium + "/membresias",
                         administrador.token(),
                         "{\"accountId\":\"" + futuroAdministrador.id() + "\",\"roles\":[\"CONDO_ADMIN\"]}"))
                 .andExpect(status().isUnauthorized())
@@ -287,8 +287,8 @@ class ReauthenticationTests {
     @Test
     @DisplayName("una invitacion es una membresia diferida, y sigue la misma regla")
     void laInvitacionSigueLaMismaRegla() throws Exception {
-        UUID condominio = altaDeCondominio();
-        Quien administrador = conRolEn(condominio, MembershipRole.CONDO_ADMIN, Autenticacion.SOLO_CONTRASENA);
+        UUID condominium = altaDeCondominio();
+        Quien administrador = conRolEn(condominium, MembershipRole.CONDO_ADMIN, Autenticacion.SOLO_CONTRASENA);
         Quien vecino = cuentaNueva(Autenticacion.CON_SEGUNDO_FACTOR);
         Quien futuroAdministrador = cuentaNueva(Autenticacion.CON_SEGUNDO_FACTOR);
 
@@ -297,14 +297,14 @@ class ReauthenticationTests {
         // puerta de atras del control.
         mockMvc.perform(peticion(
                         HttpMethod.POST,
-                        "/api/v1/condominios/" + condominio + "/invitaciones",
+                        "/api/v1/condominios/" + condominium + "/invitaciones",
                         administrador.token(),
                         "{\"accountId\":\"" + vecino.id() + "\",\"roles\":[\"OWNER\"]}"))
                 .andExpect(status().isCreated());
 
         mockMvc.perform(peticion(
                         HttpMethod.POST,
-                        "/api/v1/condominios/" + condominio + "/invitaciones",
+                        "/api/v1/condominios/" + condominium + "/invitaciones",
                         administrador.token(),
                         "{\"accountId\":\"" + futuroAdministrador.id() + "\",\"roles\":[\"CONDO_ADMIN\"]}"))
                 .andExpect(status().isUnauthorized())
@@ -320,14 +320,14 @@ class ReauthenticationTests {
     @DisplayName("corregir el nombre no pide segundo factor; cambiar el NIT si")
     void soloElNitPideFactor() throws Exception {
         Quien superadministrador = cuentaDeSuperadministrador(Autenticacion.SOLO_CONTRASENA);
-        UUID condominio = altaDeCondominio();
-        String nitActual = condominios.find(condominio).nit();
+        UUID condominium = altaDeCondominio();
+        String nitActual = condominiums.find(condominium).nit();
 
         // Mandar el NIT que ya tiene no es un cambio. Sin esta condicion, en un PUT donde los tres
         // campos viajan siempre, corregir una tilde del nombre pediria reautenticarse.
         mockMvc.perform(peticion(
                         HttpMethod.PUT,
-                        "/api/v1/condominios/" + condominio,
+                        "/api/v1/condominios/" + condominium,
                         superadministrador.token(),
                         edicion("Las Palmas corregido", nitActual)))
                 .andExpect(status().isOk())
@@ -336,25 +336,25 @@ class ReauthenticationTests {
 
         mockMvc.perform(peticion(
                         HttpMethod.PUT,
-                        "/api/v1/condominios/" + condominio,
+                        "/api/v1/condominios/" + condominium,
                         superadministrador.token(),
                         edicion("Las Palmas corregido", "7777777001")))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.codigo").value("REAUTENTICACION_REQUERIDA"));
 
         // Y la negativa no dejo el NIT a medias.
-        assertThat(condominios.find(condominio).nit()).isEqualTo(nitActual);
+        assertThat(condominiums.find(condominium).nit()).isEqualTo(nitActual);
     }
 
     @Test
     @DisplayName("con segundo factor reciente, el NIT si se cambia")
     void conFactorElNitSeCambia() throws Exception {
         Quien superadministrador = cuentaDeSuperadministrador(Autenticacion.CON_SEGUNDO_FACTOR);
-        UUID condominio = altaDeCondominio();
+        UUID condominium = altaDeCondominio();
 
         mockMvc.perform(peticion(
                         HttpMethod.PUT,
-                        "/api/v1/condominios/" + condominio,
+                        "/api/v1/condominios/" + condominium,
                         superadministrador.token(),
                         edicion("Las Palmas", "7777777002")))
                 .andExpect(status().isOk())
@@ -362,10 +362,9 @@ class ReauthenticationTests {
     }
 
     /** El cuerpo de la edicion, en un bloque de texto para no escapar las comillas. */
-    private static String edicion(String nombre, String nit) {
+    private static String edicion(String name, String nit) {
         return """
-                {"name": "%s", "nit": "%s", "address": "Av. Ballivian 123"}"""
-                .formatted(nombre, nit);
+                {"name": "%s", "nit": "%s", "address": "Av. Ballivian 123"}""".formatted(name, nit);
     }
 
     private enum Autenticacion {
@@ -375,13 +374,13 @@ class ReauthenticationTests {
         SIN_AFIRMACIONES
     }
 
-    private static String laRutaDeRoles(UUID condominio, UUID membresia) {
-        return "/api/v1/condominios/" + condominio + "/membresias/" + membresia + "/roles";
+    private static String laRutaDeRoles(UUID condominium, UUID membership) {
+        return "/api/v1/condominios/" + condominium + "/membresias/" + membership + "/roles";
     }
 
-    private MembershipView membresiaDeUnPropietario(UUID condominio) {
-        return membresias.grant(
-                condominio,
+    private MembershipView membresiaDeUnPropietario(UUID condominium) {
+        return memberships.grant(
+                condominium,
                 cuentaNueva(Autenticacion.CON_SEGUNDO_FACTOR).id(),
                 Set.of(MembershipRole.OWNER),
                 null,
@@ -389,7 +388,7 @@ class ReauthenticationTests {
     }
 
     private UUID altaDeCondominio() {
-        return condominios
+        return condominiums
                 .register(
                         new NewCondominium(
                                 "Sessions " + UUID.randomUUID(),
@@ -407,32 +406,35 @@ class ReauthenticationTests {
     }
 
     private Quien cuentaNueva(Autenticacion como) {
-        PersonView persona = personas.register(new NewPerson("Emma", "Tola", null), "admin");
-        AccountView cuenta = personas.openAccount(persona.id(), TestTokenProvider.correoNuevo(), null, "admin");
-        String sujeto = TestTokenProvider.sujetoNuevo();
+        PersonView person = people.register(new NewPerson("Emma", "Tola", null), "admin");
+        AccountView account = people.openAccount(person.id(), TestTokenProvider.correoNuevo(), null, "admin");
+        String tokenSubject = TestTokenProvider.sujetoNuevo();
         String token =
                 switch (como) {
-                    case CON_SEGUNDO_FACTOR -> TestTokenProvider.valido(sujeto, cuenta.email());
-                    case SOLO_CONTRASENA -> TestTokenProvider.sinSegundoFactor(sujeto, cuenta.email());
+                    case CON_SEGUNDO_FACTOR -> TestTokenProvider.valido(tokenSubject, account.email());
+                    case SOLO_CONTRASENA -> TestTokenProvider.sinSegundoFactor(tokenSubject, account.email());
                     case FACTOR_VIEJO ->
                         TestTokenProvider.conSegundoFactorEn(
-                                sujeto, cuenta.email(), reloj.instant().minus(1, java.time.temporal.ChronoUnit.HOURS));
-                    case SIN_AFIRMACIONES -> TestTokenProvider.sinAfirmacionesDeAutenticacion(sujeto, cuenta.email());
+                                tokenSubject,
+                                account.email(),
+                                clock.instant().minus(1, java.time.temporal.ChronoUnit.HOURS));
+                    case SIN_AFIRMACIONES ->
+                        TestTokenProvider.sinAfirmacionesDeAutenticacion(tokenSubject, account.email());
                 };
-        return new Quien(cuenta, "Bearer " + token);
+        return new Quien(account, "Bearer " + token);
     }
 
-    private Quien conRolEn(UUID condominio, MembershipRole rol, Autenticacion como) {
-        Quien quien = cuentaNueva(como);
-        membresias.grant(condominio, quien.id(), Set.of(rol), null, "admin");
-        return quien;
+    private Quien conRolEn(UUID condominium, MembershipRole rol, Autenticacion como) {
+        Quien principal = cuentaNueva(como);
+        memberships.grant(condominium, principal.id(), Set.of(rol), null, "admin");
+        return principal;
     }
 
     private Quien cuentaDeSuperadministrador(Autenticacion como) {
-        Quien quien = cuentaNueva(como);
+        Quien principal = cuentaNueva(como);
         new JdbcTemplate(dataSource)
-                .update("insert into platform_admin (user_id, granted_at) values (?, now())", quien.id());
-        return quien;
+                .update("insert into platform_admin (user_id, granted_at) values (?, now())", principal.id());
+        return principal;
     }
 
     private MockHttpServletRequestBuilder peticion(

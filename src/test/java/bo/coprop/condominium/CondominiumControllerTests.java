@@ -72,7 +72,7 @@ class CondominiumControllerTests {
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.codigo").value("VALIDACION"))
-                .andExpect(jsonPath("$.errores[0].campo").value("issueDay"));
+                .andExpect(jsonPath("$.errores[0].field").value("issueDay"));
     }
 
     @Test
@@ -109,6 +109,6 @@ class CondominiumControllerTests {
                         .content(conZonaMala))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.codigo").value("VALIDACION"))
-                .andExpect(jsonPath("$.errores[0].campo").value("timeZone"));
+                .andExpect(jsonPath("$.errores[0].field").value("timeZone"));
     }
 }

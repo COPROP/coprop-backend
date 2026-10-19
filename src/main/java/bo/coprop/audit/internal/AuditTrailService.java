@@ -48,7 +48,7 @@ class AuditTrailService implements AuditTrail {
 
     private static final Instant FIN_DE_LOS_TIEMPOS = Instant.parse("9999-12-31T23:59:59Z");
 
-    private final AuditLogRepository bitacora;
+    private final AuditLogRepository auditTrail;
     private final ObjectMapper json;
 
     /**
@@ -59,8 +59,8 @@ class AuditTrailService implements AuditTrail {
     @Autowired
     private EntityManager entidades;
 
-    AuditTrailService(AuditLogRepository bitacora, ObjectMapper json) {
-        this.bitacora = bitacora;
+    AuditTrailService(AuditLogRepository auditTrail, ObjectMapper json) {
+        this.auditTrail = auditTrail;
         this.json = json;
     }
 
@@ -100,9 +100,9 @@ class AuditTrailService implements AuditTrail {
      */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    void registrar(AuditableEvent evento) {
+    void register(AuditableEvent evento) {
         try {
-            bitacora.save(new AuditLog(
+            auditTrail.save(new AuditLog(
                     evento.actor(),
                     evento.action(),
                     evento.entity(),
@@ -150,8 +150,8 @@ class AuditTrailService implements AuditTrail {
         return escrito;
     }
 
-    private static @Nullable String delContexto(String clave) {
-        return MDC.get(clave);
+    private static @Nullable String delContexto(String key) {
+        return MDC.get(key);
     }
 
     @Override
@@ -161,18 +161,18 @@ class AuditTrailService implements AuditTrail {
             @Nullable String actor,
             @Nullable String entity,
             @Nullable Instant desde,
-            @Nullable Instant hasta,
-            int pagina,
+            @Nullable Instant until,
+            int page,
             int tamano) {
         return PagedResponse.de(
-                bitacora.buscar(
+                auditTrail.find(
                         condominiumId,
                         actor,
                         entity,
                         desde == null ? PRINCIPIO_DE_LOS_TIEMPOS : desde,
-                        hasta == null ? FIN_DE_LOS_TIEMPOS : hasta,
-                        PageRequest.of(pagina, tamano, loUltimoPrimero())),
-                this::vista);
+                        until == null ? FIN_DE_LOS_TIEMPOS : until,
+                        PageRequest.of(page, tamano, loUltimoPrimero())),
+                this::view);
     }
 
     @Override
@@ -181,17 +181,17 @@ class AuditTrailService implements AuditTrail {
             @Nullable String actor,
             @Nullable String entity,
             @Nullable Instant desde,
-            @Nullable Instant hasta,
-            int pagina,
+            @Nullable Instant until,
+            int page,
             int tamano) {
         return PagedResponse.de(
-                bitacora.buscarDePlataforma(
+                auditTrail.findPlatformEntries(
                         actor,
                         entity,
                         desde == null ? PRINCIPIO_DE_LOS_TIEMPOS : desde,
-                        hasta == null ? FIN_DE_LOS_TIEMPOS : hasta,
-                        PageRequest.of(pagina, tamano, loUltimoPrimero())),
-                this::vista);
+                        until == null ? FIN_DE_LOS_TIEMPOS : until,
+                        PageRequest.of(page, tamano, loUltimoPrimero())),
+                this::view);
     }
 
     /**
@@ -213,23 +213,23 @@ class AuditTrailService implements AuditTrail {
      */
     @Override
     @Transactional
-    public long purgar(Instant hasta) {
-        Object borradas = entidades
+    public long purge(Instant until) {
+        Object deleted = entidades
                 .createNativeQuery("select audit_log_purge(cast(:hasta as timestamptz))")
-                .setParameter("hasta", hasta.toString())
+                .setParameter("hasta", until.toString())
                 .getSingleResult();
-        long cuantas = borradas instanceof Number numero ? numero.longValue() : 0L;
+        long cuantas = deleted instanceof Number numero ? numero.longValue() : 0L;
         if (cuantas > 0) {
-            log.info("Purgadas {} filas de la bitacora anteriores a {}.", cuantas, hasta);
+            log.info("Purgadas {} filas de la bitacora anteriores a {}.", cuantas, until);
         }
         return cuantas;
     }
 
-    private AuditEntryView vista(AuditLog fila) {
+    private AuditEntryView view(AuditLog fila) {
         return new AuditEntryView(
                 fila.getId(),
                 fila.getActor(),
-                fila.getAccion(),
+                fila.getAction(),
                 fila.getEntidad(),
                 fila.getEntidadId(),
                 fila.getCondominiumId(),

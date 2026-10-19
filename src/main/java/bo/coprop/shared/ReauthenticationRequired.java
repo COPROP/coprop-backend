@@ -29,14 +29,14 @@ public class ReauthenticationRequired extends DomainError {
      * numero para pedirselo al proveedor de identidad, y dejarlo escrito a mano en la capa web lo
      * separaria del sitio donde se comprueba.
      */
-    private final Duration vigencia;
+    private final Duration validity;
 
-    public ReauthenticationRequired(String mensaje, Duration vigencia) {
-        super(ErrorCode.REAUTENTICACION_REQUERIDA, mensaje);
-        this.vigencia = vigencia;
+    public ReauthenticationRequired(String message, Duration validity) {
+        super(ErrorCode.REAUTENTICACION_REQUERIDA, message);
+        this.validity = validity;
     }
 
-    public Duration vigencia() {
-        return vigencia;
+    public Duration validity() {
+        return validity;
     }
 }

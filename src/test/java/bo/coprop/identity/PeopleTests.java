@@ -44,7 +44,7 @@ class PeopleTests {
     private static final Instant AHORA = Instant.parse("2026-10-12T12:00:00Z");
 
     @Autowired
-    private People personas;
+    private People people;
 
     private static NewPerson emma(@Nullable String carnet) {
         return new NewPerson("Emma", "Tola", carnet);
@@ -53,32 +53,32 @@ class PeopleTests {
     @Test
     @DisplayName("una persona se da de alta con sus nombres y su carnet")
     void seDaDeAltaConSusDatos() {
-        PersonView creada = personas.register(emma("8123456"), "admin");
+        PersonView created = people.register(emma("8123456"), "admin");
 
-        assertThat(creada.id()).isNotNull();
-        assertThat(creada.firstNames()).isEqualTo("Emma");
-        assertThat(creada.lastNames()).isEqualTo("Tola");
-        assertThat(creada.nationalId()).isEqualTo("8123456");
+        assertThat(created.id()).isNotNull();
+        assertThat(created.firstNames()).isEqualTo("Emma");
+        assertThat(created.lastNames()).isEqualTo("Tola");
+        assertThat(created.nationalId()).isEqualTo("8123456");
 
-        assertThat(personas.find(creada.id())).isEqualTo(creada);
+        assertThat(people.find(created.id())).isEqualTo(created);
     }
 
     @Test
     @DisplayName("el carnet es opcional: de un copropietario heredado no siempre se tiene")
     void elCarnetEsOpcional() {
-        PersonView creada = personas.register(emma(null), "admin");
+        PersonView created = people.register(emma(null), "admin");
 
-        assertThat(creada.nationalId()).isNull();
+        assertThat(created.nationalId()).isNull();
     }
 
     @Test
     @DisplayName("el alta de una persona que ya existe devuelve la misma, sin error")
     void elAltaRepetidaDevuelveLaMisma() {
-        PersonView primera = personas.register(emma("8123456"), "admin");
+        PersonView primera = people.register(emma("8123456"), "admin");
 
         // Decision 7: responde igual exista o no. La persona es global, asi que distinguir los dos
         // casos le diria al administrador de un condominio que esa persona esta en otro.
-        PersonView segunda = personas.register(new NewPerson("Emma Lucia", "Tola Vargas", "8123456"), "otro");
+        PersonView segunda = people.register(new NewPerson("Emma Lucia", "Tola Vargas", "8123456"), "otro");
 
         assertThat(segunda.id()).isEqualTo(primera.id());
         // Se reutiliza la fila tal como esta: el alta no es una via para editar a alguien.
@@ -88,8 +88,8 @@ class PeopleTests {
     @Test
     @DisplayName("el alta repetida no publica evento, para no delatar que ya estaba")
     void elAltaRepetidaNoPublicaEvento(PublishedEvents eventos) {
-        personas.register(emma("8123456"), "admin");
-        personas.register(emma("8123456"), "otro");
+        people.register(emma("8123456"), "admin");
+        people.register(emma("8123456"), "otro");
 
         assertThat(eventos.ofType(PersonRegistered.class)).hasSize(1);
     }
@@ -97,8 +97,8 @@ class PeopleTests {
     @Test
     @DisplayName("sin carnet no hay con que reconocerla, asi que siempre crea una nueva")
     void sinCarnetSiempreCreaUnaNueva() {
-        PersonView una = personas.register(emma(null), "admin");
-        PersonView otra = personas.register(emma(null), "admin");
+        PersonView una = people.register(emma(null), "admin");
+        PersonView otra = people.register(emma(null), "admin");
 
         // Dos personas pueden llamarse igual. Deducir que son la misma por el nombre fusionaria a
         // dos propietarios distintos, que es peor que duplicar uno.
@@ -108,26 +108,26 @@ class PeopleTests {
     @Test
     @DisplayName("la cuenta nace invitada, sin segundo factor y sin haber entrado nunca")
     void laCuentaNaceInvitada() {
-        PersonView persona = personas.register(emma("8123456"), "admin");
+        PersonView person = people.register(emma("8123456"), "admin");
 
-        AccountView cuenta = personas.openAccount(persona.id(), "emma@coprop.bo", null, "admin");
+        AccountView account = people.openAccount(person.id(), "emma@coprop.bo", null, "admin");
 
-        assertThat(cuenta.personId()).isEqualTo(persona.id());
-        assertThat(cuenta.email()).isEqualTo("emma@coprop.bo");
-        assertThat(cuenta.phone()).isNull();
-        assertThat(cuenta.status()).isEqualTo(AccountStatus.INVITED);
-        assertThat(cuenta.mfaEnabled()).isFalse();
+        assertThat(account.personId()).isEqualTo(person.id());
+        assertThat(account.email()).isEqualTo("emma@coprop.bo");
+        assertThat(account.phone()).isNull();
+        assertThat(account.status()).isEqualTo(AccountStatus.INVITED);
+        assertThat(account.mfaEnabled()).isFalse();
 
-        assertThat(personas.findAccount(cuenta.id())).isEqualTo(cuenta);
+        assertThat(people.findAccount(account.id())).isEqualTo(account);
     }
 
     @Test
     @DisplayName("una persona no puede tener dos cuentas")
     void unaPersonaNoPuedeTenerDosCuentas() {
-        PersonView persona = personas.register(emma("8123456"), "admin");
-        personas.openAccount(persona.id(), "primera@coprop.bo", null, "admin");
+        PersonView person = people.register(emma("8123456"), "admin");
+        people.openAccount(person.id(), "primera@coprop.bo", null, "admin");
 
-        assertThatThrownBy(() -> personas.openAccount(persona.id(), "segunda@coprop.bo", null, "admin"))
+        assertThatThrownBy(() -> people.openAccount(person.id(), "segunda@coprop.bo", null, "admin"))
                 .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("ya tiene cuenta");
     }
@@ -135,11 +135,11 @@ class PeopleTests {
     @Test
     @DisplayName("dos cuentas no pueden compartir el correo")
     void dosCuentasNoCompartenCorreo() {
-        PersonView una = personas.register(emma("8123456"), "admin");
-        PersonView otra = personas.register(new NewPerson("Ana", "Perez", "9000001"), "admin");
-        personas.openAccount(una.id(), "repetido@coprop.bo", null, "admin");
+        PersonView una = people.register(emma("8123456"), "admin");
+        PersonView otra = people.register(new NewPerson("Ana", "Perez", "9000001"), "admin");
+        people.openAccount(una.id(), "repetido@coprop.bo", null, "admin");
 
-        assertThatThrownBy(() -> personas.openAccount(otra.id(), "repetido@coprop.bo", null, "admin"))
+        assertThatThrownBy(() -> people.openAccount(otra.id(), "repetido@coprop.bo", null, "admin"))
                 .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("ya esta en uso");
     }
@@ -147,23 +147,23 @@ class PeopleTests {
     @Test
     @DisplayName("no se abre cuenta a una persona que no existe")
     void noSeAbreCuentaAQuienNoExiste() {
-        assertThatThrownBy(() -> personas.openAccount(UUID.randomUUID(), "fantasma@coprop.bo", null, "admin"))
+        assertThatThrownBy(() -> people.openAccount(UUID.randomUUID(), "fantasma@coprop.bo", null, "admin"))
                 .isInstanceOf(ResourceNotFound.class);
     }
 
     @Test
     @DisplayName("una persona que no existe no se encuentra")
     void unaPersonaQueNoExisteNoSeEncuentra() {
-        assertThatThrownBy(() -> personas.find(UUID.randomUUID())).isInstanceOf(ResourceNotFound.class);
+        assertThatThrownBy(() -> people.find(UUID.randomUUID())).isInstanceOf(ResourceNotFound.class);
     }
 
     @Test
     @DisplayName("el alta publica el evento con su actor y la hora del reloj inyectado")
     void elAltaPublicaSuEvento(PublishedEvents eventos) {
-        PersonView creada = personas.register(emma("8123456"), "emma");
+        PersonView created = people.register(emma("8123456"), "emma");
 
         assertThat(eventos.ofType(PersonRegistered.class))
-                .containsExactly(new PersonRegistered(creada.id(), "emma", AHORA));
+                .containsExactly(new PersonRegistered(created.id(), "emma", AHORA));
     }
 
     /** Reloj parado: asi el evento se puede comparar contra una fecha concreta. */

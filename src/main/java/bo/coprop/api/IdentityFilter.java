@@ -47,38 +47,39 @@ import org.springframework.web.filter.OncePerRequestFilter;
  */
 class IdentityFilter extends OncePerRequestFilter {
 
-    private final Identities identidades;
+    private final Identities identities;
     private final ProblemWriter problemas;
 
-    IdentityFilter(Identities identidades, ProblemWriter problemas) {
-        this.identidades = identidades;
+    IdentityFilter(Identities identities, ProblemWriter problemas) {
+        this.identities = identities;
         this.problemas = problemas;
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest peticion, HttpServletResponse respuesta, FilterChain cadena)
+    protected void doFilterInternal(HttpServletRequest peticion, HttpServletResponse response, FilterChain cadena)
             throws ServletException, IOException {
         Authentication autenticacion = SecurityContextHolder.getContext().getAuthentication();
-        SujetoDelToken sujeto = sujetoDe(autenticacion);
+        TokenSubject tokenSubject = tokenSubjectOf(autenticacion);
 
         // Rutas publicas --el OpenAPI, el arranque del login-- y cualquier cosa que no venga del
         // proveedor de identidad. Aqui no hay nada que resolver.
-        if (autenticacion == null || sujeto == null) {
-            cadena.doFilter(peticion, respuesta);
+        if (autenticacion == null || tokenSubject == null) {
+            cadena.doFilter(peticion, response);
             return;
         }
 
         // Un token sin "sub" o sin correo no identifica a nadie. No deberia llegar --Keycloak
         // siempre pone el sub, y el correo lo pide el scope email-- pero si llega se responde lo
         // mismo que a quien no tiene cuenta, no un error distinto que invite a probar.
-        String subject = sujeto.subject();
-        String email = sujeto.email();
-        AccountView cuenta =
-                subject != null && email != null ? identidades.signIn(subject, email, sujeto.emailVerificado()) : null;
-        if (cuenta == null) {
+        String subject = tokenSubject.subject();
+        String email = tokenSubject.email();
+        AccountView account = subject != null && email != null
+                ? identities.signIn(subject, email, tokenSubject.emailVerificado())
+                : null;
+        if (account == null) {
             problemas.escribir(
                     peticion,
-                    respuesta,
+                    response,
                     ErrorCode.SIN_CUENTA,
                     "Tu cuenta todavia no tiene acceso a COPROP. Pide tu invitacion al administrador de tu condominio.");
             return;
@@ -87,15 +88,17 @@ class IdentityFilter extends OncePerRequestFilter {
         // La autoridad de plataforma se pone aqui y no en el filtro de condominio porque no depende
         // de ninguno: el superadministrador la lleva tambien en las rutas globales, que es donde
         // crea condominios.
-        var autoridades = identidades.esSuperadministrador(cuenta.id())
+        var authorities = identities.esSuperadministrador(account.id())
                 ? List.<GrantedAuthority>of(new SimpleGrantedAuthority("ROLE_" + MembershipRole.PLATFORM_ADMIN.name()))
                 : List.<GrantedAuthority>of();
-        var identidad = new AuthenticatedIdentity(
-                new AuthenticatedIdentity.Actor(cuenta.id(), cuenta.personId()), sujeto.autenticacion(), autoridades);
-        SecurityContextHolder.getContext().setAuthentication(identidad);
-        MDC.put(LogKeys.ACTOR, identidad.getName());
+        var identity = new AuthenticatedIdentity(
+                new AuthenticatedIdentity.Actor(account.id(), account.personId()),
+                tokenSubject.autenticacion(),
+                authorities);
+        SecurityContextHolder.getContext().setAuthentication(identity);
+        MDC.put(LogKeys.ACTOR, identity.getName());
         try {
-            cadena.doFilter(peticion, respuesta);
+            cadena.doFilter(peticion, response);
         } finally {
             MDC.remove(LogKeys.ACTOR);
         }
@@ -113,21 +116,21 @@ class IdentityFilter extends OncePerRequestFilter {
      * ningun otro sitio</strong>: este filtro sustituye la autenticacion del proveedor por la de
      * COPROP, asi que es el ultimo punto de la peticion donde el token todavia esta a la vista.
      */
-    private static @Nullable SujetoDelToken sujetoDe(@Nullable Authentication autenticacion) {
+    private static @Nullable TokenSubject tokenSubjectOf(@Nullable Authentication autenticacion) {
         if (autenticacion == null || !autenticacion.isAuthenticated()) {
             return null;
         }
-        Object quien = autenticacion.getPrincipal();
-        if (quien instanceof Jwt token) {
-            return new SujetoDelToken(
+        Object principal = autenticacion.getPrincipal();
+        if (principal instanceof Jwt token) {
+            return new TokenSubject(
                     token.getSubject(),
                     token.getClaimAsString("email"),
                     Boolean.TRUE.equals(token.getClaimAsBoolean("email_verified")),
                     new AuthenticatedIdentity.Autenticacion(
                             token.getClaimAsInstant("auth_time"), metodosDe(token.getClaimAsStringList("amr"))));
         }
-        if (quien instanceof OidcUser usuario) {
-            return new SujetoDelToken(
+        if (principal instanceof OidcUser usuario) {
+            return new TokenSubject(
                     usuario.getSubject(),
                     usuario.getEmail(),
                     Boolean.TRUE.equals(usuario.getEmailVerified()),
@@ -151,7 +154,7 @@ class IdentityFilter extends OncePerRequestFilter {
         return amr.stream().map(metodo -> metodo.toLowerCase(Locale.ROOT)).collect(Collectors.toUnmodifiableSet());
     }
 
-    private record SujetoDelToken(
+    private record TokenSubject(
             @Nullable String subject,
             @Nullable String email,
             boolean emailVerificado,

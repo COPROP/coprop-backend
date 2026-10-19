@@ -22,7 +22,7 @@ import org.jspecify.annotations.Nullable;
  *     que se registra es si quedaron cerradas, no si se intento
  */
 public record PlatformAdminRevoked(
-        UUID accountId, String motivo, boolean sesionesCerradas, String actor, Instant occurredAt)
+        UUID accountId, String reason, boolean closedSessions, String actor, Instant occurredAt)
         implements AuditableEvent {
 
     @Override
@@ -54,6 +54,6 @@ public record PlatformAdminRevoked(
 
     @Override
     public Map<String, String> newValues() {
-        return Map.of("motivo", motivo, "sesionesCerradas", String.valueOf(sesionesCerradas));
+        return Map.of("motivo", reason, "sesionesCerradas", String.valueOf(closedSessions));
     }
 }

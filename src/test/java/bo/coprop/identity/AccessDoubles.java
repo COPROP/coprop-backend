@@ -1,7 +1,7 @@
 package bo.coprop.identity;
 
-import bo.coprop.identity.IdentityProvider.SesionDelProveedor;
-import bo.coprop.identity.Sessions.SesionDelBff;
+import bo.coprop.identity.IdentityProvider.ProviderSession;
+import bo.coprop.identity.Sessions.BffSession;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -49,7 +49,7 @@ public class AccessDoubles {
 
         private final List<String> preparados = new ArrayList<>();
         private final List<String> cerrados = new ArrayList<>();
-        private final Map<String, List<SesionDelProveedor>> abiertas = new HashMap<>();
+        private final Map<String, List<ProviderSession>> abiertas = new HashMap<>();
         private volatile boolean falla;
 
         @Override
@@ -58,7 +58,7 @@ public class AccessDoubles {
         }
 
         @Override
-        public synchronized void cerrarSesiones(String email) {
+        public synchronized void closeSessions(String email) {
             if (falla) {
                 throw new FalloDelProveedorDeIdentidad("Keycloak no contesta (simulado).");
             }
@@ -66,7 +66,7 @@ public class AccessDoubles {
         }
 
         @Override
-        public synchronized List<SesionDelProveedor> sesionesDe(String email) {
+        public synchronized List<ProviderSession> sessionsOf(String email) {
             if (falla) {
                 throw new FalloDelProveedorDeIdentidad("Keycloak no contesta (simulado).");
             }
@@ -74,8 +74,8 @@ public class AccessDoubles {
         }
 
         /** Deja a ese correo con una sesion abierta en el proveedor. */
-        public synchronized void conSesionAbierta(String email, SesionDelProveedor sesion) {
-            abiertas.computeIfAbsent(email, cualquiera -> new ArrayList<>()).add(sesion);
+        public synchronized void conSesionAbierta(String email, ProviderSession session) {
+            abiertas.computeIfAbsent(email, cualquiera -> new ArrayList<>()).add(session);
         }
 
         public synchronized List<String> preparados() {
@@ -119,34 +119,34 @@ public class AccessDoubles {
     public static class SesionesDePrueba implements Sessions {
 
         private final List<Set<String>> cerradas = new ArrayList<>();
-        private final Map<String, List<SesionDelBff>> abiertas = new HashMap<>();
+        private final Map<String, List<BffSession>> abiertas = new HashMap<>();
 
         @Override
-        public synchronized int cerrarLasDe(Set<String> nombres) {
-            cerradas.add(Set.copyOf(nombres));
-            int habia = (int) nombres.stream()
-                    .flatMap(nombre -> abiertas.getOrDefault(nombre, List.of()).stream())
-                    .map(SesionDelBff::id)
+        public synchronized int closeThoseOf(Set<String> names) {
+            cerradas.add(Set.copyOf(names));
+            int habia = (int) names.stream()
+                    .flatMap(name -> abiertas.getOrDefault(name, List.of()).stream())
+                    .map(BffSession::id)
                     .distinct()
                     .count();
-            nombres.forEach(abiertas::remove);
+            names.forEach(abiertas::remove);
             // Sin ninguna abierta se devuelve el tamaño del conjunto, que es lo que este doble
             // hacia antes del #22 y de lo que dependen los tests de la baja: alli no interesa el
             // numero sino que se pidiera el cierre.
-            return habia > 0 ? habia : nombres.size();
+            return habia > 0 ? habia : names.size();
         }
 
         @Override
-        public synchronized List<SesionDelBff> listarLasDe(Set<String> nombres) {
-            return nombres.stream()
-                    .flatMap(nombre -> abiertas.getOrDefault(nombre, List.of()).stream())
+        public synchronized List<BffSession> listThoseOf(Set<String> names) {
+            return names.stream()
+                    .flatMap(name -> abiertas.getOrDefault(name, List.of()).stream())
                     .distinct()
                     .toList();
         }
 
         /** Deja una sesion abierta a nombre de ese principal. */
-        public synchronized void conSesionAbierta(String nombre, SesionDelBff sesion) {
-            abiertas.computeIfAbsent(nombre, cualquiera -> new ArrayList<>()).add(sesion);
+        public synchronized void conSesionAbierta(String name, BffSession session) {
+            abiertas.computeIfAbsent(name, cualquiera -> new ArrayList<>()).add(session);
         }
 
         /** Los conjuntos de nombres con los que se pidio cerrar, en orden. */

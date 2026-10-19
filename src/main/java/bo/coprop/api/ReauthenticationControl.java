@@ -31,8 +31,8 @@ import org.springframework.stereotype.Component;
  *
  * <h2>Se escribe despues de la autorizacion, nunca antes</h2>
  *
- * En la expresion va en segundo lugar --{@code @autorizacion.puedeCambiar(...) and
- * @reautenticacion.reciente(authentication)}-- y el orden importa: SpEL corta en el primer
+ * En la expresion va en segundo lugar --{@code @authorization.canChange(...) and
+ * @reauthentication.recent(authentication)}-- y el orden importa: SpEL corta en el primer
  * {@code false}, asi que a quien no tiene permiso se le responde <strong>403</strong> sin pedirle
  * nada. Al reves, le pediriamos el segundo factor a alguien que, despues de ponerlo, recibiria un
  * 403 igual; y de paso le confirmariamos que la operacion existe.
@@ -52,7 +52,7 @@ import org.springframework.stereotype.Component;
  * ventana, que es lo que Seguridad 7.3 pide. La diferencia importa el dia que dos operaciones
  * sensibles pidan niveles distintos.
  */
-@Component("reautenticacion")
+@Component("reauthentication")
 class ReauthenticationControl {
 
     private static final Logger log = LoggerFactory.getLogger(ReauthenticationControl.class);
@@ -75,7 +75,7 @@ class ReauthenticationControl {
      */
     private static final Set<String> SEGUNDO_FACTOR = Set.of("otp", "hwk");
 
-    private final Clock reloj;
+    private final Clock clock;
 
     /**
      * El puerto del condominio, para saber si el NIT que llega en el cuerpo es un cambio de verdad.
@@ -83,11 +83,11 @@ class ReauthenticationControl {
      * <p>Es la direccion que permite la regla 6: {@code api} declara {@code condominium}, y quien
      * sabe de HTTP pregunta a quien sabe de condominios.
      */
-    private final Condominiums condominios;
+    private final Condominiums condominiums;
 
-    ReauthenticationControl(Clock reloj, Condominiums condominios) {
-        this.reloj = reloj;
-        this.condominios = condominios;
+    ReauthenticationControl(Clock clock, Condominiums condominiums) {
+        this.clock = clock;
+        this.condominiums = condominiums;
     }
 
     /**
@@ -97,23 +97,23 @@ class ReauthenticationControl {
      * @throws ReauthenticationRequired si no hay segundo factor, o es de hace demasiado, o no se
      *     sabe
      */
-    public boolean reciente(Authentication quien) {
-        var autenticacion = AuthenticatedIdentity.autenticacionDe(quien);
+    public boolean recent(Authentication principal) {
+        var autenticacion = AuthenticatedIdentity.autenticacionDe(principal);
         if (autenticacion == null) {
             // Sin identidad resuelta no hay nada que leer. Se exige, que es la respuesta segura:
             // dar por bueno lo que no se sabe es justamente lo que este control existe para evitar.
-            throw exigir(quien, "esta peticion no trae identidad de COPROP resuelta");
+            throw require(principal, "esta peticion no trae identidad de COPROP resuelta");
         }
         if (autenticacion.metodos().stream().noneMatch(SEGUNDO_FACTOR::contains)) {
-            throw exigir(quien, "se autentico con " + autenticacion.metodos() + " y ahi no hay segundo factor");
+            throw require(principal, "se autentico con " + autenticacion.metodos() + " y ahi no hay segundo factor");
         }
         Instant cuando = autenticacion.cuando();
         if (cuando == null) {
-            throw exigir(quien, "su autenticacion no dice cuando fue");
+            throw require(principal, "su autenticacion no dice cuando fue");
         }
-        Duration hace = Duration.between(cuando, reloj.instant());
+        Duration hace = Duration.between(cuando, clock.instant());
         if (hace.compareTo(VIGENCIA) > 0) {
-            throw exigir(quien, "su segundo factor es de hace " + hace.toMinutes() + " minutos");
+            throw require(principal, "su segundo factor es de hace " + hace.toMinutes() + " minutos");
         }
         return true;
     }
@@ -140,14 +140,14 @@ class ReauthenticationControl {
      *
      * @param roles los roles que la operacion concede
      */
-    public boolean siHayRolAdministrativo(Authentication quien, Collection<MembershipRole> roles) {
+    public boolean ifAdminRole(Authentication principal, Collection<MembershipRole> roles) {
         boolean concedeAlguno = roles.stream()
                 .filter(rol -> rol != MembershipRole.PLATFORM_ADMIN)
                 .anyMatch(PermissionMatrix::esAdministrativo);
         if (!concedeAlguno) {
             return true;
         }
-        return reciente(quien);
+        return recent(principal);
     }
 
     /**
@@ -171,11 +171,11 @@ class ReauthenticationControl {
      *
      * @param nit el NIT que trae el cuerpo
      */
-    public boolean siCambiaElNit(Authentication quien, UUID condominiumId, String nit) {
-        if (nit.equals(condominios.find(condominiumId).nit())) {
+    public boolean ifNitChanges(Authentication principal, UUID condominiumId, String nit) {
+        if (nit.equals(condominiums.find(condominiumId).nit())) {
             return true;
         }
-        return reciente(quien);
+        return recent(principal);
     }
 
     /**
@@ -186,10 +186,10 @@ class ReauthenticationControl {
      * tambien exactamente lo que se veria si alguien estuviera probando con una sesion robada, y
      * eso tiene que quedar a la vista de quien mira los logs.
      */
-    private ReauthenticationRequired exigir(Authentication quien, String porque) {
+    private ReauthenticationRequired require(Authentication principal, String porque) {
         log.warn(
                 "La cuenta {} pidio una operacion sensible sin segundo factor reciente: {}. Se responde 401 con el desafio del RFC 9470 (Seguridad 7.3).",
-                quien.getName(),
+                principal.getName(),
                 porque);
         return new ReauthenticationRequired(
                 "Esta operacion pide confirmar tu identidad con tu segundo factor. Vuelve a autenticarte y repitela.",

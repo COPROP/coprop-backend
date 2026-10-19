@@ -33,16 +33,16 @@ class UnitControllerTests {
     private MockMvc mockMvc;
 
     @Autowired
-    private Condominiums condominios;
+    private Condominiums condominiums;
 
     @Autowired
-    private Units unidades;
+    private Units units;
 
     private UUID lasPalmas;
 
     @BeforeEach
     void darDeAltaUnCondominio() {
-        lasPalmas = condominios
+        lasPalmas = condominiums
                 .register(
                         new NewCondominium(
                                 "Las Palmas", "1234567890", CondominiumType.BUILDING, "America/La_Paz", 1, 15),
@@ -50,7 +50,7 @@ class UnitControllerTests {
                 .id();
     }
 
-    private String unidad(String code) {
+    private String unit(String code) {
         return """
                 {"code":"%s","type":"APARTMENT","aliquot":"1.25","areaM2":"82.50"}
                 """
@@ -63,7 +63,7 @@ class UnitControllerTests {
         mockMvc.perform(post("/api/v1/condominios/{id}/unidades", lasPalmas)
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(unidad("302")))
+                        .content(unit("302")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.code").value("302"))
                 .andExpect(jsonPath("$.status").value("ACTIVE"));
@@ -72,9 +72,9 @@ class UnitControllerTests {
     @Test
     @DisplayName("el alta masiva crea el lote entero en una llamada")
     void elAltaMasivaCreaElLote() throws Exception {
-        String lote =
+        String batch =
                 """
-                {"unidades":[
+                {"units":[
                   {"code":"301","type":"APARTMENT","aliquot":"1.25"},
                   {"code":"302","type":"APARTMENT","aliquot":"1.25"},
                   {"code":"P-01","type":"PARKING","aliquot":"0.1"}
@@ -84,7 +84,7 @@ class UnitControllerTests {
         mockMvc.perform(post("/api/v1/condominios/{id}/unidades/lote", lasPalmas)
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(lote))
+                        .content(batch))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.length()").value(3))
                 .andExpect(jsonPath("$[2].type").value("PARKING"));
@@ -96,12 +96,12 @@ class UnitControllerTests {
         mockMvc.perform(post("/api/v1/condominios/{id}/unidades", lasPalmas)
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(unidad("302")));
+                .content(unit("302")));
 
         mockMvc.perform(post("/api/v1/condominios/{id}/unidades", lasPalmas)
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(unidad("302")))
+                        .content(unit("302")))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.codigo").value("REGLA_DE_NEGOCIO"));
     }
@@ -119,7 +119,7 @@ class UnitControllerTests {
                         .content(imposible))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.codigo").value("VALIDACION"))
-                .andExpect(jsonPath("$.errores[0].campo").value("aliquot"));
+                .andExpect(jsonPath("$.errores[0].field").value("aliquot"));
     }
 
     @Test
@@ -128,7 +128,7 @@ class UnitControllerTests {
         mockMvc.perform(post("/api/v1/condominios/{id}/unidades", UUID.randomUUID())
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(unidad("302")))
+                        .content(unit("302")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
     }
@@ -136,7 +136,7 @@ class UnitControllerTests {
     @Test
     @DisplayName("una unidad se consulta por la ruta de su condominio")
     void laUnidadSeConsultaPorSuRuta() throws Exception {
-        UnitView propia = unidades.register(lasPalmas, nueva("302"), "emma");
+        UnitView propia = units.register(lasPalmas, body("302"), "emma");
 
         mockMvc.perform(get("/api/v1/condominios/{id}/unidades/{unitId}", lasPalmas, propia.id()))
                 .andExpect(status().isOk())
@@ -146,12 +146,12 @@ class UnitControllerTests {
     @Test
     @DisplayName("la unidad de otro condominio da 404 desde la ruta de este, no la devuelve")
     void laUnidadAjenaDa404() throws Exception {
-        UUID villaSol = condominios
+        UUID villaSol = condominiums
                 .register(
                         new NewCondominium("Villa Sol", "9999999999", CondominiumType.HOUSES, "America/La_Paz", 1, 15),
                         "emma")
                 .id();
-        UnitView ajena = unidades.register(villaSol, nueva("302"), "emma");
+        UnitView ajena = units.register(villaSol, body("302"), "emma");
 
         // El condominio de la ruta no es decorativo: 404 y no la unidad de al lado.
         mockMvc.perform(get("/api/v1/condominios/{id}/unidades/{unitId}", lasPalmas, ajena.id()))
@@ -159,7 +159,7 @@ class UnitControllerTests {
                 .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
     }
 
-    private static NewUnit nueva(String code) {
+    private static NewUnit body(String code) {
         return new NewUnit(code, UnitType.APARTMENT, new BigDecimal("1.25"), null, null, null);
     }
 }

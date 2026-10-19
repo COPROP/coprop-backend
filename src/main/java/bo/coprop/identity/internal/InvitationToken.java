@@ -34,7 +34,7 @@ final class InvitationToken {
     private InvitationToken() {}
 
     /** Un token nuevo. El unico sitio donde existe en claro es el valor que devuelve. */
-    static String nuevo() {
+    static String body() {
         byte[] crudo = new byte[BYTES];
         AZAR.nextBytes(crudo);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(crudo);

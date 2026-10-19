@@ -34,32 +34,32 @@ class PlatformBootstrap {
 
     private static final Logger log = LoggerFactory.getLogger(PlatformBootstrap.class);
 
-    private final PersonRepository personas;
-    private final UserAccountRepository cuentas;
+    private final PersonRepository people;
+    private final UserAccountRepository accounts;
     private final PlatformAdminRepository superadministradores;
     private final ApplicationEventPublisher eventos;
-    private final Clock reloj;
-    private final String correoInicial;
+    private final Clock clock;
+    private final String initialEmail;
 
     PlatformBootstrap(
-            PersonRepository personas,
-            UserAccountRepository cuentas,
+            PersonRepository people,
+            UserAccountRepository accounts,
             PlatformAdminRepository superadministradores,
             ApplicationEventPublisher eventos,
-            Clock reloj,
-            @Value("${coprop.superadministrador-inicial:}") String correoInicial) {
-        this.personas = personas;
-        this.cuentas = cuentas;
+            Clock clock,
+            @Value("${coprop.superadministrador-inicial:}") String initialEmail) {
+        this.people = people;
+        this.accounts = accounts;
         this.superadministradores = superadministradores;
         this.eventos = eventos;
-        this.reloj = reloj;
-        this.correoInicial = correoInicial;
+        this.clock = clock;
+        this.initialEmail = initialEmail;
     }
 
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
-    void abrirElPrimeroSiHaceFalta() {
-        if (!StringUtils.hasText(correoInicial)) {
+    void openTheFirstIfNeeded() {
+        if (!StringUtils.hasText(initialEmail)) {
             return;
         }
         if (superadministradores.count() > 0) {
@@ -67,15 +67,15 @@ class PlatformBootstrap {
             return;
         }
 
-        Instant ahora = reloj.instant();
-        UserAccount cuenta = cuentas.findByEmailIgnoreCase(correoInicial).orElseGet(() -> crearCuenta(ahora));
+        Instant ahora = clock.instant();
+        UserAccount account = accounts.findByEmailIgnoreCase(initialEmail).orElseGet(() -> createAccount(ahora));
 
-        superadministradores.save(new PlatformAdmin(cuenta.getId(), null, ahora));
-        eventos.publishEvent(new PlatformAdminGranted(cuenta.getId(), null, ahora));
+        superadministradores.save(new PlatformAdmin(account.getId(), null, ahora));
+        eventos.publishEvent(new PlatformAdminGranted(account.getId(), null, ahora));
 
         log.warn(
                 "Plataforma sin superadministradores: se abrio el primero para {}. Entra con ese correo para usarlo.",
-                correoInicial);
+                initialEmail);
     }
 
     /**
@@ -85,8 +85,8 @@ class PlatformBootstrap {
      * correo como nombre dejaria un dato de contacto donde va un nombre. Sin carnet, porque
      * inventarlo seria peor que no tenerlo.
      */
-    private UserAccount crearCuenta(Instant ahora) {
-        Person persona = personas.save(new Person("Superadministrador", "inicial", null, ahora));
-        return cuentas.save(new UserAccount(persona.getId(), correoInicial, null, ahora));
+    private UserAccount createAccount(Instant ahora) {
+        Person person = people.save(new Person("Superadministrador", "inicial", null, ahora));
+        return accounts.save(new UserAccount(person.getId(), initialEmail, null, ahora));
     }
 }

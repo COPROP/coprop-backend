@@ -60,16 +60,16 @@ class AccessRevocationTests {
     private MockMvc mockMvc;
 
     @Autowired
-    private Condominiums condominios;
+    private Condominiums condominiums;
 
     @Autowired
-    private Units unidades;
+    private Units units;
 
     @Autowired
-    private People personas;
+    private People people;
 
     @Autowired
-    private Memberships membresias;
+    private Memberships memberships;
 
     @Autowired
     private UnitRelations relaciones;
@@ -77,30 +77,30 @@ class AccessRevocationTests {
     @Test
     @DisplayName("tras la baja, el usuario autentica pero no ve el condominio")
     void trasLaBajaAutenticaPeroNoVeElCondominio() throws Exception {
-        UUID condominio = altaDeCondominio();
-        AccountView cuenta = cuentaNueva();
-        MembershipView membresia =
-                membresias.grant(condominio, cuenta.id(), Set.of(MembershipRole.OWNER), null, "admin");
-        String token = tokenDe(cuenta);
+        UUID condominium = altaDeCondominio();
+        AccountView account = cuentaNueva();
+        MembershipView membership =
+                memberships.grant(condominium, account.id(), Set.of(MembershipRole.OWNER), null, "admin");
+        String token = tokenDe(account);
 
         // Antes: el condominio existe para esta persona y sale en su perfil.
-        mockMvc.perform(get("/api/v1/condominios/{id}", condominio).header(HttpHeaders.AUTHORIZATION, token))
+        mockMvc.perform(get("/api/v1/condominios/{id}", condominium).header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(status().isOk());
         mockMvc.perform(get("/api/v1/me").header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.condominios.length()").value(1));
+                .andExpect(jsonPath("$.condominiums.length()").value(1));
 
-        membresias.revoke(condominio, membresia.id(), "vendio su departamento", "admin");
+        memberships.revoke(condominium, membership.id(), "vendio su departamento", "admin");
 
         // Despues, con el MISMO token: sigue autenticando.
         mockMvc.perform(get("/api/v1/me").header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.cuenta.id").value(cuenta.id().toString()))
+                .andExpect(jsonPath("$.account.id").value(account.id().toString()))
                 // Y no le queda ningun condominio que ofrecerle en el selector.
-                .andExpect(jsonPath("$.condominios.length()").value(0));
+                .andExpect(jsonPath("$.condominiums.length()").value(0));
 
         // Pero el condominio ya no existe para ella. 404 y no 403: un 403 confirmaria que esta ahi.
-        mockMvc.perform(get("/api/v1/condominios/{id}", condominio).header(HttpHeaders.AUTHORIZATION, token))
+        mockMvc.perform(get("/api/v1/condominios/{id}", condominium).header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"));
     }
@@ -108,64 +108,66 @@ class AccessRevocationTests {
     @Test
     @DisplayName("una suspension deja a la persona fuera igual que una baja, y la reactivacion la devuelve")
     void laSuspensionDejaFueraYLaReactivacionDevuelve() throws Exception {
-        UUID condominio = altaDeCondominio();
-        AccountView cuenta = cuentaNueva();
-        MembershipView membresia =
-                membresias.grant(condominio, cuenta.id(), Set.of(MembershipRole.OWNER), null, "admin");
-        String token = tokenDe(cuenta);
+        UUID condominium = altaDeCondominio();
+        AccountView account = cuentaNueva();
+        MembershipView membership =
+                memberships.grant(condominium, account.id(), Set.of(MembershipRole.OWNER), null, "admin");
+        String token = tokenDe(account);
 
-        membresias.suspend(condominio, membresia.id(), "cuota impaga", "admin");
+        memberships.suspend(condominium, membership.id(), "cuota impaga", "admin");
 
-        mockMvc.perform(get("/api/v1/condominios/{id}", condominio).header(HttpHeaders.AUTHORIZATION, token))
+        mockMvc.perform(get("/api/v1/condominios/{id}", condominium).header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(status().isNotFound());
         // El perfil no lo lista: ofrecerlo en el selector seria ofrecer una puerta cerrada.
         mockMvc.perform(get("/api/v1/me").header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.condominios.length()").value(0));
+                .andExpect(jsonPath("$.condominiums.length()").value(0));
 
-        membresias.reinstate(condominio, membresia.id(), "pago al dia", "admin");
+        memberships.reinstate(condominium, membership.id(), "pago al dia", "admin");
 
         // Y vuelve en la siguiente peticion, sin tener que iniciar sesion de nuevo: los roles nunca
         // estuvieron en el token.
-        mockMvc.perform(get("/api/v1/condominios/{id}", condominio).header(HttpHeaders.AUTHORIZATION, token))
+        mockMvc.perform(get("/api/v1/condominios/{id}", condominium).header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(status().isOk());
         mockMvc.perform(get("/api/v1/me").header(HttpHeaders.AUTHORIZATION, token))
-                .andExpect(jsonPath("$.condominios.length()").value(1));
+                .andExpect(jsonPath("$.condominiums.length()").value(1));
     }
 
     @Test
     @DisplayName("tras la baja, el administrador sigue viendo la membresia cerrada y a quien vendio")
     void elAdministradorSigueViendoLoHistorico() throws Exception {
-        UUID condominio = altaDeCondominio();
-        UUID unidad = altaDeUnidad(condominio, "BAJA-101");
+        UUID condominium = altaDeCondominio();
+        UUID unit = altaDeUnidad(condominium, "BAJA-101");
 
         AccountView admin = cuentaNueva();
-        membresias.grant(condominio, admin.id(), Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
+        memberships.grant(condominium, admin.id(), Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
         String token = tokenDe(admin);
 
         AccountView quienSeVa = cuentaNueva();
-        PersonView vendedor = personas.find(quienSeVa.personId());
-        MembershipView suya = membresias.grant(condominio, quienSeVa.id(), Set.of(MembershipRole.OWNER), null, "admin");
-        relaciones.grantOwnership(condominio, unidad, vendedor.id(), new BigDecimal("100.000000"), "admin");
+        PersonView vendedor = people.find(quienSeVa.personId());
+        MembershipView suya =
+                memberships.grant(condominium, quienSeVa.id(), Set.of(MembershipRole.OWNER), null, "admin");
+        relaciones.grantOwnership(condominium, unit, vendedor.id(), new BigDecimal("100.000000"), "admin");
 
-        PersonView comprador = personas.register(new NewPerson("Quien", "Compra", null), "admin");
-        relaciones.transferOwnership(condominio, unidad, vendedor.id(), comprador.id(), "admin");
-        membresias.revoke(condominio, suya.id(), "vendio su departamento", "admin");
+        PersonView comprador = people.register(new NewPerson("Quien", "Compra", null), "admin");
+        relaciones.transferOwnership(condominium, unit, vendedor.id(), comprador.id(), "admin");
+        memberships.revoke(condominium, suya.id(), "vendio su departamento", "admin");
 
         // El padron de hoy ya no la trae...
-        mockMvc.perform(get("/api/v1/condominios/{id}/membresias", condominio).header(HttpHeaders.AUTHORIZATION, token))
+        mockMvc.perform(get("/api/v1/condominios/{id}/membresias", condominium)
+                        .header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.id=='" + suya.id() + "')]").isEmpty());
 
         // ...pero el padron completo si, con su fecha de cierre.
-        mockMvc.perform(get("/api/v1/condominios/{id}/membresias?cerradas=true", condominio)
+        mockMvc.perform(get("/api/v1/condominios/{id}/membresias?cerradas=true", condominium)
                         .header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.id=='" + suya.id() + "')].validTo").isNotEmpty());
 
         // Y el historico de la unidad conserva al vendedor, que es con lo que el administrador le da
         // el comprobante de su epoca que pide Seguridad 6.2.
-        mockMvc.perform(get("/api/v1/condominios/{id}/unidades/{unidad}/propietarios/historico", condominio, unidad)
+        mockMvc.perform(get("/api/v1/condominios/{id}/unidades/{unidad}/propietarios/historico", condominium, unit)
                         .header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
@@ -175,7 +177,7 @@ class AccessRevocationTests {
                         .isEmpty());
 
         // El listado de hoy trae solo al comprador.
-        mockMvc.perform(get("/api/v1/condominios/{id}/unidades/{unidad}/propietarios", condominio, unidad)
+        mockMvc.perform(get("/api/v1/condominios/{id}/unidades/{unidad}/propietarios", condominium, unit)
                         .header(HttpHeaders.AUTHORIZATION, token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
@@ -183,7 +185,7 @@ class AccessRevocationTests {
     }
 
     private UUID altaDeCondominio() {
-        return condominios
+        return condominiums
                 .register(
                         new NewCondominium(
                                 "Baja " + UUID.randomUUID(),
@@ -201,20 +203,20 @@ class AccessRevocationTests {
         return String.valueOf(Math.abs(UUID.randomUUID().getMostSignificantBits() % 1_000_000_0000L));
     }
 
-    private UUID altaDeUnidad(UUID condominio, String codigo) {
-        return unidades.register(
-                        condominio,
-                        new NewUnit(codigo, UnitType.APARTMENT, new BigDecimal("1.000000"), null, null, null),
+    private UUID altaDeUnidad(UUID condominium, String code) {
+        return units.register(
+                        condominium,
+                        new NewUnit(code, UnitType.APARTMENT, new BigDecimal("1.000000"), null, null, null),
                         "admin")
                 .id();
     }
 
     private AccountView cuentaNueva() {
-        PersonView persona = personas.register(new NewPerson("Emma", "Tola", null), "admin");
-        return personas.openAccount(persona.id(), TestTokenProvider.correoNuevo(), null, "admin");
+        PersonView person = people.register(new NewPerson("Emma", "Tola", null), "admin");
+        return people.openAccount(person.id(), TestTokenProvider.correoNuevo(), null, "admin");
     }
 
-    private static String tokenDe(AccountView cuenta) {
-        return "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), cuenta.email());
+    private static String tokenDe(AccountView account) {
+        return "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), account.email());
     }
 }

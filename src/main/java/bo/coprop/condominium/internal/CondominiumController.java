@@ -38,17 +38,17 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/condominios")
 class CondominiumController {
 
-    private final Condominiums condominios;
+    private final Condominiums condominiums;
 
-    CondominiumController(Condominiums condominios) {
-        this.condominios = condominios;
+    CondominiumController(Condominiums condominiums) {
+        this.condominiums = condominiums;
     }
 
     // Seguridad 3: crear condominios es del superadministrador, y solo de el.
-    @PreAuthorize("@autorizacion.puede(authentication, 'CREATE_CONDOMINIUMS')")
+    @PreAuthorize("@authorization.can(authentication, 'CREATE_CONDOMINIUMS')")
     @PostMapping
-    ResponseEntity<CondominiumView> alta(@Valid @RequestBody NewCondominium nuevo, Principal quien) {
-        CondominiumView creado = condominios.register(nuevo, quien.getName());
+    ResponseEntity<CondominiumView> alta(@Valid @RequestBody NewCondominium body, Principal principal) {
+        CondominiumView creado = condominiums.register(body, principal.getName());
         return ResponseEntity.created(URI.create("/api/v1/condominios/" + creado.id()))
                 .body(creado);
     }
@@ -70,7 +70,7 @@ class CondominiumController {
      */
     @GetMapping("/{condominiumId}")
     CondominiumView consultar(@PathVariable UUID condominiumId) {
-        return condominios.find(condominiumId);
+        return condominiums.find(condominiumId);
     }
 
     /**
@@ -94,22 +94,22 @@ class CondominiumController {
      * <p>Lo que este endpoint <strong>no</strong> cambia es el tipo y el estado, cada uno por su
      * motivo, y los dos estan escritos en {@link Condominiums#edit}.
      */
-    @PreAuthorize("@autorizacion.puede(authentication, 'CREATE_CONDOMINIUMS')"
-            + " and @reautenticacion.siCambiaElNit(authentication, #condominiumId, #cambio.nit())")
+    @PreAuthorize("@authorization.can(authentication, 'CREATE_CONDOMINIUMS')"
+            + " and @reauthentication.ifNitChanges(authentication, #condominiumId, #change.nit())")
     @PutMapping("/{condominiumId}")
-    CondominiumView editar(@PathVariable UUID condominiumId, @Valid @RequestBody Edicion cambio, Principal quien) {
-        return condominios.edit(condominiumId, cambio.name(), cambio.nit(), cambio.address(), quien.getName());
+    CondominiumView editar(@PathVariable UUID condominiumId, @Valid @RequestBody Edicion change, Principal principal) {
+        return condominiums.edit(condominiumId, change.name(), change.nit(), change.address(), principal.getName());
     }
 
     // El dia de emision y el de vencimiento deciden CUANDO se cobra, asi que son del que maneja
     // el dinero. La matriz no tiene una fila con este nombre --lo mas cercano es "configurar
     // conceptos, tarifas de agua y politica de mora"-- y se resuelve del lado de la separacion de
     // funciones: quien administra personas y unidades no toca lo que se cobra.
-    @PreAuthorize("@autorizacion.puede(authentication, 'CONFIGURE_CHARGES')")
+    @PreAuthorize("@authorization.can(authentication, 'CONFIGURE_CHARGES')")
     @PutMapping("/{condominiumId}/configuracion")
     CondominiumView cambiarConfiguracion(
-            @PathVariable UUID condominiumId, @Valid @RequestBody CambioDeConfiguracion cambio, Principal quien) {
-        return condominios.changeConfig(condominiumId, cambio.issueDay(), cambio.dueDay(), quien.getName());
+            @PathVariable UUID condominiumId, @Valid @RequestBody ConfigChange change, Principal principal) {
+        return condominiums.changeConfig(condominiumId, change.issueDay(), change.dueDay(), principal.getName());
     }
 
     /**
@@ -126,5 +126,5 @@ class CondominiumController {
             @Nullable @Size(max = 200) String address) {}
 
     /** Lo unico que hoy se puede cambiar de la configuracion. La mora y el agua llegan en M2. */
-    record CambioDeConfiguracion(@Min(1) @Max(28) int issueDay, @Min(1) @Max(28) int dueDay) {}
+    record ConfigChange(@Min(1) @Max(28) int issueDay, @Min(1) @Max(28) int dueDay) {}
 }

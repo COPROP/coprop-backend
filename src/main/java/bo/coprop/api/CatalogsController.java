@@ -89,19 +89,19 @@ class CatalogsController {
 
     @GetMapping("/matriz-de-permisos")
     RolePermissionMatrix matriz() {
-        var filas = new ArrayList<RolePermissionMatrix.Fila>();
-        for (Permission permiso : Permission.values()) {
-            filas.add(filaDe(permiso));
+        var filas = new ArrayList<RolePermissionMatrix.Row>();
+        for (Permission permission : Permission.values()) {
+            filas.add(filaDe(permission));
         }
         return new RolePermissionMatrix(List.of(MembershipRole.values()), List.copyOf(filas));
     }
 
-    private static RolePermissionMatrix.Fila filaDe(Permission permiso) {
-        var alcances = new EnumMap<MembershipRole, Scope>(MembershipRole.class);
+    private static RolePermissionMatrix.Row filaDe(Permission permission) {
+        var scopes = new EnumMap<MembershipRole, Scope>(MembershipRole.class);
         for (MembershipRole rol : MembershipRole.values()) {
-            alcances.put(rol, PermissionMatrix.alcanceDe(rol, permiso));
+            scopes.put(rol, PermissionMatrix.scopeOf(rol, permission));
         }
-        return new RolePermissionMatrix.Fila(permiso, PermissionMatrix.pideSegundoFactor(permiso), alcances);
+        return new RolePermissionMatrix.Row(permission, PermissionMatrix.requiresSecondFactor(permission), scopes);
     }
 
     /**

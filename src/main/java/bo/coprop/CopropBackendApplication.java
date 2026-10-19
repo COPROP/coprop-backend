@@ -36,7 +36,7 @@ public class CopropBackendApplication {
      * ponerlo en uno obligaria a los demas a depender de el.
      */
     @Bean
-    Clock reloj() {
+    Clock clock() {
         return Clock.systemUTC();
     }
 }

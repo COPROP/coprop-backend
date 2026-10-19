@@ -49,9 +49,9 @@ class KeycloakRealmTests {
         throw new AssertionError("El realm no declara el cliente " + clientId);
     }
 
-    private static List<String> textos(JsonNode nodo, String campo) {
+    private static List<String> textos(JsonNode nodo, String field) {
         var valores = new ArrayList<String>();
-        for (JsonNode valor : nodo.get(campo)) {
+        for (JsonNode valor : nodo.get(field)) {
             valores.add(valor.asString());
         }
         return valores;
@@ -176,11 +176,11 @@ class KeycloakRealmTests {
     private static void recogerSecretosLiterales(JsonNode nodo, String ruta, List<String> literales) {
         if (nodo.isObject()) {
             for (var entrada : nodo.properties()) {
-                var clave = entrada.getKey();
+                var key = entrada.getKey();
                 var hijo = entrada.getValue();
-                var rutaHija = ruta.isEmpty() ? clave : ruta + "." + clave;
-                var esSecreto = clave.equals("secret")
-                        || clave.toLowerCase(java.util.Locale.ROOT).endsWith("secret");
+                var rutaHija = ruta.isEmpty() ? key : ruta + "." + key;
+                var esSecreto = key.equals("secret")
+                        || key.toLowerCase(java.util.Locale.ROOT).endsWith("secret");
                 if (esSecreto && hijo.isString() && !hijo.asString().startsWith("${")) {
                     literales.add(rutaHija + " = " + hijo.asString());
                 }

@@ -61,11 +61,11 @@ class ApiAuthenticationTests {
     private MockMvc mockMvc;
 
     @Autowired
-    private People personas;
+    private People people;
 
-    private AccountView abrirCuenta(String correo) {
-        PersonView persona = personas.register(new NewPerson("Emma", "Tola", null), "admin");
-        return personas.openAccount(persona.id(), correo, null, "admin");
+    private AccountView openAccount(String email) {
+        PersonView person = people.register(new NewPerson("Emma", "Tola", null), "admin");
+        return people.openAccount(person.id(), email, null, "admin");
     }
 
     @Test
@@ -150,12 +150,12 @@ class ApiAuthenticationTests {
     @Test
     @DisplayName("un token con el correo sin verificar tampoco entra")
     void unTokenConCorreoSinVerificarNoEntra() throws Exception {
-        String correo = TestTokenProvider.correoNuevo();
-        abrirCuenta(correo);
+        String email = TestTokenProvider.correoNuevo();
+        openAccount(email);
 
         String sinVerificar = TestTokenProvider.token(
                 TestTokenProvider.sujetoNuevo(),
-                correo,
+                email,
                 false,
                 Instant.now().plus(5, ChronoUnit.MINUTES),
                 TestTokenProvider.AUDIENCIA,
@@ -170,38 +170,38 @@ class ApiAuthenticationTests {
     @Test
     @DisplayName("un token valido de quien si tiene cuenta entra y la deja activa")
     void unTokenConCuentaEntra() throws Exception {
-        String correo = TestTokenProvider.correoNuevo();
-        AccountView cuenta = abrirCuenta(correo);
+        String email = TestTokenProvider.correoNuevo();
+        AccountView account = openAccount(email);
 
-        mockMvc.perform(get("/api/v1/cuentas/" + cuenta.id())
+        mockMvc.perform(get("/api/v1/cuentas/" + account.id())
                         .header(
                                 HttpHeaders.AUTHORIZATION,
-                                "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), correo)))
+                                "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), email)))
                 .andExpect(status().isOk())
                 // Entro invitada y el primer login la deja activa, sin que nadie mas intervenga.
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
-                .andExpect(jsonPath("$.email").value(correo));
+                .andExpect(jsonPath("$.email").value(email));
     }
 
     @Test
     @DisplayName("un segundo sujeto con el mismo correo no se queda con la cuenta")
     void unSegundoSujetoNoSeQuedaConLaCuenta() throws Exception {
-        String correo = TestTokenProvider.correoNuevo();
-        AccountView cuenta = abrirCuenta(correo);
+        String email = TestTokenProvider.correoNuevo();
+        AccountView account = openAccount(email);
 
         // El primero entra y la cuenta queda vinculada a su sujeto.
-        mockMvc.perform(get("/api/v1/cuentas/" + cuenta.id())
+        mockMvc.perform(get("/api/v1/cuentas/" + account.id())
                         .header(
                                 HttpHeaders.AUTHORIZATION,
-                                "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), correo)))
+                                "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), email)))
                 .andExpect(status().isOk());
 
         // El segundo llega con otro sujeto y el mismo correo. El realm no deberia permitir dos
         // identidades con el mismo correo; si alguna vez pasara, la cuenta no cambia de dueño.
-        mockMvc.perform(get("/api/v1/cuentas/" + cuenta.id())
+        mockMvc.perform(get("/api/v1/cuentas/" + account.id())
                         .header(
                                 HttpHeaders.AUTHORIZATION,
-                                "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), correo)))
+                                "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), email)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.codigo").value("SIN_CUENTA"));
     }
@@ -209,8 +209,8 @@ class ApiAuthenticationTests {
     @Test
     @DisplayName("toda linea de log de la peticion dice quien la hizo")
     void elActorQuedaEnElLog() throws Exception {
-        String correo = TestTokenProvider.correoNuevo();
-        AccountView cuenta = abrirCuenta(correo);
+        String email = TestTokenProvider.correoNuevo();
+        AccountView account = openAccount(email);
 
         var capturados = new ListAppender<ILoggingEvent>();
         var registro = (Logger) LoggerFactory.getLogger(ControladorQueRegistra.Endpoints.class);
@@ -221,14 +221,14 @@ class ApiAuthenticationTests {
             mockMvc.perform(get("/api/v1/identidad/una-linea")
                             .header(
                                     HttpHeaders.AUTHORIZATION,
-                                    "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), correo)))
+                                    "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), email)))
                     .andExpect(status().isOk());
 
             // La clave es la que el issue #6 dejo declarada y sin rellenar. Lo que se guarda es la
             // cuenta, que es lo que autentica, y es el mismo valor que acaba como actor en los
             // eventos del dominio.
             assertThat(capturados.list).singleElement().satisfies(evento -> assertThat(evento.getMDCPropertyMap())
-                    .containsEntry(LogKeys.ACTOR, cuenta.id().toString())
+                    .containsEntry(LogKeys.ACTOR, account.id().toString())
                     .containsKey(LogKeys.TRAZA));
         } finally {
             registro.detachAppender(capturados);

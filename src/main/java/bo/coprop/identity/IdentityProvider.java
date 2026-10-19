@@ -57,7 +57,7 @@ public interface IdentityProvider {
      *     operacion. Quien llama decide que hacer: la baja de una membresia no se deshace por esto,
      *     porque el acceso ya lo corto el filtro de condominio en la siguiente peticion
      */
-    void cerrarSesiones(String email);
+    void closeSessions(String email);
 
     /**
      * Las sesiones que esa cuenta tiene abiertas en el proveedor. Issue <strong>#22</strong>.
@@ -77,7 +77,7 @@ public interface IdentityProvider {
      *     operacion. Quien llama decide: la lista de sesiones del usuario prefiere enseñar lo que
      *     sabe a no enseñar nada
      */
-    List<SesionDelProveedor> sesionesDe(String email);
+    List<ProviderSession> sessionsOf(String email);
 
     /**
      * Una sesion abierta en el proveedor de identidad.
@@ -90,18 +90,18 @@ public interface IdentityProvider {
      * @param creada cuando empezo
      * @param ultimoAcceso la ultima vez que se uso
      */
-    record SesionDelProveedor(
-            String id, @org.jspecify.annotations.Nullable String ip, Instant creada, Instant ultimoAcceso) {}
+    record ProviderSession(
+            String id, @org.jspecify.annotations.Nullable String ip, Instant created, Instant lastAccess) {}
 
     /** El proveedor de identidad no pudo hacerlo. */
     class FalloDelProveedorDeIdentidad extends RuntimeException {
 
-        public FalloDelProveedorDeIdentidad(String mensaje, Throwable causa) {
-            super(mensaje, causa);
+        public FalloDelProveedorDeIdentidad(String message, Throwable causa) {
+            super(message, causa);
         }
 
-        public FalloDelProveedorDeIdentidad(String mensaje) {
-            super(mensaje);
+        public FalloDelProveedorDeIdentidad(String message) {
+            super(message);
         }
     }
 }

@@ -70,71 +70,71 @@ class CondominiumFilter extends OncePerRequestFilter {
             Pattern.compile(Pattern.quote(RoutesConfiguration.PREFIJO_DE_VERSION + "/condominios/")
                     + "([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})(/.*)?");
 
-    private final Memberships membresias;
+    private final Memberships memberships;
     private final ProblemWriter problemas;
 
-    CondominiumFilter(Memberships membresias, ProblemWriter problemas) {
-        this.membresias = membresias;
+    CondominiumFilter(Memberships memberships, ProblemWriter problemas) {
+        this.memberships = memberships;
         this.problemas = problemas;
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest peticion, HttpServletResponse respuesta, FilterChain cadena)
+    protected void doFilterInternal(HttpServletRequest peticion, HttpServletResponse response, FilterChain cadena)
             throws ServletException, IOException {
-        UUID condominio = condominioDe(peticion.getRequestURI());
-        if (condominio == null) {
+        UUID condominium = condominiumOf(peticion.getRequestURI());
+        if (condominium == null) {
             // Rutas globales: personas, cuentas, el alta de un condominio. Aqui no hay condominio
             // que comprobar. Que el alta de condominios quede sin restriccion es del issue #16.
-            cadena.doFilter(peticion, respuesta);
+            cadena.doFilter(peticion, response);
             return;
         }
 
-        var identidad = identidadActual();
-        if (identidad == null) {
+        var identity = currentIdentity();
+        if (identity == null) {
             // Sin identidad todavia. No es cosa de este filtro: la cadena respondera 401.
-            cadena.doFilter(peticion, respuesta);
+            cadena.doFilter(peticion, response);
             return;
         }
 
-        var actor = (AuthenticatedIdentity.Actor) identidad.getPrincipal();
+        var actor = (AuthenticatedIdentity.Actor) identity.getPrincipal();
 
-        MembresiaVigente membresia = vigente(condominio, actor.accountId());
+        MembresiaVigente membership = current(condominium, actor.accountId());
 
         // El superadministrador no necesita membresia para entrar --su alcance es la plataforma, y
         // sin esto un condominio recien creado no tendria forma de tener a nadie dentro--. Lo que
         // puede hacer una vez dentro lo decide la matriz del issue #16, y ahi casi todo le dice que
         // no. El acceso de soporte con motivo y caducidad que pide Seguridad 10.1 llega con la
         // bitacora del issue #21.
-        if (!membresia.activa() && !esSuperadministrador(identidad)) {
+        if (!membership.activa() && !esSuperadministrador(identity)) {
             log.info(
                     "La cuenta {} pidio el condominio {} sin membresia activa; se responde 404.",
                     actor.accountId(),
-                    condominio);
-            problemas.escribir(peticion, respuesta, ErrorCode.NO_ENCONTRADO, "No se encontro el recurso.");
+                    condominium);
+            problemas.escribir(peticion, response, ErrorCode.NO_ENCONTRADO, "No se encontro el recurso.");
             return;
         }
 
         // Las autoridades que ya traia MAS las de la membresia, y no unas en vez de otras. Quien
         // administra la plataforma y ademas es miembro de un condominio tiene las dos cosas a la
         // vez; quedarse solo con una le quitaba en silencio la mitad de lo suyo.
-        var autoridades = new ArrayList<GrantedAuthority>(identidad.getAuthorities());
-        if (membresia.activa()) {
-            autoridades.addAll(autoridadesDe(membresia.vista()));
+        var authorities = new ArrayList<GrantedAuthority>(identity.getAuthorities());
+        if (membership.activa()) {
+            authorities.addAll(authoritiesOf(membership.view()));
         }
         // La autenticacion viaja tal cual: como y cuando se autentico esta persona no cambia por
         // entrar a un condominio, y perderla aqui dejaria sin segundo factor a toda operacion
         // sensible que cuelgue de uno --que son todas las del #22 menos el rol de plataforma--.
         SecurityContextHolder.getContext()
-                .setAuthentication(new AuthenticatedIdentity(actor, identidad.autenticacion(), autoridades));
-        conElCondominioEnElLog(condominio, peticion, respuesta, cadena);
+                .setAuthentication(new AuthenticatedIdentity(actor, identity.autenticacion(), authorities));
+        withCondominiumInTheLog(condominium, peticion, response, cadena);
     }
 
-    private static void conElCondominioEnElLog(
-            UUID condominio, HttpServletRequest peticion, HttpServletResponse respuesta, FilterChain cadena)
+    private static void withCondominiumInTheLog(
+            UUID condominium, HttpServletRequest peticion, HttpServletResponse response, FilterChain cadena)
             throws ServletException, IOException {
-        MDC.put(LogKeys.CONDOMINIO, condominio.toString());
+        MDC.put(LogKeys.CONDOMINIO, condominium.toString());
         try {
-            cadena.doFilter(peticion, respuesta);
+            cadena.doFilter(peticion, response);
         } finally {
             MDC.remove(LogKeys.CONDOMINIO);
         }
@@ -152,34 +152,34 @@ class CondominiumFilter extends OncePerRequestFilter {
             return encontrada != null && encontrada.status() == MembershipStatus.ACTIVE;
         }
 
-        MembershipView vista() {
+        MembershipView view() {
             return java.util.Objects.requireNonNull(encontrada);
         }
     }
 
-    private MembresiaVigente vigente(UUID condominio, UUID cuenta) {
-        return new MembresiaVigente(membresias.of(condominio, cuenta));
+    private MembresiaVigente current(UUID condominium, UUID account) {
+        return new MembresiaVigente(memberships.of(condominium, account));
     }
 
-    private static boolean esSuperadministrador(AuthenticatedIdentity identidad) {
+    private static boolean esSuperadministrador(AuthenticatedIdentity identity) {
         String deLaPlataforma = "ROLE_" + MembershipRole.PLATFORM_ADMIN.name();
-        return identidad.getAuthorities().stream()
+        return identity.getAuthorities().stream()
                 .anyMatch(autoridad -> deLaPlataforma.equals(autoridad.getAuthority()));
     }
 
-    private static @Nullable UUID condominioDe(String ruta) {
+    private static @Nullable UUID condominiumOf(String ruta) {
         var encontrado = RUTA_DE_CONDOMINIO.matcher(ruta);
         return encontrado.matches() ? UUID.fromString(encontrado.group(1)) : null;
     }
 
-    private static @Nullable AuthenticatedIdentity identidadActual() {
+    private static @Nullable AuthenticatedIdentity currentIdentity() {
         var autenticacion = SecurityContextHolder.getContext().getAuthentication();
-        return autenticacion instanceof AuthenticatedIdentity identidad ? identidad : null;
+        return autenticacion instanceof AuthenticatedIdentity identity ? identity : null;
     }
 
     /** Con el prefijo {@code ROLE_}, que es el que Spring quita al comparar con {@code hasRole}. */
-    private static List<SimpleGrantedAuthority> autoridadesDe(MembershipView membresia) {
-        return membresia.roles().stream()
+    private static List<SimpleGrantedAuthority> authoritiesOf(MembershipView membership) {
+        return membership.roles().stream()
                 .map(rol -> new SimpleGrantedAuthority("ROLE_" + rol.name()))
                 .toList();
     }

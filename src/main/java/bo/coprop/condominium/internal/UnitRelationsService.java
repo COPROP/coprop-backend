@@ -34,89 +34,89 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 class UnitRelationsService implements UnitRelations {
 
-    private final UnitRepository unidades;
-    private final UnitOwnershipRepository titularidades;
-    private final UnitOccupancyRepository ocupaciones;
-    private final BillingResponsibilityRepository responsabilidades;
+    private final UnitRepository units;
+    private final UnitOwnershipRepository ownerships;
+    private final UnitOccupancyRepository occupancies;
+    private final BillingResponsibilityRepository billingResponsibilities;
     private final ApplicationEventPublisher eventos;
-    private final Clock reloj;
+    private final Clock clock;
 
     UnitRelationsService(
-            UnitRepository unidades,
-            UnitOwnershipRepository titularidades,
-            UnitOccupancyRepository ocupaciones,
-            BillingResponsibilityRepository responsabilidades,
+            UnitRepository units,
+            UnitOwnershipRepository ownerships,
+            UnitOccupancyRepository occupancies,
+            BillingResponsibilityRepository billingResponsibilities,
             ApplicationEventPublisher eventos,
-            Clock reloj) {
-        this.unidades = unidades;
-        this.titularidades = titularidades;
-        this.ocupaciones = ocupaciones;
-        this.responsabilidades = responsabilidades;
+            Clock clock) {
+        this.units = units;
+        this.ownerships = ownerships;
+        this.occupancies = occupancies;
+        this.billingResponsibilities = billingResponsibilities;
         this.eventos = eventos;
-        this.reloj = reloj;
+        this.clock = clock;
     }
 
     @Override
     @Transactional
     public OwnershipView grantOwnership(
             UUID condominiumId, UUID unitId, UUID personId, BigDecimal share, String actor) {
-        exigirUnidadDelCondominio(condominiumId, unitId);
-        if (titularidades.existsByUnitIdAndPersonIdAndValidToIsNull(unitId, personId)) {
+        requireUnitOfCondominium(condominiumId, unitId);
+        if (ownerships.existsByUnitIdAndPersonIdAndValidToIsNull(unitId, personId)) {
             throw new BusinessRuleViolated(
                     "La persona %s ya es propietaria vigente de la unidad %s.".formatted(personId, unitId));
         }
 
-        Instant ahora = reloj.instant();
-        UnitOwnership titularidad =
-                titularidades.save(new UnitOwnership(condominiumId, unitId, personId, share, ahora));
+        Instant ahora = clock.instant();
+        UnitOwnership ownership = ownerships.save(new UnitOwnership(condominiumId, unitId, personId, share, ahora));
 
         eventos.publishEvent(new OwnershipGranted(condominiumId, unitId, personId, share, actor, ahora));
 
-        return vista(titularidad);
+        return view(ownership);
     }
 
     @Override
     @Transactional
     public OccupancyView grantOccupancy(
             UUID condominiumId, UUID unitId, UUID personId, OccupancyRole role, String actor) {
-        exigirUnidadDelCondominio(condominiumId, unitId);
-        if (ocupaciones.existsByUnitIdAndPersonIdAndValidToIsNull(unitId, personId)) {
+        requireUnitOfCondominium(condominiumId, unitId);
+        if (occupancies.existsByUnitIdAndPersonIdAndValidToIsNull(unitId, personId)) {
             throw new BusinessRuleViolated("La persona %s ya ocupa la unidad %s.".formatted(personId, unitId));
         }
 
-        Instant ahora = reloj.instant();
-        UnitOccupancy ocupacion = ocupaciones.save(new UnitOccupancy(condominiumId, unitId, personId, role, ahora));
+        Instant ahora = clock.instant();
+        UnitOccupancy occupancy = occupancies.save(new UnitOccupancy(condominiumId, unitId, personId, role, ahora));
 
         eventos.publishEvent(new OccupancyGranted(condominiumId, unitId, personId, role, actor, ahora));
 
-        return vista(ocupacion);
+        return view(occupancy);
     }
 
     @Override
     @Transactional
     public BillingResponsibilityView assignBilling(
             UUID condominiumId, UUID unitId, UUID personId, @Nullable UUID conceptId, String actor) {
-        exigirUnidadDelCondominio(condominiumId, unitId);
+        requireUnitOfCondominium(condominiumId, unitId);
 
         // El caso del responsable general, con concepto nulo, necesita su propia consulta: en SQL
         // la igualdad contra NULL no es cierta nunca, asi que preguntar con un parametro nulo no
         // encontraria la fila que si existe. En la base lo cubre NULLS NOT DISTINCT.
         boolean yaResponde = conceptId == null
-                ? responsabilidades.existsByUnitIdAndPersonIdAndConceptIdIsNullAndValidToIsNull(unitId, personId)
-                : responsabilidades.existsByUnitIdAndPersonIdAndConceptIdAndValidToIsNull(unitId, personId, conceptId);
+                ? billingResponsibilities.existsByUnitIdAndPersonIdAndConceptIdIsNullAndValidToIsNull(unitId, personId)
+                : billingResponsibilities.existsByUnitIdAndPersonIdAndConceptIdAndValidToIsNull(
+                        unitId, personId, conceptId);
         if (yaResponde) {
             throw new BusinessRuleViolated(
                     "La persona %s ya responde por ese concepto de la unidad %s.".formatted(personId, unitId));
         }
 
-        Instant ahora = reloj.instant();
-        BillingResponsibility responsabilidad =
-                responsabilidades.save(new BillingResponsibility(condominiumId, unitId, personId, conceptId, ahora));
+        Instant ahora = clock.instant();
+        BillingResponsibility billingResponsibility = billingResponsibilities.save(
+                new BillingResponsibility(condominiumId, unitId, personId, conceptId, ahora));
 
         eventos.publishEvent(
                 new BillingResponsibilityAssigned(condominiumId, unitId, personId, conceptId, actor, ahora));
 
-        return vista(responsabilidad);
+        return view(billingResponsibility);
     }
 
     /**
@@ -134,23 +134,23 @@ class UnitRelationsService implements UnitRelations {
     @Transactional
     public OwnershipView transferOwnership(
             UUID condominiumId, UUID unitId, UUID fromPersonId, UUID toPersonId, String actor) {
-        exigirUnidadDelCondominio(condominiumId, unitId);
+        requireUnitOfCondominium(condominiumId, unitId);
         if (fromPersonId.equals(toPersonId)) {
             throw new BusinessRuleViolated("Una unidad no se vende a su propio dueño.");
         }
-        UnitOwnership delVendedor = titularidades
+        UnitOwnership delVendedor = ownerships
                 .findByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(condominiumId, unitId, fromPersonId)
                 .orElseThrow(() -> ResourceNotFound.de("la titularidad vigente de la persona", fromPersonId));
         // Una venta a quien ya es copropietario cambia el reparto de la unidad, y eso no es esta
         // operacion: el porcentaje del comprador tendria que ser la suma de los dos, y aqui el que
         // se transfiere es el del vendedor. Se registra cerrando y abriendo a mano.
-        if (titularidades.existsByUnitIdAndPersonIdAndValidToIsNull(unitId, toPersonId)) {
+        if (ownerships.existsByUnitIdAndPersonIdAndValidToIsNull(unitId, toPersonId)) {
             throw new BusinessRuleViolated(
                     "La persona %s ya es propietaria vigente de la unidad %s; una venta entre copropietarios cambia el reparto y se registra titularidad por titularidad."
                             .formatted(toPersonId, unitId));
         }
 
-        Instant ahora = reloj.instant();
+        Instant ahora = clock.instant();
         BigDecimal porcentaje = delVendedor.getShare();
 
         delVendedor.close(ahora);
@@ -158,17 +158,17 @@ class UnitRelationsService implements UnitRelations {
         // acceso por igual, asi que dejar una abierta dejaria al vendedor viendo lo que ya no es
         // suyo, que es justo el criterio del issue.
         int cerradas = 1
-                + cerrarOcupacionSiLaHay(condominiumId, unitId, fromPersonId, ahora, actor)
-                + cerrarResponsabilidades(condominiumId, unitId, fromPersonId, ahora, actor);
-        titularidades.flush();
+                + closeOccupancyIfAny(condominiumId, unitId, fromPersonId, ahora, actor)
+                + closeBillingResponsibilities(condominiumId, unitId, fromPersonId, ahora, actor);
+        ownerships.flush();
 
         UnitOwnership delComprador =
-                titularidades.save(new UnitOwnership(condominiumId, unitId, toPersonId, porcentaje, ahora));
+                ownerships.save(new UnitOwnership(condominiumId, unitId, toPersonId, porcentaje, ahora));
 
         eventos.publishEvent(new OwnershipTransferred(
                 condominiumId, unitId, fromPersonId, toPersonId, porcentaje, cerradas, actor, ahora));
 
-        return vista(delComprador);
+        return view(delComprador);
     }
 
     /**
@@ -178,26 +178,28 @@ class UnitRelationsService implements UnitRelations {
      * lo mismo --alguien dejo de ocupar-- y la bitacora no tiene por que saber que fue a cuenta de
      * una venta. El evento de la venta ya cuenta cuantas relaciones se cerraron con ella.
      */
-    private int cerrarOcupacionSiLaHay(UUID condominiumId, UUID unitId, UUID personId, Instant ahora, String actor) {
-        return ocupaciones
+    private int closeOccupancyIfAny(UUID condominiumId, UUID unitId, UUID personId, Instant ahora, String actor) {
+        return occupancies
                 .findByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(condominiumId, unitId, personId)
-                .map(ocupacion -> {
-                    ocupacion.close(ahora);
+                .map(occupancy -> {
+                    occupancy.close(ahora);
                     eventos.publishEvent(
-                            new OccupancyEnded(condominiumId, unitId, personId, ocupacion.getRole(), actor, ahora));
+                            new OccupancyEnded(condominiumId, unitId, personId, occupancy.getRole(), actor, ahora));
                     return 1;
                 })
                 .orElse(0);
     }
 
     /** Cierra todas las responsabilidades de pago del vendedor sobre esa unidad. */
-    private int cerrarResponsabilidades(UUID condominiumId, UUID unitId, UUID personId, Instant ahora, String actor) {
-        List<BillingResponsibility> suyas = responsabilidades.findByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(
-                condominiumId, unitId, personId);
-        for (BillingResponsibility responsabilidad : suyas) {
-            responsabilidad.close(ahora);
+    private int closeBillingResponsibilities(
+            UUID condominiumId, UUID unitId, UUID personId, Instant ahora, String actor) {
+        List<BillingResponsibility> suyas =
+                billingResponsibilities.findByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(
+                        condominiumId, unitId, personId);
+        for (BillingResponsibility billingResponsibility : suyas) {
+            billingResponsibility.close(ahora);
             eventos.publishEvent(new BillingResponsibilityEnded(
-                    condominiumId, unitId, personId, responsabilidad.getConceptId(), actor, ahora));
+                    condominiumId, unitId, personId, billingResponsibility.getConceptId(), actor, ahora));
         }
         return suyas.size();
     }
@@ -205,31 +207,32 @@ class UnitRelationsService implements UnitRelations {
     @Override
     @Transactional
     public void endOccupancy(UUID condominiumId, UUID unitId, UUID personId, String actor) {
-        exigirUnidadDelCondominio(condominiumId, unitId);
-        UnitOccupancy ocupacion = ocupaciones
+        requireUnitOfCondominium(condominiumId, unitId);
+        UnitOccupancy occupancy = occupancies
                 .findByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(condominiumId, unitId, personId)
                 .orElseThrow(() -> ResourceNotFound.de("la ocupacion vigente de la persona", personId));
 
-        Instant ahora = reloj.instant();
-        ocupacion.close(ahora);
+        Instant ahora = clock.instant();
+        occupancy.close(ahora);
 
-        eventos.publishEvent(new OccupancyEnded(condominiumId, unitId, personId, ocupacion.getRole(), actor, ahora));
+        eventos.publishEvent(new OccupancyEnded(condominiumId, unitId, personId, occupancy.getRole(), actor, ahora));
     }
 
     @Override
     @Transactional
     public void endBilling(UUID condominiumId, UUID unitId, UUID personId, @Nullable UUID conceptId, String actor) {
-        exigirUnidadDelCondominio(condominiumId, unitId);
+        requireUnitOfCondominium(condominiumId, unitId);
         // Como en el alta, el caso del concepto nulo necesita su propia consulta.
-        BillingResponsibility responsabilidad = (conceptId == null
-                        ? responsabilidades.findByCondominiumIdAndUnitIdAndPersonIdAndConceptIdIsNullAndValidToIsNull(
-                                condominiumId, unitId, personId)
-                        : responsabilidades.findByCondominiumIdAndUnitIdAndPersonIdAndConceptIdAndValidToIsNull(
+        BillingResponsibility billingResponsibility = (conceptId == null
+                        ? billingResponsibilities
+                                .findByCondominiumIdAndUnitIdAndPersonIdAndConceptIdIsNullAndValidToIsNull(
+                                        condominiumId, unitId, personId)
+                        : billingResponsibilities.findByCondominiumIdAndUnitIdAndPersonIdAndConceptIdAndValidToIsNull(
                                 condominiumId, unitId, personId, conceptId))
                 .orElseThrow(() -> ResourceNotFound.de("la responsabilidad de pago vigente de la persona", personId));
 
-        Instant ahora = reloj.instant();
-        responsabilidad.close(ahora);
+        Instant ahora = clock.instant();
+        billingResponsibility.close(ahora);
 
         eventos.publishEvent(new BillingResponsibilityEnded(condominiumId, unitId, personId, conceptId, actor, ahora));
     }
@@ -244,17 +247,17 @@ class UnitRelationsService implements UnitRelations {
     @Override
     @Transactional(readOnly = true)
     public boolean isRelatedTo(UUID condominiumId, UUID unitId, UUID personId) {
-        return titularidades.existsByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(condominiumId, unitId, personId)
-                || ocupaciones.existsByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(
+        return ownerships.existsByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(condominiumId, unitId, personId)
+                || occupancies.existsByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(
                         condominiumId, unitId, personId)
-                || responsabilidades.existsByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(
+                || billingResponsibilities.existsByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(
                         condominiumId, unitId, personId);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<UUID> unitsOwnedBy(UUID condominiumId, UUID personId) {
-        return titularidades.findByCondominiumIdAndPersonIdAndValidToIsNull(condominiumId, personId).stream()
+        return ownerships.findByCondominiumIdAndPersonIdAndValidToIsNull(condominiumId, personId).stream()
                 .map(UnitOwnership::getUnitId)
                 .toList();
     }
@@ -262,7 +265,7 @@ class UnitRelationsService implements UnitRelations {
     @Override
     @Transactional(readOnly = true)
     public List<UUID> unitsOccupiedBy(UUID condominiumId, UUID personId) {
-        return ocupaciones.findByCondominiumIdAndPersonIdAndValidToIsNull(condominiumId, personId).stream()
+        return occupancies.findByCondominiumIdAndPersonIdAndValidToIsNull(condominiumId, personId).stream()
                 .map(UnitOccupancy::getUnitId)
                 .toList();
     }
@@ -270,7 +273,7 @@ class UnitRelationsService implements UnitRelations {
     @Override
     @Transactional(readOnly = true)
     public List<UUID> unitsBilledTo(UUID condominiumId, UUID personId) {
-        return responsabilidades.findByCondominiumIdAndPersonIdAndValidToIsNull(condominiumId, personId).stream()
+        return billingResponsibilities.findByCondominiumIdAndPersonIdAndValidToIsNull(condominiumId, personId).stream()
                 .map(BillingResponsibility::getUnitId)
                 .distinct()
                 .toList();
@@ -289,12 +292,12 @@ class UnitRelationsService implements UnitRelations {
 
         // Las unidades, en bloque y no una por una: una persona con veinte parqueos no puede costar
         // veinte consultas. Es el mismo criterio con el que el alta masiva comprueba los codigos.
-        return unidades.findAllById(relaciones.keySet()).stream()
-                .map(unidad -> new RelatedUnitView(
-                        unidad.getId(),
-                        unidad.getCode(),
-                        unidad.getType(),
-                        Set.copyOf(Objects.requireNonNull(relaciones.get(unidad.getId())))))
+        return units.findAllById(relaciones.keySet()).stream()
+                .map(unit -> new RelatedUnitView(
+                        unit.getId(),
+                        unit.getCode(),
+                        unit.getType(),
+                        Set.copyOf(Objects.requireNonNull(relaciones.get(unit.getId())))))
                 .sorted(Comparator.comparing(RelatedUnitView::code))
                 .toList();
     }
@@ -306,11 +309,10 @@ class UnitRelationsService implements UnitRelations {
      * papeles. Es {@code LinkedHashMap} para que el orden no dependa del hash, aunque despues se
      * ordene por codigo.
      */
-    private static void anotar(
-            Map<UUID, EnumSet<UnitRelation>> relaciones, List<UUID> unidades, UnitRelation relacion) {
-        for (UUID unidad : unidades) {
+    private static void anotar(Map<UUID, EnumSet<UnitRelation>> relaciones, List<UUID> units, UnitRelation relacion) {
+        for (UUID unit : units) {
             relaciones
-                    .computeIfAbsent(unidad, id -> EnumSet.noneOf(UnitRelation.class))
+                    .computeIfAbsent(unit, id -> EnumSet.noneOf(UnitRelation.class))
                     .add(relacion);
         }
     }
@@ -318,9 +320,9 @@ class UnitRelationsService implements UnitRelations {
     @Override
     @Transactional(readOnly = true)
     public List<OwnershipView> ownersOf(UUID condominiumId, UUID unitId) {
-        exigirUnidadDelCondominio(condominiumId, unitId);
-        return titularidades.findByCondominiumIdAndUnitIdAndValidToIsNull(condominiumId, unitId).stream()
-                .map(UnitRelationsService::vista)
+        requireUnitOfCondominium(condominiumId, unitId);
+        return ownerships.findByCondominiumIdAndUnitIdAndValidToIsNull(condominiumId, unitId).stream()
+                .map(UnitRelationsService::view)
                 .toList();
     }
 
@@ -333,11 +335,11 @@ class UnitRelationsService implements UnitRelations {
      * cualquier otro. La clave foranea compuesta de la base lo impediria, pero llegaria como un
      * choque de integridad en vez de un 404.
      */
-    private void exigirUnidadDelCondominio(UUID condominiumId, UUID unitId) {
-        boolean esDeEsteCondominio = unidades.findById(unitId)
-                .map(unidad -> unidad.getCondominiumId().equals(condominiumId))
+    private void requireUnitOfCondominium(UUID condominiumId, UUID unitId) {
+        boolean belongsToThisCondominium = units.findById(unitId)
+                .map(unit -> unit.getCondominiumId().equals(condominiumId))
                 .orElse(false);
-        if (!esDeEsteCondominio) {
+        if (!belongsToThisCondominium) {
             throw ResourceNotFound.de("la unidad", unitId);
         }
     }
@@ -345,38 +347,38 @@ class UnitRelationsService implements UnitRelations {
     @Override
     @Transactional(readOnly = true)
     public List<OwnershipView> ownershipHistoryOf(UUID condominiumId, UUID unitId) {
-        exigirUnidadDelCondominio(condominiumId, unitId);
-        return titularidades.findByCondominiumIdAndUnitIdOrderByValidFromDescIdDesc(condominiumId, unitId).stream()
-                .map(UnitRelationsService::vista)
+        requireUnitOfCondominium(condominiumId, unitId);
+        return ownerships.findByCondominiumIdAndUnitIdOrderByValidFromDescIdDesc(condominiumId, unitId).stream()
+                .map(UnitRelationsService::view)
                 .toList();
     }
 
-    private static OwnershipView vista(UnitOwnership titularidad) {
+    private static OwnershipView view(UnitOwnership ownership) {
         return new OwnershipView(
-                titularidad.getId(),
-                titularidad.getCondominiumId(),
-                titularidad.getUnitId(),
-                titularidad.getPersonId(),
-                titularidad.getShare(),
-                titularidad.getValidFrom(),
-                titularidad.getValidTo());
+                ownership.getId(),
+                ownership.getCondominiumId(),
+                ownership.getUnitId(),
+                ownership.getPersonId(),
+                ownership.getShare(),
+                ownership.getValidFrom(),
+                ownership.getValidTo());
     }
 
-    private static OccupancyView vista(UnitOccupancy ocupacion) {
+    private static OccupancyView view(UnitOccupancy occupancy) {
         return new OccupancyView(
-                ocupacion.getId(),
-                ocupacion.getCondominiumId(),
-                ocupacion.getUnitId(),
-                ocupacion.getPersonId(),
-                ocupacion.getRole());
+                occupancy.getId(),
+                occupancy.getCondominiumId(),
+                occupancy.getUnitId(),
+                occupancy.getPersonId(),
+                occupancy.getRole());
     }
 
-    private static BillingResponsibilityView vista(BillingResponsibility responsabilidad) {
+    private static BillingResponsibilityView view(BillingResponsibility billingResponsibility) {
         return new BillingResponsibilityView(
-                responsabilidad.getId(),
-                responsabilidad.getCondominiumId(),
-                responsabilidad.getUnitId(),
-                responsabilidad.getPersonId(),
-                responsabilidad.getConceptId());
+                billingResponsibility.getId(),
+                billingResponsibility.getCondominiumId(),
+                billingResponsibility.getUnitId(),
+                billingResponsibility.getPersonId(),
+                billingResponsibility.getConceptId());
     }
 }

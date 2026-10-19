@@ -38,7 +38,7 @@ class CondominiumsTests {
     private static final Instant AHORA = Instant.parse("2026-10-09T12:00:00Z");
 
     @Autowired
-    private Condominiums condominios;
+    private Condominiums condominiums;
 
     private static NewCondominium lasPalmas() {
         return new NewCondominium("Las Palmas", "1234567890", CondominiumType.BUILDING, "America/La_Paz", 1, 15);
@@ -47,7 +47,7 @@ class CondominiumsTests {
     @Test
     @DisplayName("un condominio se crea con su configuracion minima y en estado activo")
     void seCreaConSuConfiguracionMinima() {
-        CondominiumView creado = condominios.register(lasPalmas(), "emma");
+        CondominiumView creado = condominiums.register(lasPalmas(), "emma");
 
         assertThat(creado.id()).isNotNull();
         assertThat(creado.name()).isEqualTo("Las Palmas");
@@ -56,13 +56,13 @@ class CondominiumsTests {
         assertThat(creado.issueDay()).isEqualTo(1);
         assertThat(creado.dueDay()).isEqualTo(15);
 
-        assertThat(condominios.find(creado.id())).isEqualTo(creado);
+        assertThat(condominiums.find(creado.id())).isEqualTo(creado);
     }
 
     @Test
     @DisplayName("el alta publica el evento que auditara el #21, con actor y fecha")
     void elAltaQuedaAuditada(PublishedEvents eventos) {
-        CondominiumView creado = condominios.register(lasPalmas(), "emma");
+        CondominiumView creado = condominiums.register(lasPalmas(), "emma");
 
         assertThat(eventos.ofType(CondominiumRegistered.class)).singleElement().satisfies(evento -> {
             assertThat(evento.condominiumId()).isEqualTo(creado.id());
@@ -75,14 +75,14 @@ class CondominiumsTests {
     @Test
     @DisplayName("cambiar la configuracion no pisa la anterior: la cierra y abre otra")
     void cambiarLaConfiguracionNoPisaLaAnterior() {
-        CondominiumView creado = condominios.register(lasPalmas(), "emma");
+        CondominiumView creado = condominiums.register(lasPalmas(), "emma");
 
-        CondominiumView cambiado = condominios.changeConfig(creado.id(), 5, 20, "emma");
+        CondominiumView cambiado = condominiums.changeConfig(creado.id(), 5, 20, "emma");
 
         // Lo vigente es lo nuevo...
         assertThat(cambiado.issueDay()).isEqualTo(5);
         assertThat(cambiado.dueDay()).isEqualTo(20);
-        assertThat(condominios.find(creado.id()).issueDay()).isEqualTo(5);
+        assertThat(condominiums.find(creado.id()).issueDay()).isEqualTo(5);
 
         // ...y lo anterior sigue existiendo, cerrado. Esto es lo que hara que una obligacion
         // emitida con la configuracion vieja no cambie bajo los pies cuando llegue M2.
@@ -93,9 +93,9 @@ class CondominiumsTests {
     @Test
     @DisplayName("el cambio de configuracion dice quien lo hizo y desde que valores")
     void elCambioDeConfiguracionQuedaAuditado(PublishedEvents eventos) {
-        CondominiumView creado = condominios.register(lasPalmas(), "emma");
+        CondominiumView creado = condominiums.register(lasPalmas(), "emma");
 
-        condominios.changeConfig(creado.id(), 5, 20, "ana");
+        condominiums.changeConfig(creado.id(), 5, 20, "ana");
 
         // La fila cerrada ya dice cuando cambio; sin este evento no quedaria quien ni desde que
         // valores, y es el cambio que mueve los vencimientos y la mora (analisis 12.2).
@@ -115,9 +115,9 @@ class CondominiumsTests {
     @Test
     @DisplayName("dos condominios no pueden compartir NIT: serian el mismo ante la ley")
     void elNitEsUnico() {
-        condominios.register(lasPalmas(), "emma");
+        condominiums.register(lasPalmas(), "emma");
 
-        assertThatThrownBy(() -> condominios.register(lasPalmas(), "emma"))
+        assertThatThrownBy(() -> condominiums.register(lasPalmas(), "emma"))
                 .isInstanceOf(BusinessRuleViolated.class)
                 .hasMessageContaining("1234567890");
     }
@@ -125,7 +125,7 @@ class CondominiumsTests {
     @Test
     @DisplayName("un condominio que no existe da no encontrado, no un nulo")
     void elQueNoExisteDaNoEncontrado() {
-        assertThatThrownBy(() -> condominios.find(UUID.randomUUID())).isInstanceOf(ResourceNotFound.class);
+        assertThatThrownBy(() -> condominiums.find(UUID.randomUUID())).isInstanceOf(ResourceNotFound.class);
     }
 
     @Autowired
@@ -134,11 +134,11 @@ class CondominiumsTests {
     @Test
     @DisplayName("editar corrige nombre, NIT y direccion, y la direccion nace nula")
     void editarCorrigeLosTresDatos() {
-        CondominiumView creado = condominios.register(lasPalmas(), "emma");
+        CondominiumView creado = condominiums.register(lasPalmas(), "emma");
         assertThat(creado.address()).isNull();
 
         CondominiumView editado =
-                condominios.edit(creado.id(), "Las Palmas II", "9876543210", "Av. Ballivian 123", "emma");
+                condominiums.edit(creado.id(), "Las Palmas II", "9876543210", "Av. Ballivian 123", "emma");
 
         assertThat(editado.name()).isEqualTo("Las Palmas II");
         assertThat(editado.nit()).isEqualTo("9876543210");
@@ -149,15 +149,15 @@ class CondominiumsTests {
         assertThat(editado.status()).isEqualTo(creado.status());
         assertThat(editado.timeZone()).isEqualTo(creado.timeZone());
         assertThat(editado.issueDay()).isEqualTo(creado.issueDay());
-        assertThat(condominios.find(creado.id())).isEqualTo(editado);
+        assertThat(condominiums.find(creado.id())).isEqualTo(editado);
     }
 
     @Test
     @DisplayName("la edicion publica el evento con los tres campos de oldValues y los tres de newValues")
     void laEdicionQuedaAuditada(PublishedEvents eventos) {
-        CondominiumView creado = condominios.register(lasPalmas(), "emma");
+        CondominiumView creado = condominiums.register(lasPalmas(), "emma");
 
-        condominios.edit(creado.id(), "Las Palmas II", "9876543210", "Av. Ballivian 123", "ana");
+        condominiums.edit(creado.id(), "Las Palmas II", "9876543210", "Av. Ballivian 123", "ana");
 
         assertThat(eventos.ofType(CondominiumEdited.class)).singleElement().satisfies(evento -> {
             assertThat(evento.condominiumId()).isEqualTo(creado.id());
@@ -179,9 +179,9 @@ class CondominiumsTests {
     @Test
     @DisplayName("corregir solo el nombre, con su propio NIT, no choca consigo mismo")
     void mandarElMismoNitNoEsUnChoque() {
-        CondominiumView creado = condominios.register(lasPalmas(), "emma");
+        CondominiumView creado = condominiums.register(lasPalmas(), "emma");
 
-        CondominiumView editado = condominios.edit(creado.id(), "Las Palmas II", creado.nit(), null, "emma");
+        CondominiumView editado = condominiums.edit(creado.id(), "Las Palmas II", creado.nit(), null, "emma");
 
         assertThat(editado.name()).isEqualTo("Las Palmas II");
         assertThat(editado.nit()).isEqualTo(creado.nit());
@@ -190,20 +190,20 @@ class CondominiumsTests {
     @Test
     @DisplayName("el NIT de otro condominio se rechaza: dos con el mismo NIT serian el mismo")
     void elNitDeOtroSeRechaza() {
-        CondominiumView primero = condominios.register(lasPalmas(), "emma");
-        CondominiumView segundo = condominios.register(
+        CondominiumView primero = condominiums.register(lasPalmas(), "emma");
+        CondominiumView segundo = condominiums.register(
                 new NewCondominium("Bolivar", "5555555555", CondominiumType.HOUSES, "America/La_Paz", 3, 18), "emma");
 
-        assertThatThrownBy(() -> condominios.edit(segundo.id(), "Bolivar", primero.nit(), null, "emma"))
+        assertThatThrownBy(() -> condominiums.edit(segundo.id(), "Bolivar", primero.nit(), null, "emma"))
                 .isInstanceOf(BusinessRuleViolated.class);
 
-        assertThat(condominios.find(segundo.id()).nit()).isEqualTo("5555555555");
+        assertThat(condominiums.find(segundo.id()).nit()).isEqualTo("5555555555");
     }
 
     @Test
     @DisplayName("editar uno que no existe no crea nada: da ResourceNotFound")
     void editarUnoQueNoExisteFalla() {
-        assertThatThrownBy(() -> condominios.edit(UUID.randomUUID(), "Fantasma", "1111111111", null, "emma"))
+        assertThatThrownBy(() -> condominiums.edit(UUID.randomUUID(), "Fantasma", "1111111111", null, "emma"))
                 .isInstanceOf(ResourceNotFound.class);
     }
 

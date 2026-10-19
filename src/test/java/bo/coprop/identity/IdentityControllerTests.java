@@ -90,7 +90,7 @@ class IdentityControllerTests {
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.codigo").value("VALIDACION"))
-                .andExpect(jsonPath("$.errores[0].campo").value("firstNames"));
+                .andExpect(jsonPath("$.errores[0].field").value("firstNames"));
     }
 
     @Test
@@ -148,7 +148,7 @@ class IdentityControllerTests {
         mockMvc.perform(post("/api/v1/personas/" + personaId + "/cuenta")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"no-es-un-correo\"}"))
+                        .content("{\"email\":\"no-es-un-email\"}"))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.codigo").value("VALIDACION"));
     }
@@ -163,7 +163,7 @@ class IdentityControllerTests {
                         .content("{\"accountId\":\"%s\",\"roles\":[]}".formatted(UUID.randomUUID())))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.codigo").value("VALIDACION"))
-                .andExpect(jsonPath("$.errores[0].campo").value("roles"));
+                .andExpect(jsonPath("$.errores[0].field").value("roles"));
     }
 
     @Test
@@ -180,9 +180,9 @@ class IdentityControllerTests {
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.codigo").value("VALIDACION"))
-                .andExpect(jsonPath("$.errores[0].campo").value("roles[0]"))
-                .andExpect(jsonPath("$.errores[0].codigo").value("VALOR_NO_ADMITIDO"))
-                .andExpect(jsonPath("$.errores[0].mensaje").value(org.hamcrest.Matchers.containsString("OWNER")));
+                .andExpect(jsonPath("$.errores[0].field").value("roles[0]"))
+                .andExpect(jsonPath("$.errores[0].code").value("VALOR_NO_ADMITIDO"))
+                .andExpect(jsonPath("$.errores[0].message").value(org.hamcrest.Matchers.containsString("OWNER")));
     }
 
     @Test

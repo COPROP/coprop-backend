@@ -14,42 +14,42 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * El bean que responde a {@code @PreAuthorize("@autorizacion...")}.
+ * El bean que responde a {@code @PreAuthorize("@authorization...")}.
  *
  * <p>El nombre importa: es el que aparece en las anotaciones, que son cadenas y no las revisa el
  * compilador. Renombrarlo rompe la autorizacion de todos los endpoints a la vez y en ejecucion, no
  * al compilar, asi que se cambia a la vez que las anotaciones o no se cambia.
  */
-@Component("autorizacion")
+@Component("authorization")
 class AuthorizationService implements Authorization {
 
     /** El prefijo que Spring pone a las autoridades que vienen de un rol, y quita al compararlas. */
     private static final String PREFIJO = "ROLE_";
 
-    private final MembershipRepository membresias;
+    private final MembershipRepository memberships;
 
-    AuthorizationService(MembershipRepository membresias) {
-        this.membresias = membresias;
+    AuthorizationService(MembershipRepository memberships) {
+        this.memberships = memberships;
     }
 
     @Override
-    public Scope alcanceDe(Authentication quien, String permiso) {
-        return PermissionMatrix.alcanceDe(rolesDe(quien), permisoDe(permiso));
+    public Scope scopeOf(Authentication principal, String permission) {
+        return PermissionMatrix.scopeOf(rolesOf(principal), permissionOf(permission));
     }
 
     @Override
-    public boolean puede(Authentication quien, String permiso) {
-        return alcanceDe(quien, permiso) != Scope.NONE;
+    public boolean can(Authentication principal, String permission) {
+        return scopeOf(principal, permission) != Scope.NONE;
     }
 
     @Override
     @Transactional(readOnly = true)
-    public boolean puedeEnAlgunCondominio(Authentication quien, String nombre) {
-        Permission permiso = permisoDe(nombre);
+    public boolean canInAnyCondominium(Authentication principal, String name) {
+        Permission permission = permissionOf(name);
 
         // El superadministrador no necesita membresia: su rol es de plataforma y viaja en las
         // autoridades de cualquier peticion, tenga condominio o no.
-        if (PermissionMatrix.alcanceDe(rolesDe(quien), permiso) != Scope.NONE) {
+        if (PermissionMatrix.scopeOf(rolesOf(principal), permission) != Scope.NONE) {
             return true;
         }
 
@@ -58,23 +58,23 @@ class AuthorizationService implements Authorization {
         // asi la base responde con un EXISTS en vez de devolver filas.
         Set<MembershipRole> queLoDan = EnumSet.noneOf(MembershipRole.class);
         for (MembershipRole rol : MembershipRole.values()) {
-            if (PermissionMatrix.alcanceDe(rol, permiso) != Scope.NONE) {
+            if (PermissionMatrix.scopeOf(rol, permission) != Scope.NONE) {
                 queLoDan.add(rol);
             }
         }
-        return !queLoDan.isEmpty() && membresias.existeVigenteConAlgunRol(cuentaDe(quien), queLoDan);
+        return !queLoDan.isEmpty() && memberships.currentExistsWithAnyRole(accountOf(principal), queLoDan);
     }
 
     @Override
-    public boolean puedeConceder(Authentication quien, Set<MembershipRole> roles) {
+    public boolean canGrant(Authentication principal, Set<MembershipRole> roles) {
         if (roles.isEmpty()) {
             return false;
         }
-        Set<MembershipRole> suyos = rolesDe(quien);
-        if (PermissionMatrix.alcanceDe(suyos, Permission.INVITE_USERS) != Scope.NONE) {
+        Set<MembershipRole> suyos = rolesOf(principal);
+        if (PermissionMatrix.scopeOf(suyos, Permission.INVITE_USERS) != Scope.NONE) {
             return true;
         }
-        if (PermissionMatrix.alcanceDe(suyos, Permission.INVITE_ADMINS_ONLY) == Scope.NONE) {
+        if (PermissionMatrix.scopeOf(suyos, Permission.INVITE_ADMINS_ONLY) == Scope.NONE) {
             return false;
         }
         return roles.stream().allMatch(PermissionMatrix::esAdministrativo);
@@ -94,12 +94,12 @@ class AuthorizationService implements Authorization {
      */
     @Override
     @Transactional(readOnly = true)
-    public boolean puedeCambiar(Authentication quien, UUID condominiumId, UUID membershipId) {
-        Membership membresia = membresias
+    public boolean canChange(Authentication principal, UUID condominiumId, UUID membershipId) {
+        Membership membership = memberships
                 .findById(membershipId)
                 .filter(encontrada -> encontrada.getCondominiumId().equals(condominiumId))
                 .orElseThrow(() -> bo.coprop.shared.ResourceNotFound.de("la membresia", membershipId));
-        return puedeConceder(quien, membresia.getRoles());
+        return canGrant(principal, membership.getRoles());
     }
 
     /**
@@ -109,15 +109,15 @@ class AuthorizationService implements Authorization {
      * plataforma. Una autoridad que no corresponda a ningun rol del catalogo se ignora en vez de
      * reventar: no deberia existir, y si existe no es motivo para tumbar una peticion.
      */
-    private static Set<MembershipRole> rolesDe(Authentication quien) {
+    private static Set<MembershipRole> rolesOf(Authentication principal) {
         var roles = EnumSet.noneOf(MembershipRole.class);
-        for (GrantedAuthority autoridad : quien.getAuthorities()) {
-            String nombre = autoridad.getAuthority();
-            if (nombre == null || !nombre.startsWith(PREFIJO)) {
+        for (GrantedAuthority autoridad : principal.getAuthorities()) {
+            String name = autoridad.getAuthority();
+            if (name == null || !name.startsWith(PREFIJO)) {
                 continue;
             }
             try {
-                roles.add(MembershipRole.valueOf(nombre.substring(PREFIJO.length())));
+                roles.add(MembershipRole.valueOf(name.substring(PREFIJO.length())));
             } catch (IllegalArgumentException noEsUnRol) {
                 // Ignorada a proposito.
             }
@@ -125,15 +125,15 @@ class AuthorizationService implements Authorization {
         return roles;
     }
 
-    private static UUID cuentaDe(Authentication quien) {
-        return UUID.fromString(quien.getName());
+    private static UUID accountOf(Authentication principal) {
+        return UUID.fromString(principal.getName());
     }
 
     /**
      * Un permiso que no existe es un error de programacion --la anotacion lo escribe a mano-- y
      * tiene que reventar en el primer test que toque ese endpoint, no denegar en silencio.
      */
-    private static Permission permisoDe(String nombre) {
-        return Permission.valueOf(nombre);
+    private static Permission permissionOf(String name) {
+        return Permission.valueOf(name);
     }
 }

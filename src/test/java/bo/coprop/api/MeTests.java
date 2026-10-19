@@ -54,19 +54,19 @@ class MeTests {
     private MockMvc mockMvc;
 
     @Autowired
-    private Condominiums condominios;
+    private Condominiums condominiums;
 
     @Autowired
-    private Units unidades;
+    private Units units;
 
     @Autowired
     private UnitRelations relaciones;
 
     @Autowired
-    private People personas;
+    private People people;
 
     @Autowired
-    private Memberships membresias;
+    private Memberships memberships;
 
     @Autowired
     private DataSource dataSource;
@@ -77,20 +77,20 @@ class MeTests {
         UUID aurora = condominioLlamado("Aurora");
         UUID bolivar = condominioLlamado("Bolivar");
         Quien emma = cuentaNueva();
-        membresias.grant(aurora, emma.cuenta(), Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
-        membresias.grant(bolivar, emma.cuenta(), Set.of(MembershipRole.OWNER, MembershipRole.BOARD), null, "admin");
+        memberships.grant(aurora, emma.account(), Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
+        memberships.grant(bolivar, emma.account(), Set.of(MembershipRole.OWNER, MembershipRole.BOARD), null, "admin");
 
         mockMvc.perform(get(ME).header(HttpHeaders.AUTHORIZATION, emma.token()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.condominios.length()").value(2))
+                .andExpect(jsonPath("$.condominiums.length()").value(2))
                 // Ordenados por nombre, no por el orden en que se concedieron las membresias.
-                .andExpect(jsonPath("$.condominios[0].condominio.name").value("Aurora"))
-                .andExpect(jsonPath("$.condominios[0].roles").value("CONDO_ADMIN"))
-                .andExpect(jsonPath("$.condominios[1].condominio.name").value("Bolivar"))
-                .andExpect(jsonPath("$.condominios[1].roles.length()").value(2))
-                .andExpect(jsonPath("$.persona.firstNames").value("Emma"))
-                .andExpect(jsonPath("$.cuenta.email").value(emma.correo()))
-                .andExpect(jsonPath("$.administraLaPlataforma").value(false));
+                .andExpect(jsonPath("$.condominiums[0].condominium.name").value("Aurora"))
+                .andExpect(jsonPath("$.condominiums[0].roles").value("CONDO_ADMIN"))
+                .andExpect(jsonPath("$.condominiums[1].condominium.name").value("Bolivar"))
+                .andExpect(jsonPath("$.condominiums[1].roles.length()").value(2))
+                .andExpect(jsonPath("$.person.firstNames").value("Emma"))
+                .andExpect(jsonPath("$.account.email").value(emma.email()))
+                .andExpect(jsonPath("$.managesThePlatform").value(false));
     }
 
     @Test
@@ -99,7 +99,7 @@ class MeTests {
         UUID propio = condominioLlamado("Propio");
         UUID ajeno = condominioLlamado("Ajeno");
         Quien emma = cuentaNueva();
-        membresias.grant(propio, emma.cuenta(), Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
+        memberships.grant(propio, emma.account(), Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
 
         mockMvc.perform(get("/api/v1/condominios/" + ajeno).header(HttpHeaders.AUTHORIZATION, emma.token()))
                 .andExpect(status().isNotFound())
@@ -116,34 +116,34 @@ class MeTests {
         UUID propio = condominioLlamado("Propio");
         condominioLlamado("Del vecino");
         Quien emma = cuentaNueva();
-        membresias.grant(propio, emma.cuenta(), Set.of(MembershipRole.OWNER), null, "admin");
+        memberships.grant(propio, emma.account(), Set.of(MembershipRole.OWNER), null, "admin");
 
         // El 404 del criterio tapa el condominio cuando se pide por su ruta. Aqui no hay ruta que
         // tapar: si este endpoint devolviera de mas, enumeraria la plataforma entera de una vez.
         mockMvc.perform(get(ME).header(HttpHeaders.AUTHORIZATION, emma.token()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.condominios.length()").value(1))
-                .andExpect(jsonPath("$.condominios[0].condominio.id").value(propio.toString()));
+                .andExpect(jsonPath("$.condominiums.length()").value(1))
+                .andExpect(jsonPath("$.condominiums[0].condominium.id").value(propio.toString()));
     }
 
     @Test
     @DisplayName("Una membresia suspendida no se lista")
     void unaMembresiaSuspendidaNoSeLista() throws Exception {
-        UUID condominio = condominioLlamado("Suspendido");
+        UUID condominium = condominioLlamado("Suspendido");
         Quien emma = cuentaNueva();
-        UUID membresia = membresias
-                .grant(condominio, emma.cuenta(), Set.of(MembershipRole.OWNER), null, "admin")
+        UUID membership = memberships
+                .grant(condominium, emma.account(), Set.of(MembershipRole.OWNER), null, "admin")
                 .id();
 
         // Por SQL porque suspender es una operacion del issue #19 y todavia no existe. Lo que se
         // prueba no es como se suspende, sino que una suspendida no se ofrezca en el selector: el
         // filtro de aislamiento le responderia 404 a todo lo de ese condominio.
         new JdbcTemplate(dataSource)
-                .update("update membership set status = ? where id = ?", MembershipStatus.SUSPENDED.name(), membresia);
+                .update("update membership set status = ? where id = ?", MembershipStatus.SUSPENDED.name(), membership);
 
         mockMvc.perform(get(ME).header(HttpHeaders.AUTHORIZATION, emma.token()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.condominios").isEmpty());
+                .andExpect(jsonPath("$.condominiums").isEmpty());
     }
 
     @Test
@@ -157,34 +157,33 @@ class MeTests {
         // es justo quien tiene que poder crear el primero.
         mockMvc.perform(get(ME).header(HttpHeaders.AUTHORIZATION, recienLlegada.token()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.condominios").isEmpty())
-                .andExpect(
-                        jsonPath("$.persona.id").value(recienLlegada.persona().toString()));
+                .andExpect(jsonPath("$.condominiums").isEmpty())
+                .andExpect(jsonPath("$.person.id").value(recienLlegada.person().toString()));
     }
 
     @Test
     @DisplayName("Cada unidad aparece una vez con todos sus papeles")
     void cadaUnidadApareceUnaVezConTodosSusPapeles() throws Exception {
-        UUID condominio = condominioLlamado("Con unidades");
+        UUID condominium = condominioLlamado("Con unidades");
         Quien emma = cuentaNueva();
-        membresias.grant(condominio, emma.cuenta(), Set.of(MembershipRole.OWNER), null, "admin");
-        UUID suya = unidad(condominio, "A-1");
-        UUID queOcupa = unidad(condominio, "B-2");
+        memberships.grant(condominium, emma.account(), Set.of(MembershipRole.OWNER), null, "admin");
+        UUID suya = unit(condominium, "A-1");
+        UUID queOcupa = unit(condominium, "B-2");
 
         // El reparto normal de un alquiler: de la suya es propietaria y responde por los cobros; la
         // otra solo la ocupa.
-        relaciones.grantOwnership(condominio, suya, emma.persona(), new BigDecimal("100.00"), "admin");
-        relaciones.assignBilling(condominio, suya, emma.persona(), null, "admin");
-        relaciones.grantOccupancy(condominio, queOcupa, emma.persona(), OccupancyRole.TENANT, "admin");
+        relaciones.grantOwnership(condominium, suya, emma.person(), new BigDecimal("100.00"), "admin");
+        relaciones.assignBilling(condominium, suya, emma.person(), null, "admin");
+        relaciones.grantOccupancy(condominium, queOcupa, emma.person(), OccupancyRole.TENANT, "admin");
 
         mockMvc.perform(get(ME).header(HttpHeaders.AUTHORIZATION, emma.token()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.condominios[0].unidades.length()").value(2))
-                .andExpect(jsonPath("$.condominios[0].unidades[0].code").value("A-1"))
-                .andExpect(jsonPath("$.condominios[0].unidades[0].relations.length()")
+                .andExpect(jsonPath("$.condominiums[0].units.length()").value(2))
+                .andExpect(jsonPath("$.condominiums[0].units[0].code").value("A-1"))
+                .andExpect(jsonPath("$.condominiums[0].units[0].relations.length()")
                         .value(2))
-                .andExpect(jsonPath("$.condominios[0].unidades[1].code").value("B-2"))
-                .andExpect(jsonPath("$.condominios[0].unidades[1].relations").value("OCCUPANT"));
+                .andExpect(jsonPath("$.condominiums[0].units[1].code").value("B-2"))
+                .andExpect(jsonPath("$.condominiums[0].units[1].relations").value("OCCUPANT"));
     }
 
     @Test
@@ -193,33 +192,33 @@ class MeTests {
         UUID uno = condominioLlamado("Uno");
         UUID otro = condominioLlamado("Otro");
         Quien emma = cuentaNueva();
-        membresias.grant(uno, emma.cuenta(), Set.of(MembershipRole.OWNER), null, "admin");
-        membresias.grant(otro, emma.cuenta(), Set.of(MembershipRole.OWNER), null, "admin");
-        relaciones.grantOwnership(uno, unidad(uno, "U-1"), emma.persona(), new BigDecimal("100.00"), "admin");
+        memberships.grant(uno, emma.account(), Set.of(MembershipRole.OWNER), null, "admin");
+        memberships.grant(otro, emma.account(), Set.of(MembershipRole.OWNER), null, "admin");
+        relaciones.grantOwnership(uno, unit(uno, "U-1"), emma.person(), new BigDecimal("100.00"), "admin");
 
         mockMvc.perform(get(ME).header(HttpHeaders.AUTHORIZATION, emma.token()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.condominios[0].condominio.name").value("Otro"))
-                .andExpect(jsonPath("$.condominios[0].unidades").isEmpty())
-                .andExpect(jsonPath("$.condominios[1].condominio.name").value("Uno"))
-                .andExpect(jsonPath("$.condominios[1].unidades[0].code").value("U-1"));
+                .andExpect(jsonPath("$.condominiums[0].condominium.name").value("Otro"))
+                .andExpect(jsonPath("$.condominiums[0].units").isEmpty())
+                .andExpect(jsonPath("$.condominiums[1].condominium.name").value("Uno"))
+                .andExpect(jsonPath("$.condominiums[1].units[0].code").value("U-1"));
     }
 
     @Test
     @DisplayName("El superadministrador se anuncia aparte y no como rol de un condominio")
     void elSuperadministradorSeAnunciaAparteYNoComoRolDeUnCondominio() throws Exception {
-        UUID condominio = condominioLlamado("De la plataforma");
-        Quien quien = cuentaNueva();
+        UUID condominium = condominioLlamado("De la plataforma");
+        Quien principal = cuentaNueva();
         new JdbcTemplate(dataSource)
-                .update("insert into platform_admin (user_id, granted_at) values (?, now())", quien.cuenta());
-        membresias.grant(condominio, quien.cuenta(), Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
+                .update("insert into platform_admin (user_id, granted_at) values (?, now())", principal.account());
+        memberships.grant(condominium, principal.account(), Set.of(MembershipRole.CONDO_ADMIN), null, "admin");
 
         // Aparte y no dentro de los roles del condominio: su alcance es la plataforma (Seguridad 3),
         // y meterlo ahi le haria creer al cliente que ese condominio se lo concedio.
-        mockMvc.perform(get(ME).header(HttpHeaders.AUTHORIZATION, quien.token()))
+        mockMvc.perform(get(ME).header(HttpHeaders.AUTHORIZATION, principal.token()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.administraLaPlataforma").value(true))
-                .andExpect(jsonPath("$.condominios[0].roles").value("CONDO_ADMIN"));
+                .andExpect(jsonPath("$.managesThePlatform").value(true))
+                .andExpect(jsonPath("$.condominiums[0].roles").value("CONDO_ADMIN"));
     }
 
     @Test
@@ -245,27 +244,27 @@ class MeTests {
     }
 
     /** Una cuenta recien abierta, con su persona y el token con el que entra. */
-    private record Quien(UUID persona, UUID cuenta, String correo, String token) {}
+    private record Quien(UUID person, UUID account, String email, String token) {}
 
     private Quien cuentaNueva() {
-        PersonView persona = personas.register(new NewPerson("Emma", "Tola", null), "admin");
-        AccountView cuenta = personas.openAccount(persona.id(), TestTokenProvider.correoNuevo(), null, "admin");
-        String token = "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), cuenta.email());
-        return new Quien(persona.id(), cuenta.id(), cuenta.email(), token);
+        PersonView person = people.register(new NewPerson("Emma", "Tola", null), "admin");
+        AccountView account = people.openAccount(person.id(), TestTokenProvider.correoNuevo(), null, "admin");
+        String token = "Bearer " + TestTokenProvider.valido(TestTokenProvider.sujetoNuevo(), account.email());
+        return new Quien(person.id(), account.id(), account.email(), token);
     }
 
-    private UUID condominioLlamado(String nombre) {
-        return condominios
+    private UUID condominioLlamado(String name) {
+        return condominiums
                 .register(
-                        new NewCondominium(nombre, nitNuevo(), CondominiumType.BUILDING, "America/La_Paz", 5, 10),
+                        new NewCondominium(name, nitNuevo(), CondominiumType.BUILDING, "America/La_Paz", 5, 10),
                         "admin")
                 .id();
     }
 
-    private UUID unidad(UUID condominio, String codigo) {
-        return unidades.register(
-                        condominio,
-                        new NewUnit(codigo, UnitType.APARTMENT, new BigDecimal("1.000000"), null, null, null),
+    private UUID unit(UUID condominium, String code) {
+        return units.register(
+                        condominium,
+                        new NewUnit(code, UnitType.APARTMENT, new BigDecimal("1.000000"), null, null, null),
                         "admin")
                 .id();
     }

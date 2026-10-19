@@ -30,7 +30,7 @@ class PlatformBootstrapTests {
     private static final String CORREO = "dev@coprop.local";
 
     @Autowired
-    private Identities identidades;
+    private Identities identities;
 
     @Autowired
     private DataSource dataSource;
@@ -46,7 +46,7 @@ class PlatformBootstrapTests {
     @Test
     @DisplayName("al arrancar sin superadministradores se abre el primero, con su persona y su cuenta")
     void alArrancarSeAbreElPrimero() {
-        assertThat(identidades.esSuperadministrador(cuentaDelCorreoInicial())).isTrue();
+        assertThat(identities.esSuperadministrador(cuentaDelCorreoInicial())).isTrue();
     }
 
     @Test
@@ -55,10 +55,10 @@ class PlatformBootstrapTests {
         // No crea credenciales ni toca el proveedor de identidad. Alguien tiene que entrar con ese
         // correo para que la cuenta se vincule, que es lo que ya hace el issue #13.
         var jdbc = new JdbcTemplate(dataSource);
-        String estado = jdbc.queryForObject(
+        String status = jdbc.queryForObject(
                 "select status from user_account where lower(email) = lower(?)", String.class, CORREO);
 
-        assertThat(estado).isEqualTo(AccountStatus.INVITED.name());
+        assertThat(status).isEqualTo(AccountStatus.INVITED.name());
     }
 
     @Test

@@ -29,8 +29,8 @@ final class ProblemCatalog {
      * deja de compilar en vez de devolver null en produccion. Lo señalo NullAway al introducir el
      * analisis estatico, sobre la version con mapa.
      */
-    static HttpStatus estadoDe(ErrorCode codigo) {
-        return switch (codigo) {
+    static HttpStatus statusOf(ErrorCode code) {
+        return switch (code) {
             case VALIDACION, REGLA_DE_NEGOCIO -> HttpStatus.UNPROCESSABLE_CONTENT;
             case CUERPO_ILEGIBLE -> HttpStatus.BAD_REQUEST;
             case NO_ENCONTRADO -> HttpStatus.NOT_FOUND;
@@ -48,21 +48,21 @@ final class ProblemCatalog {
      * Construye el cuerpo problem+json. El {@code traceId} entra siempre que exista: es lo
      * que permite a soporte buscar en los logs el identificador que le reporta un usuario.
      */
-    static ProblemDetail problema(ErrorCode codigo, String detalle, String ruta) {
-        ProblemDetail problema = ProblemDetail.forStatusAndDetail(estadoDe(codigo), detalle);
-        problema.setType(URI.create(BASE_DE_TIPOS + identificadorDe(codigo)));
-        problema.setTitle(tituloDe(codigo));
+    static ProblemDetail problema(ErrorCode code, String detalle, String ruta) {
+        ProblemDetail problema = ProblemDetail.forStatusAndDetail(statusOf(code), detalle);
+        problema.setType(URI.create(BASE_DE_TIPOS + identificadorDe(code)));
+        problema.setTitle(tituloDe(code));
         problema.setInstance(URI.create(ruta));
-        problema.setProperty("codigo", codigo.name());
-        String traza = MDC.get(LogKeys.TRAZA);
-        if (traza != null) {
-            problema.setProperty("traceId", traza);
+        problema.setProperty("codigo", code.name());
+        String trace = MDC.get(LogKeys.TRAZA);
+        if (trace != null) {
+            problema.setProperty("traceId", trace);
         }
         return problema;
     }
 
-    private static String tituloDe(ErrorCode codigo) {
-        return switch (codigo) {
+    private static String tituloDe(ErrorCode code) {
+        return switch (code) {
             case VALIDACION -> "La solicitud no es valida";
             case CUERPO_ILEGIBLE -> "No se pudo leer el cuerpo de la solicitud";
             case NO_ENCONTRADO -> "No se encontro el recurso";
@@ -83,7 +83,7 @@ final class ProblemCatalog {
      * baja a {@code "i"} sino a un caracter distinto, y el {@code type} del error cambiaria segun
      * la maquina donde corra el servidor.
      */
-    private static String identificadorDe(ErrorCode codigo) {
-        return codigo.name().toLowerCase(Locale.ROOT).replace('_', '-');
+    private static String identificadorDe(ErrorCode code) {
+        return code.name().toLowerCase(Locale.ROOT).replace('_', '-');
     }
 }

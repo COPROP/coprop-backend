@@ -35,7 +35,7 @@ import java.util.Set;
  *     condominio, asi que ofrecerlo en el selector seria ofrecer una puerta cerrada
  */
 public record MyProfile(
-        PersonView persona, AccountView cuenta, boolean administraLaPlataforma, List<MiCondominio> condominios) {
+        PersonView person, AccountView account, boolean managesThePlatform, List<MyCondominium> condominiums) {
 
     /**
      * Un condominio al que entro, con lo que es suyo dentro.
@@ -45,5 +45,5 @@ public record MyProfile(
      * @param unidades las unidades con las que tiene alguna relacion vigente. Vacio para quien
      *     administra y no es propietario, que es lo normal
      */
-    public record MiCondominio(CondominiumView condominio, Set<MembershipRole> roles, List<RelatedUnitView> unidades) {}
+    public record MyCondominium(CondominiumView condominium, Set<MembershipRole> roles, List<RelatedUnitView> units) {}
 }

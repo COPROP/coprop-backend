@@ -45,13 +45,13 @@ interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
               and a.occurredAt >= :desde
               and a.occurredAt < :hasta
             """)
-    Page<AuditLog> buscar(
-            @Param("condominio") UUID condominio,
+    Page<AuditLog> find(
+            @Param("condominio") UUID condominium,
             @Param("actor") @Nullable String actor,
             @Param("entity") @Nullable String entity,
             @Param("desde") Instant desde,
-            @Param("hasta") Instant hasta,
-            Pageable pagina);
+            @Param("hasta") Instant until,
+            Pageable page);
 
     /**
      * Las filas que no cuelgan de ningun condominio: la bitacora de plataforma del issue #20.
@@ -70,10 +70,10 @@ interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
               and a.occurredAt >= :desde
               and a.occurredAt < :hasta
             """)
-    Page<AuditLog> buscarDePlataforma(
+    Page<AuditLog> findPlatformEntries(
             @Param("actor") @Nullable String actor,
             @Param("entity") @Nullable String entity,
             @Param("desde") Instant desde,
-            @Param("hasta") Instant hasta,
-            Pageable pagina);
+            @Param("hasta") Instant until,
+            Pageable page);
 }

@@ -23,7 +23,7 @@ public interface Condominiums {
      * @param actor quien lo da de alta, para la bitacora
      * @throws bo.coprop.shared.BusinessRuleViolated si ya existe un condominio con ese NIT
      */
-    CondominiumView register(NewCondominium nuevo, String actor);
+    CondominiumView register(NewCondominium body, String actor);
 
     /**
      * Cambia el dia de emision y el de vencimiento.

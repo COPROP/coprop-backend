@@ -37,8 +37,8 @@ public interface Mail {
     /** No se pudo entregar el correo al servidor. */
     class FalloDeEnvio extends RuntimeException {
 
-        public FalloDeEnvio(String mensaje, Throwable causa) {
-            super(mensaje, causa);
+        public FalloDeEnvio(String message, Throwable causa) {
+            super(message, causa);
         }
     }
 }
