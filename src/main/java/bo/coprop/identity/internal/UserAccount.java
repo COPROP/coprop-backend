@@ -79,9 +79,9 @@ class UserAccount {
      * Primer login: ata la cuenta al sujeto del proveedor de identidad y la activa.
      *
      * <p>El vinculo es para siempre. Si alguna vez hiciera falta rehacerlo --una cuenta de Keycloak
-     * recreada-- tendra que ser una operacion explicita y no un efecto de entrar. <strong>No tiene
-     * ticket todavia</strong>: se le atribuia al issue #19, que resulto ser de la membresia y no de
-     * la cuenta, y de momento nadie lo ha pedido.
+     * recreada-- tendra que ser una operacion explicita y no un efecto de entrar. <strong>Es parte
+     * del issue #86</strong>, que recoge el ciclo de vida de la credencial; se le atribuia al #19,
+     * que resulto ser de la membresia y no de la cuenta.
      */
     void vincular(String idpSubject, Instant cuando) {
         this.idpSubject = idpSubject;

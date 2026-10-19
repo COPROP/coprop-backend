@@ -26,8 +26,10 @@ public enum Permiso {
      * Acceder a los datos de un condominio para dar soporte.
      *
      * <p>Seguridad 10.1 lo acota: con motivo registrado y acceso temporal, visible para el
-     * administrador del condominio. El motivo y la caducidad son del issue <strong>#21</strong>,
-     * que es quien trae la bitacora; aqui solo vive quien puede.
+     * administrador del condominio. <strong>Eso no existe todavia y no tiene ticket.</strong> Se le
+     * atribuia al issue #21, que trajo la bitacora y cerro sin el motivo ni la caducidad, asi que la
+     * referencia quedo colgada. Hoy el acceso de soporte no tiene entidad ni endpoint: el permiso
+     * solo vive aqui y en {@link MatrizDePermisos}, donde dice quien puede y nada mas.
      */
     ACCESS_FOR_SUPPORT,
 
