@@ -21,7 +21,7 @@ no declaró, el build falla.
 | `billing` | `PaymentObligation` y su máquina de estados; expensas, agua, mora. | `shared`, `condominium`, `identity` |
 | `payments` | Intents, QR, inbox de eventos, registro y aplicación de pagos, conciliación. | `shared`, `billing`, `condominium` |
 | `notifications` | Envío de avisos. Solo correo en el MVP. | `shared` |
-| `audit` | Bitácora inmutable append-only, retención de un año. Escucha `EventoAuditable`. | `shared` |
+| `audit` | Bitácora inmutable append-only, retención de un año. Escucha `AuditableEvent`. | `shared` |
 
 ## Reglas de dependencia
 
@@ -31,7 +31,7 @@ no declaró, el build falla.
 
 2. **`identity` no depende de `condominium`.** Su única dependencia, desde el #18, es
    `notifications`: el correo de una invitación lleva su token, y como los eventos se persisten, no
-   puede viajar en uno —lo envía quien lo tiene en memoria, por el puerto `Correo`—. Referencia al
+   puede viajar en uno —lo envía quien lo tiene en memoria, por el puerto `Mail`—. Referencia al
    condominio por identificador, no por entidad. Una persona tiene una sola cuenta y una membresía por condominio (Seguridad §2), y
    esa relación se resuelve por id.
 
@@ -55,11 +55,11 @@ no declaró, el build falla.
    Eso no sale gratis: **para escuchar un evento hace falta su tipo**, así que escuchar
    `MembershipGranted` obligaría a depender de `identity`, y después de `condominium`, y de cada
    módulo que naciera. La salida, desde el **#21**, es que lo que se escucha sea una interfaz de
-   `shared` —`EventoAuditable`—: los dos lados miran a `shared` y ninguno al otro. Con eso,
+   `shared` —`AuditableEvent`—: los dos lados miran a `shared` y ninguno al otro. Con eso,
    **implementar la interfaz *es* la declaración de que un evento es auditable**; no hay lista en
    ninguna parte.
 
-   `notifications` empezó igual y **ya no**: desde el #18 publica el puerto `Correo` y `identity`
+   `notifications` empezó igual y **ya no**: desde el #18 publica el puerto `Mail` y `identity`
    lo declara, porque el correo de una invitación lleva su token y los eventos se persisten. El
    porqué está en su `package-info` y en *Cómo entra alguien*.
 
@@ -71,7 +71,7 @@ no declaró, el build falla.
 6. **`api` depende del dominio; el dominio nunca de `api`.** La traducción a HTTP —el formato de
    error, los estados, el sobre de paginación— vive solo ahí. Un módulo de dominio que importara
    `api` arrastraría HTTP hasta las reglas de negocio y rompería la extracción de `payments`. Por
-   eso `@ControladorDeApi`, que un controlador de cualquier módulo necesita, está en `shared` y no
+   eso `@ApiController`, que un controlador de cualquier módulo necesita, está en `shared` y no
    en `api`.
 
    `api` declara `identity` desde el #13 y **`condominium` desde el #14**. Ese segundo salió de
@@ -82,13 +82,13 @@ no declaró, el build falla.
    dominio ya publica es la dirección que esta regla permite y no relaja ningún límite: lo que
    sigue prohibido —y lo verifica `ModularityTests`— es que un dominio importe al otro o a `api`.
 
-   Desde el **#15** vive aquí por lo mismo `ControlDeAcceso`, la cadena de autorización completa: la
+   Desde el **#15** vive aquí por lo mismo `AccessControl`, la cadena de autorización completa: la
    matriz de permisos es de `identity` y las relaciones de la unidad son de `condominium`, y hace
    falta mirar las dos a la vez. Los controladores de los dos dominios lo invocan por nombre de bean
    desde `@PreAuthorize`, así que ninguno lo importa.
 
    Desde el **#19** hay un caso en la dirección contraria y **no es una excepción, es la inversión de
-   siempre**: `identity` declara el puerto `Sesiones` y `api` lo implementa con `SesionesDelBff`. La
+   siempre**: `identity` declara el puerto `Sessions` y `api` lo implementa con `BffSessions`. La
    baja de una membresía tiene que poder cerrar la sesión del BFF, que vive aquí —la gobierna la
    cadena de seguridad y su tabla la crea la V6 para Spring Session—, y el dominio no puede mirar
    hacia `api`. Declarar arriba y conectar abajo es lo que esta regla permite; la flecha sigue
@@ -115,9 +115,9 @@ versión tocan todos los endpoints, y cambiarlos después obliga a reescribirlos
 ### Rutas y versión
 
 Las rutas van bajo `/api/v1`. **El controlador no lo escribe**: lo antepone
-`ConfiguracionDeRutas` a toda clase anotada con `@ControladorDeApi`, así que un controlador
-declara `@RequestMapping("/condominios/{condominioId}/unidades")` y queda servido en
-`/api/v1/condominios/{condominioId}/unidades`. Lo que no es API versionada —el receptor de
+`RoutesConfiguration` a toda clase anotada con `@ApiController`, así que un controlador
+declara `@RequestMapping("/condominiums/{condominiumId}/units")` y queda servido en
+`/api/v1/condominiums/{condominiumId}/units`. Lo que no es API versionada —el receptor de
 webhooks— no lleva la anotación y escribe su ruta entera.
 
 La anotación vive en `shared` y no en `api` para no invertir la dirección de dependencia: un
@@ -133,25 +133,25 @@ tres extensiones:
 
 | Campo | Para qué |
 |---|---|
-| `codigo` | La parte estable del contrato. El cliente ramifica por él, nunca por `title` ni por `detail`, que pueden cambiar sin aviso. |
+| `code` | La parte estable del contrato. El cliente ramifica por él, nunca por `title` ni por `detail`, que pueden cambiar sin aviso. |
 | `traceId` | El mismo identificador que llevan todas las líneas de log de esa petición, y que viaja en la cabecera `X-Trace-Id`. Ver [Observabilidad](#observabilidad). |
-| `errores` | Solo en validación: un objeto por campo rechazado, con `campo`, `codigo` y `mensaje`. |
+| `errores` | Solo en validación: un objeto por campo rechazado, con `campo`, `code` y `mensaje`. |
 
-El catálogo de códigos es `CodigoDeError`, en `shared`. El mapa a estados HTTP vive en
-`CatalogoDeProblemas`, en `api`: **el dominio no conoce HTTP**.
+El catálogo de códigos es `ErrorCode`, en `shared`. El mapa a estados HTTP vive en
+`ProblemCatalog`, en `api`: **el dominio no conoce HTTP**.
 
-| Situación | HTTP | `codigo` |
+| Situación | HTTP | `code` |
 |---|---|---|
-| Entrada inválida | 422 | `VALIDACION` |
-| El cuerpo no es JSON válido | 400 | `CUERPO_ILEGIBLE` |
-| Sin token o token inválido | 401 | `NO_AUTENTICADO` |
-| Operación sensible sin segundo factor reciente | 401 | `REAUTENTICACION_REQUERIDA` |
-| Es miembro, pero el rol no alcanza | 403 | `SIN_PERMISO` |
-| El token es válido pero no hay cuenta en COPROP | 403 | `SIN_CUENTA` |
-| El recurso no existe, o no hay membresía activa en ese condominio | 404 | `NO_ENCONTRADO` |
-| Transición inválida o choque de concurrencia | 409 | `CONFLICTO` |
-| Petición bien formada que una regla rechaza | 422 | `REGLA_DE_NEGOCIO` |
-| Fallo no previsto | 500 | `INTERNO` |
+| Entrada inválida | 422 | `VALIDATION` |
+| El cuerpo no es JSON válido | 400 | `UNREADABLE_BODY` |
+| Sin token o token inválido | 401 | `NOT_AUTHENTICATED` |
+| Operación sensible sin segundo factor reciente | 401 | `REAUTHENTICATION_REQUIRED` |
+| Es miembro, pero el rol no alcanza | 403 | `NO_PERMISSION` |
+| El token es válido pero no hay cuenta en COPROP | 403 | `NO_ACCOUNT` |
+| El recurso no existe, o no hay membresía activa en ese condominio | 404 | `NOT_FOUND` |
+| Transición inválida o choque de concurrencia | 409 | `CONFLICT` |
+| Petición bien formada que una regla rechaza | 422 | `BUSINESS_RULE` |
+| Fallo no previsto | 500 | `INTERNAL` |
 
 Cuatro filas merecen explicación:
 
@@ -160,7 +160,7 @@ Cuatro filas merecen explicación:
 - **400 solo cuando el cuerpo no se puede leer**, y esa es toda la diferencia con el 422. La
   frontera no es "pasó por la validación de Bean Validation o no": un valor que Jackson no puede
   convertir —un enum que no existe, un UUID mal escrito— falla *antes* de que haya objeto que
-  validar, y aun así es **422 `VALIDACION` con su lista de campos**, porque el JSON estaba bien
+  validar, y aun así es **422 `VALIDATION` con su lista de campos**, porque el JSON estaba bien
   formado y el cliente necesita saber qué campo corregir. El 400 queda para el cuerpo roto, que
   no tiene campo que señalar. Lo reparte `handleHttpMessageNotReadable`; para un enum, el mensaje
   del campo enumera los valores admitidos, que son parte del contrato.
@@ -176,9 +176,9 @@ Cuatro filas merecen explicación:
 El 500 nunca lleva el mensaje de la excepción al cliente, porque puede contener nombres de tabla
 o fragmentos de consulta. Al log sí va entero, con su `traceId`.
 
-### Paginación
+### PagedResponseción
 
-El sobre `Pagina`: `contenido`, `pagina`, `tamano`, `total`, `totalPaginas`. **No se serializa el
+El sobre `PagedResponse`: `contenido`, `pagina`, `tamano`, `total`, `totalPagedResponses`. **No se serializa el
 `Page` de Spring Data**: su formato no es contrato estable y cambia entre versiones.
 
 El primer endpoint paginado es la consulta de auditoría (#21), y toma `?pagina=0&tamano=50` —no
@@ -186,10 +186,10 @@ El primer endpoint paginado es la consulta de auditoría (#21), y toma `?pagina=
 escribe en la petición. Su tope de `tamano` está en 200, y existe porque sin él un `tamano=100000`
 convierte la consulta en el listado completo que la paginación existe para evitar.
 
-**`Pagina` vive en `shared`, no en `api`**, desde ese mismo issue. Nació aquí con el contrato del #5,
+**`PagedResponse` vive en `shared`, no en `api`**, desde ese mismo issue. Nació aquí con el contrato del #5,
 cuando ningún endpoint paginaba; el primero que lo hace tiene su controlador en `audit`, y un módulo
 de dominio no puede depender de `api` (regla 6). Es el mismo traslado que ya hizo
-`@ControladorDeApi`, por el mismo motivo, y estaba anotado como deuda desde el #10 —que por esto no
+`@ApiController`, por el mismo motivo, y estaba anotado como deuda desde el #10 —que por esto no
 trajo listado de unidades—.
 
 ### Dinero y fechas
@@ -220,7 +220,7 @@ que gestiona Spring Boot 4. El que hay que inyectar es el de Boot.
 
 ### Seguridad
 
-Issue #13. `ConfiguracionDeSeguridad` declara **tres cadenas**, una por forma de llegar
+Issue #13. `SecurityConfiguration` declara **tres cadenas**, una por forma de llegar
 (Seguridad §7.1), y se eligen en este orden:
 
 | Cadena | Qué la selecciona | Cómo autentica |
@@ -241,8 +241,8 @@ que también la cierra en Keycloak: si solo se borrara la local, el siguiente lo
 **La sesión vive en la base** (`spring_session`, migración V6), no en memoria. Así sobrevive a un
 reinicio y se puede revocar, que es lo que necesita "cerrar sesión en todos los dispositivos" de
 §5.3. Su columna `PRINCIPAL_NAME` guarda hoy el **`sub` de Keycloak** y no el identificador de la
-cuenta: Spring Security no persiste el contexto que `FiltroDeIdentidad` cambia a mitad de petición.
-Por eso el puerto `Sesiones` recibe un **conjunto de nombres** y no uno solo —el `sub` y el de la
+cuenta: Spring Security no persiste el contexto que `IdentityFilter` cambia a mitad de petición.
+Por eso el puerto `Sessions` recibe un **conjunto de nombres** y no uno solo —el `sub` y el de la
 cuenta—, para que el día que eso cambie no se rompa en silencio.
 
 Una llamada de la SPA que perdió la sesión recibe un **401 en problem+json**, no un 302 hacia
@@ -252,14 +252,14 @@ respuesta JSON. El CSRF usa los nombres que Angular trae de serie —cookie `XSR
 
 #### De sujeto de Keycloak a identidad de COPROP
 
-`FiltroDeIdentidad` es el punto donde "autenticado" deja de significar *tiene un token* y pasa a
+`IdentityFilter` es el punto donde "autenticado" deja de significar *tiene un token* y pasa a
 significar *es alguien aquí*. Resuelve el `sub` contra el puerto `Identities` del módulo `identity`
-y sustituye la autenticación por una `IdentidadAutenticada`, cuyo `getName()` es el identificador
+y sustituye la autenticación por una `AuthenticatedIdentity`, cuyo `getName()` es el identificador
 de la cuenta. Por eso los controladores no cambiaron: siguen recibiendo un `Principal`, y el actor
 que acaba en los eventos y en la bitácora es el que la aplicación conoce, no un UUID de Keycloak.
 El mismo valor queda en el MDC bajo `actorId`, la segunda clave que el issue #6 dejó declarada.
 
-**Un token válido de quien no tiene cuenta no pasa de ahí**: responde 403 con `SIN_CUENTA`. Es lo
+**Un token válido de quien no tiene cuenta no pasa de ahí**: responde 403 con `NO_ACCOUNT`. Es lo
 que pide Seguridad §10.1 —el acceso lo da la invitación, no el haberse autenticado— y es lo que hace
 que encender el login con Google no reparta acceso a nadie.
 
@@ -270,7 +270,7 @@ dos identidades con el mismo correo.
 
 **Las autoridades se ponen en dos sitios**, y por eso son dos filtros: la de plataforma la pone
 este, porque no depende de ningún condominio y vale también en las rutas globales; las del
-condominio las añade `FiltroDeCondominio` leyendo la membresía de la ruta (§4.2). Ninguna viaja en
+condominio las añade `CondominiumFilter` leyendo la membresía de la ruta (§4.2). Ninguna viaja en
 el token: se resuelven por petición, así que quitarle un rol a alguien surte efecto en la
 siguiente y no cuando expire su token.
 
@@ -286,7 +286,7 @@ inactividad para los roles administrativos y veinticuatro para el resto, con un 
 veinticuatro en todo caso (§10.1); Spring Session tiene un único tiempo para toda la aplicación y
 lo que distingue a un administrador de un propietario no está en la sesión, sino en una membresía
 por condominio de la base de COPROP (§4.2). La misma cuenta puede administrar un edificio y ser
-propietaria en otro. Lo resuelve `FiltroDeVigenciaDeSesion`, **por petición**:
+propietaria en otro. Lo resuelve `SessionValidityFilter`, **por petición**:
 
 | Qué | Cómo |
 |---|---|
@@ -305,8 +305,8 @@ Al revés no hace falta, porque a quien *pierde* un rol administrativo se le cie
 el acto desde el #20.
 
 **El step-up es el cuarto control de la cadena** (§7.2) y lo añaden solo las operaciones sensibles
-que §7.3 enumera. Lo comprueba `ControlDeReautenticacion` (bean `@reautenticacion`) sobre dos
-afirmaciones del token que `FiltroDeIdentidad` guarda en `IdentidadAutenticada`: `amr` —`otp` o
+que §7.3 enumera. Lo comprueba `ReauthenticationControl` (bean `@reautenticacion`) sobre dos
+afirmaciones del token que `IdentityFilter` guarda en `AuthenticatedIdentity`: `amr` —`otp` o
 `hwk`; `pwd` no es un segundo factor— y `auth_time`, que tiene que ser de hace menos de cinco
 minutos. No es lo mismo que la expiración del token: uno recién renovado trae `iat` de hace un
 segundo y `auth_time` de hace tres días.
@@ -324,25 +324,25 @@ Dónde se pide hoy, de las cinco operaciones sensibles de §7.3 —las otras cua
 
 | Ruta | Cuándo |
 |---|---|
-| `PUT .../membresias/{id}/roles` | Siempre: el cuerpo trae los roles que quedan, no los que se van, y quitar `CONDO_ADMIN` se escribe mandando un cuerpo sin él |
-| `POST /superadministradores` y `.../revocacion` | Siempre |
-| `POST .../membresias` y `POST .../invitaciones` | Solo si el cuerpo trae un rol administrativo: lo sensible es nombrar a un administrador, no dar de alta a un propietario |
+| `PUT .../memberships/{id}/roles` | Siempre: el cuerpo trae los roles que quedan, no los que se van, y quitar `CONDO_ADMIN` se escribe mandando un cuerpo sin él |
+| `POST /platform-admins` y `.../revocation` | Siempre |
+| `POST .../memberships` y `POST .../invitations` | Solo si el cuerpo trae un rol administrativo: lo sensible es nombrar a un administrador, no dar de alta a un propietario |
 
 `PLATFORM_ADMIN` **no** dispara la condición de las dos últimas: ese rol no cabe en una membresía
 ni en una invitación y las dos rutas lo rechazan con 422 venga de quien venga, así que pedir el
 factor solo retrasaría la misma negativa.
 
-**Las sesiones activas son dos mitades** (§8), y la lista las junta: `GET /api/v1/me/sesiones`
+**Las sesiones activas son dos mitades** (§8), y la lista las junta: `GET /api/v1/me/sessions`
 devuelve las del BFF —con su caducidad, que esta aplicación gobierna— y las del proveedor de
 identidad —con su IP, que la tabla de la V6 no guarda—. Una lista que mirara solo una de las dos
 diría que no hay nadie dentro mientras la app móvil sigue renovando su token.
-`POST /api/v1/me/sesiones/cierre` las cierra todas, **incluida la que hace la petición**, y deja
+`POST /api/v1/me/sessions/closure` las cierra todas, **incluida la que hace la petición**, y deja
 fila en la bitácora de plataforma. Un proveedor caído devuelve media lista y no un error: quien
 mira esa pantalla está averiguando si le robaron la cuenta.
 
 #### El registro del cliente se arma a mano
 
-`ConfiguracionDeOidc` construye el `ClientRegistration` en Java en vez de declararlo en
+`OidcConfiguration` construye el `ClientRegistration` en Java en vez de declararlo en
 `spring.security.oauth2.client.*`. La razón es concreta: con `issuer-uri`, Spring Boot resuelve el
 registro con `ClientRegistrations.fromIssuerLocation`, que **descarga el documento de
 descubrimiento al arrancar**. Eso significa que la aplicación no levanta si Keycloak está caído
@@ -387,7 +387,7 @@ no piden el scope `roles`, y llevan `fullScopeAllowed: false`.
 **Ningún secreto literal.** Los tres repos son públicos. El import sustituye `${VARIABLE}` y
 `${VARIABLE:defecto}` con el entorno del contenedor, así que todo secreto del archivo es un
 marcador con un valor de desarrollo por defecto, y en producción llega por variable de entorno.
-`RealmDeKeycloakTests` falla si alguien escribe uno a mano.
+`KeycloakRealmTests` falla si alguien escribe uno a mano.
 
 **Google autentica, no reparte acceso.** El proveedor está declarado pero **apagado** hasta que se
 le den credenciales (`GOOGLE_HABILITADO=true` más el id y el secreto). Con `trustEmail` y el flujo
@@ -408,7 +408,7 @@ es la razón de que entre en M0 y no más tarde.
 ### El `traceId`
 
 Toda línea de log de una petición lleva el mismo `traceId`, que es el criterio de aceptación del
-issue. Lo pone `FiltroDeTrazas`, de los primeros de la cadena, para que un fallo de autenticación
+issue. Lo pone `TraceFilter`, de los primeros de la cadena, para que un fallo de autenticación
 —que ocurre antes de cualquier controlador— también lo lleve.
 
 El mismo valor sale por tres sitios, y eso es lo que lo hace útil:
@@ -430,16 +430,16 @@ clave del MDC ni el nombre del campo cambian.
 
 ### Las claves del contexto
 
-Están en `ClavesDeLog`, en `shared`, y no en el módulo que las rellena. La razón: cuando el filtro
+Están en `LogKeys`, en `shared`, y no en el módulo que las rellena. La razón: cuando el filtro
 de condominio del #17 empiece a poner la suya, tiene que usar exactamente la misma cadena que ya
 salía en los logs, o las búsquedas dejan de funcionar sin que nadie se entere.
 
 | Clave | Quién la pone |
 |---|---|
-| `traceId` | `FiltroDeTrazas` (#6) |
-| `actorId` | `FiltroDeIdentidad` (#13) |
-| `condominiumId` | `FiltroDeCondominio` (#17) |
-| `ip` | `FiltroDeTrazas` (#21) |
+| `traceId` | `TraceFilter` (#6) |
+| `actorId` | `IdentityFilter` (#13) |
+| `condominiumId` | `CondominiumFilter` (#17) |
+| `ip` | `TraceFilter` (#21) |
 
 Las cuatro están rellenas. El formato estructurado vuelca el MDC entero, así que aparecen en los
 logs sin tocar nada más.
@@ -456,16 +456,16 @@ confiar en una cabecera que cualquiera puede escribir.
 ### Formato
 
 En producción, una línea de JSON por evento: `logging.structured.format.console` apunta a
-`FormatoJsonDeLog`. En local manda la legibilidad, con el patrón de `logback-spring.xml`, que
+`JsonLogLayout`. En local manda la legibilidad, con el patrón de `logback-spring.xml`, que
 antepone `[%X{traceId}]` al mensaje.
 
-`FormatoJsonDeLog` está escrito a mano en vez de usar ECS o Logstash por una razón concreta: todo
-lo que sale pasa por `Enmascarador`, incluidos el MDC y el mensaje de la excepción. Envolver un
+`JsonLogLayout` está escrito a mano en vez de usar ECS o Logstash por una razón concreta: todo
+lo que sale pasa por `Masker`, incluidos el MDC y el mensaje de la excepción. Envolver un
 formato de fábrica para quitarle cosas es más frágil que escribir las ocho claves que se usan.
 
 ### Secretos en los logs
 
-`Enmascarador` tapa credenciales, tokens, cuentas, datos de QR, el CI y el correo —los tres
+`Masker` tapa credenciales, tokens, cuentas, datos de QR, el CI y el correo —los tres
 últimos los pide el análisis §12.2 y Seguridad §8—. Las reglas son **por nombre de
 clave**, no por forma del valor: reconocer "esto parece un número de cuenta" produce falsos
 positivos que destrozan los logs útiles. Las excepciones son el JWT y el encabezado `Bearer`, que
@@ -534,19 +534,66 @@ El controlador también va en `internal`. Es un adaptador: nada debe depender de
 
 ### Nombres
 
-**Lo que el análisis nombra, se llama igual que en el análisis.** El análisis §5.2 nombra las
-entidades en inglés —`Condominium`, `Unit`, `PaymentObligation`— y sus valores de enum en español
-—`EXPENSA`, `BORRADOR`, `EDIFICIO`—. El código reproduce esa mezcla tal cual, y las tablas y
-columnas siguen los mismos nombres en `snake_case`. El motivo es tener cero traducción al leer
-§5.2 al lado del código: un nombre traducido es un sitio donde dos personas pueden entender cosas
-distintas.
+**Si lo lee el compilador, la base de datos o un cliente HTTP, va en inglés. Si solo lo lee una
+persona, se queda en español.** Esa es la regla entera, y resuelve sola casi todos los casos.
 
-Lo que el análisis no nombra —`api`, `shared`, filtros, manejadores— va en español, como ya
-estaba. Las rutas HTTP van en español porque las fija Seguridad §5.4:
-`/api/v1/condominios/{condominioId}`.
+| Caso | Idioma |
+| --- | --- |
+| Clases, métodos, variables, parámetros, campos | Inglés |
+| Tablas, columnas, índices, restricciones, funciones | Inglés |
+| Valores de enumeración y nombres de acción de la bitácora | Inglés: se guardan y viajan en la API |
+| Segmentos de ruta HTTP y códigos de error | Inglés: son contrato |
+| Nombres de método de test | Inglés |
+| Javadoc y comentarios | **Español** |
+| `@DisplayName` | **Español**: es una frase para leer, no un identificador |
+| Mensajes de error al usuario | **Español**: es la lengua del producto |
+| Nombres de rama y mensajes de commit | **Español** |
 
-Los comentarios y el Javadoc, siempre en español y sin acentos en el código Java, con acentos en
-los documentos.
+Dos consecuencias que conviene ver de frente. Un test queda así, y está bien:
+
+```java
+@DisplayName("las invitaciones quedan revocadas al dar de baja la membresia")
+void theInvitationsAreRecorded() { ... }
+```
+
+Y un javadoc en español describe un método en inglés. También está bien: es la combinación normal
+en un equipo que habla español y escribe código en inglés.
+
+**Un comentario que cita un identificador sí se actualiza**, aunque la prosa alrededor siga en
+español: `{@link #isLive}`, no `{@link #estaViva}`.
+
+**Qué se perdió al cambiar la convención, y se aceptó a sabiendas.** Hasta el 19 de octubre de 2026
+esta sección decía lo contrario: los valores de enum y las rutas iban en español para tener **cero
+traducción al leer §5.2 del análisis al lado del código**. Ese beneficio desaparece: ahora el
+análisis dice `EDIFICIO` y el código dice `BUILDING`, y quien lea los dos tiene que traducir. Se
+cambió igual porque un código mitad en inglés y mitad en español obliga a decidir el idioma en cada
+nombre nuevo, y esa decisión se resolvía distinto cada vez. **El glosario de la tabla de abajo es
+lo que sustituye a esa correspondencia directa.**
+
+| Análisis | Identificador |
+| --- | --- |
+| condominio | `condominium` |
+| expensas | `dues` |
+| mora | `lateFee` |
+| alícuota | `aliquot` |
+| saldo a favor | `creditBalance` |
+| estado de cuenta | `accountStatement` |
+| morosidad | `delinquency` |
+| conciliación | `reconciliation` |
+| área común | `amenity` |
+| bitácora | `auditLog` |
+| paramétricas | `catalog` |
+| responsable de pago | `billingResponsible` |
+| inquilino | `tenant` |
+| ocupante | `occupant` |
+
+**Cuidado con los nombres que ya existen en una librería.** `Pagina` no pudo ser `Page` por
+`org.springframework.data.domain.Page`, `ErrorDeCampo` no pudo ser `FieldError` por
+`org.springframework.validation.FieldError`, y el record `Autenticacion` no pudo ser
+`Authentication` por el de Spring Security. Quedaron `PagedResponse`, `ApiFieldError` y
+`AuthenticationFacts`. El error que sale en esos casos es `incompatible types`, que no menciona la
+colisión.
+
 
 ### Configuración con vigencia
 
@@ -611,9 +658,9 @@ Tres decisiones que no son obvias:
 
 - **No recibe ningún identificador.** Todo sale de la identidad que dejó el filtro. Pedir la cuenta
   en la ruta convertiría "mi perfil" en "el perfil de quien yo diga" y obligaría a decidir quién
-  puede verlo; la consulta por identificador ya existe aparte, en `/api/v1/cuentas/{accountId}`.
+  puede verlo; la consulta por identificador ya existe aparte, en `/api/v1/accounts/{accountId}`.
 - **Sin `@PreAuthorize`.** No hay nada que autorizar: solo devuelve lo propio de quien pregunta, y
-  quien no tiene cuenta no llegó hasta aquí —el filtro de identidad responde 403 `SIN_CUENTA`—.
+  quien no tiene cuenta no llegó hasta aquí —el filtro de identidad responde 403 `NO_ACCOUNT`—.
   Exigir un permiso dejaría sin perfil justo a quien acaba de entrar y aún no tiene membresía.
 - **200 con lista vacía a quien no tiene ninguna membresía activa**, ni 404 ni 403: es una respuesta
   correcta a una pregunta sobre uno mismo. Es también el caso del superadministrador recién abierto
@@ -625,7 +672,7 @@ al cliente que ese condominio se lo concedió.
 
 **El condominio activo se elige por el segmento de ruta y no por una cabecera.** El issue admitía
 las dos ("por cabecera o por segmento de ruta") y el análisis §5.4 fija la ruta:
-`/api/v1/condominios/{condominioId}/...`. Se implementa solo esa, y no las dos, porque una cabecera
+`/api/v1/condominiums/{condominiumId}/...`. Se implementa solo esa, y no las dos, porque una cabecera
 sería una segunda forma de nombrar el condominio que el filtro —que lee la ruta— no ve: dos fuentes
 que pueden discrepar, y la que no se comprueba es la que acaba decidiendo. Una membresía
 **suspendida** no se lista por lo mismo: el filtro le responde 404 a todo lo de ese condominio, así
@@ -637,9 +684,9 @@ condominios de la plataforma.
 
 #### El filtro de membresía
 
-Issue #17. `FiltroDeCondominio` lee el condominio de la ruta, carga la membresía vigente de quien
+Issue #17. `CondominiumFilter` lee el condominio de la ruta, carga la membresía vigente de quien
 pide y, si no hay o no está activa, responde **404**. Es la puerta: a partir de ahí, toda petición
-a `/api/v1/condominios/{id}/...` llega con un condominio que ese actor puede ver, y el condominio
+a `/api/v1/condominiums/{id}/...` llega con un condominio que ese actor puede ver, y el condominio
 que reciben los servicios como primer argumento es el mismo de la ruta.
 
 Lee la ruta con una expresión regular y no un `@PathVariable` porque corre **antes de que exista un
@@ -650,7 +697,7 @@ Los roles de la membresía quedan como autoridades de la petición. Hoy no los m
 es el issue #16— pero es donde Spring los va a buscar, y cargarlos aquí evita que esa matriz vuelva
 a consultar la membresía en cada comprobación.
 
-Lo que lo sostiene es `FugaEntreCondominiosTests`: los catorce endpoints acotados a un condominio,
+Lo que lo sostiene es `CrossCondominiumLeakTests`: los catorce endpoints acotados a un condominio,
 cada uno pedido desde el condominio ajeno —tiene que dar 404— y desde el propio —tiene que dar
 cualquier cosa menos 404—. **La segunda mitad no es decorativa**: sin ella, una ruta mal escrita
 daría 404 en las dos y la batería entera pasaría sin comprobar nada. Pasó: cazó un cuerpo de
@@ -658,7 +705,7 @@ petición que usaba una cuenta inexistente.
 
 #### Quién puede qué
 
-Issue #16. La matriz de Seguridad §3 vive transcrita en `MatrizDePermisos`, en el módulo `identity`,
+Issue #16. La matriz de Seguridad §3 vive transcrita en `PermissionMatrix`, en el módulo `identity`,
 y es el único sitio donde se decide. **Es código y no una tabla** —el issue pide "permisos derivados
 del rol, no almacenados por usuario"— porque una tabla se edita a mano: el día que alguien cambie
 una fila en producción, el análisis dirá una cosa y el sistema otra, y nadie se enterará hasta que
@@ -668,7 +715,7 @@ Están las veintiuna filas, incluidas las de acciones cuyos endpoints son de M2 
 está tomada en el análisis, y escribirla entera permite probarla fila por fila hoy; lo que llega con
 cada funcionalidad es la anotación que exige el permiso, no la decisión.
 
-Cada celda tiene tres valores, no dos: `TODO` es el "Sí" de la matriz, `NINGUNO` el "—", y **`PROPIO`
+Cada celda tiene tres valores, no dos: `ALL` es el "Sí" de la matriz, `NONE` el "—", y **`OWN`
 es el "Propias"** de las columnas del propietario y el inquilino. Esa palabra no es un sí más
 pequeño: es una condición sobre *cuál* recurso, y quien la resuelve es la cadena del issue #15
 —la sección siguiente—. Tratarla como un sí abriría las unidades del vecino; como un no, dejaría al
@@ -678,7 +725,7 @@ Los controladores preguntan con `@PreAuthorize("@autorizacion.puede(authenticati
 se referencia **por nombre**, que es una cadena: por eso un controlador de `condominium` lo usa sin
 importar nada de `identity` y sin romper la regla de dependencias. El precio es que el compilador no
 ve ese uso —un permiso mal escrito revienta en ejecución, no al compilar— y por eso cada endpoint
-protegido tiene su caso en `PermisosDeApiTests`.
+protegido tiene su caso en `PermissionsDeApiTests`.
 
 No hace falta consultar la base: los roles del condominio de la ruta ya los dejó el filtro del #17
 como autoridades de la petición. Solo se baja a la base en las rutas que no cuelgan de un condominio
@@ -689,7 +736,7 @@ como autoridades de la petición. Solo se baja a la base en las rutas que no cue
 Issue #15. La cadena de Seguridad §7.2 tiene cuatro eslabones y los tres primeros ya estaban: la
 identidad (#13), la membresía y los roles del condominio (#17), y si el rol hace esa clase de cosas
 (#16). Falta el que ninguno de ellos puede contestar: **si *este* recurso, el de la ruta, es suyo.**
-Es el `canPayFor` del ejemplo del análisis, y lo resuelve `ControlDeAcceso`.
+Es el `canPayFor` del ejemplo del análisis, y lo resuelve `AccessControl`.
 
 Vive en `api`, con el bean `acceso`, porque es **el único módulo que ve las dos mitades**: la matriz
 es de `identity` y las relaciones de la unidad son de `condominium`, y las reglas 2 y 6 prohíben que
@@ -709,39 +756,39 @@ comprobar aparte de quién es la unidad.
 
 | Qué falla | Respuesta | Por qué |
 | --- | --- | --- |
-| El rol no hace esto (`NINGUNO`) | **403** `SIN_PERMISO` | La respuesta depende solo de los roles de quien pregunta, no de qué recurso pidió: no hay existencia que filtrar. |
-| El recurso no es suyo (`PROPIO` sin relación) | **404** `NO_ENCONTRADO` | Aquí sí depende del recurso. Un 403 confirmaría que esa unidad existe, y con eso un vecino enumera el edificio probando identificadores. |
+| El rol no hace esto (`NONE`) | **403** `NO_PERMISSION` | La respuesta depende solo de los roles de quien pregunta, no de qué recurso pidió: no hay existencia que filtrar. |
+| El recurso no es suyo (`OWN` sin relación) | **404** `NOT_FOUND` | Aquí sí depende del recurso. Un 403 confirmaría que esa unidad existe, y con eso un vecino enumera el edificio probando identificadores. |
 
 El 404 sale de una **excepción lanzada dentro de la expresión de `@PreAuthorize`**, no de un
 `false`: devolver `false` siempre acaba en 403. SpEL deja pasar sin envolver las excepciones no
-comprobadas del método que invoca, así que `ManejadorDeErrores` ve el `RecursoNoEncontrado` y lo
+comprobadas del método que invoca, así que `ErrorHandler` ve el `ResourceNotFound` y lo
 traduce. Es un detalle del que depende el criterio entero y no está a la vista en el código, así que
 lo prueba un caso propio.
 
 Dos endpoints de hoy pasan por aquí, y cada uno muestra una mitad:
 
-- `GET .../unidades/{id}/propietarios` va por `VER_ESTADO_DE_CUENTA`, que es una fila con "Propias":
+- `GET .../units/{id}/owners` va por `VIEW_ACCOUNT_STATEMENT`, que es una fila con "Propias":
   los dos administradores ven cualquier unidad, el propietario y el inquilino solo la suya —otra da
   404—, y portería y el directorio reciben 403. Las tres salidas de la cadena en una sola fila.
-- `GET .../unidades/{id}` no tiene fila en la matriz —sus veintiuna son acciones sobre dinero y
+- `GET .../units/{id}` no tiene fila en la matriz —sus veintiuna son acciones sobre dinero y
   administración, ninguna dice "ver una unidad"—, así que **la decisión se toma en el endpoint y
-  queda escrita ahí**, como ya se hizo con `CONFIGURAR_COBROS` en la configuración del condominio:
+  queda escrita ahí**, como ya se hizo con `CONFIGURE_CHARGES` en la configuración del condominio:
   la ve quien administra unidades, y cualquier otro miembro solo aquellas con las que tiene relación
   vigente. La consecuencia conocida es que `FINANCE_ADMIN` recibe 404 en la ficha de una unidad; su
   caso de uso real es un listado para cobrar, que llega con M2 y traerá su propio permiso.
 
-`GET /api/v1/condominios/{id}` **no pide permiso a propósito**: lo único que hace falta para verlo
+`GET /api/v1/condominiums/{id}` **no pide permiso a propósito**: lo único que hace falta para verlo
 es pertenecer, y eso ya lo exigió el filtro del #17. Los siete roles lo ven, porque un propietario
 necesita el nombre y los días de emisión y vencimiento del edificio donde vive tanto como su
 administrador. Exigir un permiso significaría elegir una fila que no habla de esto y dejar a
 portería sin saber en qué edificio está.
 
-Fuera del condominio, `GET /personas/{id}` y `GET /cuentas/{id}` añaden **lo propio** a la regla del
+Fuera del condominio, `GET /people/{id}` y `GET /accounts/{id}` añaden **lo propio** a la regla del
 alta: la suya, o cualquiera si administra algún condominio. Sin esa excepción, la cabecera `Location`
 del alta de una cuenta apuntaría a una ruta que a su dueño responde 403. Niegan con 403, no con 404,
 porque la ruta es global y la respuesta no cambia con el identificador.
 
-Lo que lo sostiene es `CadenaDeAutorizacionTests`: **los veinte endpoints por los siete roles**, con
+Lo que lo sostiene es `CadenaDeAuthorizationTests`: **los veinte endpoints por los siete roles**, con
 el resultado declarado celda a celda y un caso que falla si una fila se olvida de un rol. Es el
 mismo descuido que en el #16 dejó un permiso de menos en `CONDO_ADMIN`, y lo cazó justo el test que
 exigía las columnas completas. Dos cosas que esa rejilla enseñó y conviene no volver a descubrir:
@@ -755,7 +802,7 @@ exigía las columnas completas. Dos cosas que esa rejilla enseñó y conviene no
   rejilla en una batería funcional de ciento cuarenta casos.
 
 Lo que esta cadena todavía no hace es el **segundo factor** de las tres celdas "Sí (step-up)":
-`MatrizDePermisos.pideSegundoFactor` ya las nombra y hacerlo cumplir es el issue **#22**. Y la
+`PermissionMatrix.pideSegundoFactor` ya las nombra y hacerlo cumplir es el issue **#22**. Y la
 segunda barrera que §7.2 pide en su punto 5 —RLS— sigue evaluada y sin implementar, más abajo.
 
 #### El superadministrador y el arranque de la plataforma
@@ -806,7 +853,7 @@ busca por índice en una consulta—. Vive siete días y sirve una vez.
 **El token no viaja en ningún evento, y eso decidió una dependencia.** Los eventos de este sistema
 se persisten (migración V2), así que un `InvitationIssued` con el token dentro lo dejaría legible en
 la base, que es justo lo que el hash evita. Por eso el correo lo envía quien tiene el token en
-memoria —la emisión— a través del puerto `Correo`, y por eso **`identity` declara `notifications`**:
+memoria —la emisión— a través del puerto `Mail`, y por eso **`identity` declara `notifications`**:
 es su única dependencia. El módulo `notifications` seguía la regla de "nadie lo llama, solo reacciona
 a eventos", y esta es la excepción, escrita en su `package-info`.
 
@@ -822,30 +869,30 @@ alguien la marque, la fila diría que sigue viva. El diagrama de §6 dibuja EXPI
 
 El camino completo, y por qué tiene dos llamadas:
 
-1. `POST /condominios/{id}/invitaciones` — emite y manda el correo. Pide **poder conceder esos
+1. `POST /condominiums/{id}/invitations` — emite y manda el correo. Pide **poder conceder esos
    roles**, la misma regla que el alta directa de membresía, porque es lo mismo diferido.
 2. El enlace del correo apunta a la **web**, no a la API: la página es la que sabe qué mostrar en
    cada caso y la que manda al login. Una ruta de la API obligaría al backend a devolver
    redirecciones y a conocer las rutas de la SPA.
-3. `POST /invitaciones/apertura` — **pública**, porque quien acaba de recibir el enlace no tiene con
+3. `POST /invitations/opening` — **pública**, porque quien acaba de recibir el enlace no tiene con
    qué autenticarse; lo que la autoriza es el token. Resuelve los dos casos de §6.1: si ese correo no
    tiene credencial, se le crea el usuario en Keycloak y se le pide al proveedor que le escriba para
    poner su contraseña; si ya participa en otro condominio, solo le toca iniciar sesión. **No consume
    el token**: abrirlo dos veces vuelve a mandar el correo, porque el correo del proveedor se pierde
    más fácil que el nuestro.
-4. `POST /invitaciones/aceptacion` — ya **autenticada**. Sella la invitación y concede la membresía.
+4. `POST /invitations/acceptance` — ya **autenticada**. Sella la invitación y concede la membresía.
    Para llegar aquí el filtro del #13 ya vinculó el sujeto del proveedor con la cuenta de COPROP por
    el correo verificado, y eso es lo que hace que entrar con contraseña y entrar con Google caigan en
    la misma cuenta.
 
 **El token viaja en el cuerpo, no en la ruta.** Es una credencial: en la ruta acabaría en el log de
-accesos, en el historial del navegador y en cualquier `Referer`. En el cuerpo, además, `Enmascarador`
+accesos, en el historial del navegador y en cualquier `Referer`. En el cuerpo, además, `Masker`
 ya lo tapa, porque `token` es una de sus claves.
 
 **COPROP no ve contraseñas, ni para ponerlas.** El realm tiene `registrationAllowed: false`, así que
 la persona invitada no puede crearse el usuario; y una pantalla nuestra que recogiera la contraseña
 para enviarla a Keycloak nos pondría en el camino de la credencial, que es lo que el #12 y el #13
-decidieron evitar. De ahí la forma del puerto `ProveedorDeIdentidad`: se crea el usuario con
+decidieron evitar. De ahí la forma del puerto `IdentityProvider`: se crea el usuario con
 `manage-users` del cliente `coprop-admin` y se le pide a Keycloak que le escriba. El usuario nace con
 `emailVerified: false` a propósito —lo verifica la acción que Keycloak envía, y el primer login lo
 exige—: darlo por verificado convertiría "nos dijeron ese correo" en "ese correo es suyo".
@@ -858,10 +905,10 @@ Dos cosas del adaptador de la Admin API que costaron tiempo:
   acepta la conexión y no contesta deja colgada la petición del navegador, un hilo y una transacción.
 - No hace **ninguna llamada al arrancar**, que es la lección que el #13 ya pagó con `issuer-uri`.
 
-Lo que lo sostiene: `InvitacionesTests` con los cuatro motivos por los que un token no sirve —no
-existe, usado, revocado, vencido— y los dos casos de §6.1; `AceptarInvitacionTests` con un token
+Lo que lo sostiene: `InvitationsTests` con los cuatro motivos por los que un token no sirve —no
+existe, usado, revocado, vencido— y los dos casos de §6.1; `AcceptInvitationTests` con un token
 firmado de verdad, para la costura con el #13; y los cinco endpoints nuevos añadidos a
-`FugaEntreCondominiosTests` y a `CadenaDeAutorizacionTests`. **El test lee el token del correo**, con
+`CrossCondominiumLeakTests` y a `CadenaDeAuthorizationTests`. **El test lee el token del correo**, con
 un doble del puerto, igual que lo leería la persona invitada: es el único sitio donde existe, y uno
 que lo sacara de la base estaría probando otro sistema.
 
@@ -877,7 +924,7 @@ IP— más el `trace_id` que resolvió §13.2, para poder cruzar una fila con la
 en los logs. Retención de un año (§10.1).
 
 **Nadie escribe en la bitácora.** `AuditTrail` no tiene operación de escritura: las filas aparecen
-porque un módulo publicó un evento que implementa `EventoAuditable`. Un método para registrar a mano
+porque un módulo publicó un evento que implementa `AuditableEvent`. Un método para registrar a mano
 sería la primera forma de que una acción quedara auditada a medias —o dos veces— según se acordara
 quien la escribió.
 
@@ -933,7 +980,7 @@ reconstruir la fila a mano.
 
 ##### La consulta
 
-`GET /api/v1/condominios/{id}/auditoria`, con `CONSULTAR_AUDITORIA` —los dos administradores del
+`GET /api/v1/condominiums/{id}/audit-log`, con `VIEW_AUDIT_LOG` —los dos administradores del
 condominio y el superadministrador, que no opera pero audita (§10.1)—, y los tres filtros del
 criterio: actor, entidad y rango de fechas, combinables y todos opcionales. `desde` es inclusivo y
 `hasta` exclusivo, para que dos rangos contiguos no devuelvan la misma fila dos veces.
@@ -978,17 +1025,17 @@ no dos filas.
 | Operación | Qué toca | Qué significa para quien lee la tabla |
 | --- | --- | --- |
 | Baja | cierra `valid_to` | ya no es del condominio; se deshace concediendo una membresía **nueva** |
-| Suspensión | cambia `status` a `SUSPENDIDA`, la fila sigue abierta | sigue siendo del condominio y no entra; se deshace reactivando |
+| Suspensión | cambia `status` a `SUSPENDED`, la fila sigue abierta | sigue siendo del condominio y no entra; se deshace reactivando |
 
 De ahí que `MembershipStatus` **no tenga un valor para "terminada"**: eso lo dice la vigencia, que
 además guarda cuándo pasó. Y cerrar la fila **no toca el estado**, así que queda diciendo cómo estaba
 cuando se la dio de baja.
 
-Rutas: `POST .../membresias/{id}/baja`, `/suspension` y `/reactivacion`. Son `POST` a un
+Rutas: `POST .../memberships/{id}/termination`, `/suspension` y `/reactivation`. Son `POST` a un
 sub-recurso y no un `DELETE` sobre la membresía porque **las tres llevan motivo** —el alcance del
 issue lo exige— y un `DELETE` con cuerpo es algo que cada intermediario trata como quiere. En cambio
-los cierres de relación de la unidad (`DELETE .../ocupantes/{personId}`,
-`DELETE .../responsables-de-pago/{personId}`) sí son `DELETE` y responden 204: ahí no hay motivo que
+los cierres de relación de la unidad (`DELETE .../occupants/{personId}`,
+`DELETE .../billing-responsibles/{personId}`) sí son `DELETE` y responden 204: ahí no hay motivo que
 registrar, y que por debajo se cierre una vigencia en vez de borrarse es asunto del dominio.
 
 ##### El motivo vive sólo en la bitácora
@@ -1003,12 +1050,12 @@ es una columna en `membership`, no un cambio de diseño.
 ##### Lo que de verdad corta el acceso es el filtro, no el cierre de sesiones
 
 El primer criterio del issue —*"tras la baja, el usuario autentica pero no ve el condominio"*— lo
-cumple `FiltroDeCondominio`, que relee la membresía **en cada petición**: la baja surte efecto en la
+cumple `CondominiumFilter`, que relee la membresía **en cada petición**: la baja surte efecto en la
 siguiente, sin esperar a que caduque ningún token. Los roles nunca estuvieron en el token (§4.2), y
 es aquí donde eso se paga.
 
 El cierre de sesiones es una **segunda puerta** —la cookie del navegador y el refresh token de la app
-móvil— y tiene su propia regla, que vive entera en `CierreDeAcceso`:
+móvil— y tiene su propia regla, que vive entera en `AccessRevocation`:
 
 > Se cierran las sesiones de una cuenta cuando pierde su última membresía que da acceso y no
 > administra la plataforma.
@@ -1020,19 +1067,19 @@ condominio"—. Donde la cuenta ya no tiene ningún sitio al que entrar, cerrarl
 nadie y hace cierto lo que §10.1 pide: que no queden sesiones activas de quien ya no pertenece.
 La suspensión usa la misma regla, por lo mismo.
 
-**Son dos cierres y hacen falta los dos.** `Sesiones` —puerto de `identity`, implementado en `api`
-por `SesionesDelBff`— borra la fila de Spring Session, que es lo que §5.1 llama "se puede revocar";
-`ProveedorDeIdentidad.cerrarSesiones` llama a `POST /users/{id}/logout` de Keycloak, que invalida sus
+**Son dos cierres y hacen falta los dos.** `Sessions` —puerto de `identity`, implementado en `api`
+por `BffSessions`— borra la fila de Spring Session, que es lo que §5.1 llama "se puede revocar";
+`IdentityProvider.cerrarSessions` llama a `POST /users/{id}/logout` de Keycloak, que invalida sus
 refresh tokens. Cerrar sólo la de Keycloak dejaría entrando a quien ya tiene cookie —su sesión no
 vuelve a preguntarle a Keycloak— y cerrar sólo la local dejaría a la app móvil renovando su token.
 
-`Sesiones` recibe un **conjunto de nombres** y no un identificador. Una sesión queda indexada por el
+`Sessions` recibe un **conjunto de nombres** y no un identificador. Una sesión queda indexada por el
 nombre de la autenticación que se guardó en ella, y aquí hay dos candidatos: el `sub` de Keycloak,
 que es el nombre de la autenticación que escribe el login, y el identificador de la cuenta, que es el
 de la identidad con la que el filtro del #13 la sustituye en cada petición. Hoy se guarda la primera
 —Spring Security 6 no persiste el contexto que cambia a mitad de petición— pero eso es un detalle de
 una librería, y una baja que dependa de él fallaría en silencio el día que cambie. Pasar los dos
-cuesta una consulta por índice, y `SesionesDelBffTests` prueba las dos mitades.
+cuesta una consulta por índice, y `BffSessionsTests` prueba las dos mitades.
 
 **Un fallo del proveedor NO deshace la baja.** Es la decisión contraria a la del correo de la
 invitación (#18), y la diferencia importa: allí el correo *era* la operación —una invitación que no
@@ -1059,7 +1106,7 @@ expresión da el 404 de una membresía de otro condominio, igual que en el #15.
 
 ##### La venta de una unidad es una sola operación
 
-`POST .../unidades/{id}/transferencia` **cierra las tres relaciones del vendedor y abre la
+`POST .../units/{id}/transfer` **cierra las tres relaciones del vendedor y abre la
 titularidad del comprador en una transacción**. No es un cierre seguido de un alta por dos motivos:
 entre los dos pasos la unidad se quedaría sin dueño —y si el segundo falla, se queda así—, y en la
 bitácora dos filas sueltas obligarían a quien la lee a emparejarlas por la fecha y adivinar si fueron
@@ -1079,14 +1126,14 @@ con vigencia del #9: Hibernate ordena todos los `INSERT` antes que los `UPDATE` 
 
 ##### Lo histórico, y quién lo ve
 
-| Consulta | Permiso | Por qué |
+| Consulta | Permission | Por qué |
 | --- | --- | --- |
-| `GET .../membresias` | `INVITAR_USUARIOS` | el padrón de hoy |
-| `GET .../membresias?cerradas=true` | el mismo | quién estuvo y ya no está, con sus fechas |
-| `GET .../unidades/{id}/propietarios` | `VER_ESTADO_DE_CUENTA` | es la cabecera de su estado de cuenta, y el propietario ve la suya |
-| `GET .../unidades/{id}/propietarios/historico` | `GESTIONAR_UNIDADES` | §6.2 deja el comprobante de la época del vendedor **en manos del administrador** |
+| `GET .../memberships` | `INVITE_USERS` | el padrón de hoy |
+| `GET .../memberships?cerradas=true` | el mismo | quién estuvo y ya no está, con sus fechas |
+| `GET .../units/{id}/owners` | `VIEW_ACCOUNT_STATEMENT` | es la cabecera de su estado de cuenta, y el propietario ve la suya |
+| `GET .../units/{id}/owners/history` | `MANAGE_UNITS` | §6.2 deja el comprobante de la época del vendedor **en manos del administrador** |
 
-El histórico va por `GESTIONAR_UNIDADES` y no por el permiso del listado a propósito: dejar que un
+El histórico va por `MANAGE_UNITS` y no por el permiso del listado a propósito: dejar que un
 copropietario de hoy vea la cadena entera de dueños le daría el nombre de gente que ya no tiene nada
 que ver con el edificio.
 
@@ -1101,21 +1148,21 @@ ese comprobante.
   sin intervención manual"— necesita una fecha de fin en la ocupación, que el modelo del análisis no
   tiene. Hoy el cierre lo registra el administrador; el día que esa fecha exista, la tarea llamará a
   `endOccupancy`, que ya está.
-- **La desactivación de la cuenta** (§6.3): el estado `DESACTIVADO` existe en `AccountStatus` y nadie
+- **La desactivación de la cuenta** (§6.3): el estado `DEACTIVATED` existe en `AccountStatus` y nadie
   lo pone. No se hizo aquí a propósito: desactivar la cuenta de quien pierde su única membresía haría
-  que recibiera `SIN_CUENTA` en vez de autenticar, y el primer criterio del issue pide justo lo
+  que recibiera `NO_ACCOUNT` en vez de autenticar, y el primer criterio del issue pide justo lo
   contrario —que autentique y no vea el condominio—. Es otro ticket.
 - **La revocación de sesiones al retirar un rol administrativo**, que §8 nombra junto a la
-  desactivación: la trajo el **#20**, en `CierreDeAcceso`.
+  desactivación: la trajo el **#20**, en `AccessRevocation`.
 - **Listar las sesiones activas** de alguien, también de §8: es del **#22**.
 
 ##### Los tres eventos nuevos de `condominium` se auditan, y los tres viejos también
 
-`MEMBRESIA_DADA_DE_BAJA`, `MEMBRESIA_SUSPENDIDA`, `MEMBRESIA_REACTIVADA`,
-`TITULARIDAD_TRANSFERIDA`, `OCUPACION_TERMINADA` y `RESPONSABILIDAD_DE_PAGO_TERMINADA` implementan
-`EventoAuditable` —§8 pide los cambios de rol en la bitácora, y una baja es el mayor de todos—. Y de
-paso lo hacen `TITULARIDAD_CONCEDIDA`, `OCUPACION_REGISTRADA` y
-`RESPONSABILIDAD_DE_PAGO_ASIGNADA`, que el #21 había dejado fuera: **una bitácora que registra el fin
+`MEMBERSHIP_ENDED`, `MEMBERSHIP_SUSPENDED`, `MEMBERSHIP_REACTIVATED`,
+`OWNERSHIP_TRANSFERRED`, `OCCUPANCY_ENDED` y `BILLING_RESPONSIBILITY_ENDED` implementan
+`AuditableEvent` —§8 pide los cambios de rol en la bitácora, y una baja es el mayor de todos—. Y de
+paso lo hacen `OWNERSHIP_GRANTED`, `OCCUPANCY_REGISTERED` y
+`BILLING_RESPONSIBILITY_ASSIGNED`, que el #21 había dejado fuera: **una bitácora que registra el fin
 de una relación y no su principio es peor que una que no registre ninguno**, porque quien la lea
 creerá que la relación nació sola.
 
@@ -1169,7 +1216,7 @@ roles que se van, `puedeConceder` por los que llegan. Con una sola mitad se
 escapa justo lo que la celda "Solo administradores" acota: con sólo `puedeConceder`, el
 superadministrador convertiría a un propietario en `CONDO_ADMIN`; con sólo `puedeCambiar`, podría
 quitarle a un administrador sus roles y dejarle `OWNER`, que es repartir un rol que no le toca. Las
-dos negativas se prueban en `RolesAdministrativosTests`, una por mitad.
+dos negativas se prueban en `AdminRolesTests`, una por mitad.
 
 **El orden no es estético.** `puedeCambiar` *lanza* cuando la membresía es de otro condominio, y SpEL
 corta en el primer `and` que falla: puesto primero, el segundo criterio del issue —"un `CONDO_ADMIN`
@@ -1182,8 +1229,8 @@ distinto a propósito**:
 
 | Por dónde | Respuesta | Por qué |
 |---|---|---|
-| `POST /api/v1/superadministradores` | **403** `SIN_PERMISO` | La ruta es global, así que el filtro del #17 no corre y no lleva las autoridades de su membresía. Le falta el permiso. |
-| `PUT .../membresias/{id}/roles` con `PLATFORM_ADMIN` | **422** `REGLA_DE_NEGOCIO` | Aquí no le falta permiso —un `CONDO_ADMIN` concede cualquier rol de su condominio— sino que ese rol **no cabe en una membresía**, y no cabe para nadie: ni el superadministrador puede colarlo por ahí. |
+| `POST /api/v1/platform-admins` | **403** `NO_PERMISSION` | La ruta es global, así que el filtro del #17 no corre y no lleva las autoridades de su membresía. Le falta el permiso. |
+| `PUT .../memberships/{id}/roles` con `PLATFORM_ADMIN` | **422** `BUSINESS_RULE` | Aquí no le falta permiso —un `CONDO_ADMIN` concede cualquier rol de su condominio— sino que ese rol **no cabe en una membresía**, y no cabe para nadie: ni el superadministrador puede colarlo por ahí. |
 
 La segunda fila es la misma regla que el alta ya tenía desde el #16, y las dos la comparten en
 `exigirRolesDeMembresia` para que no puedan separarse: un alta que rechaza `PLATFORM_ADMIN` y un
@@ -1203,7 +1250,7 @@ cambio que lo admitiera dejarían entrar por la segunda puerta lo que la primera
 ##### Retirar un rol administrativo cierra las sesiones, aunque le queden condominios
 
 §8 pide revocar las sesiones "al retirar un rol administrativo", y esa es la **segunda entrada** de
-`CierreDeAcceso`. Su regla es distinta de la del #19 y conviene verlas juntas:
+`AccessRevocation`. Su regla es distinta de la del #19 y conviene verlas juntas:
 
 | Entrada | Cuándo cierra |
 |---|---|
@@ -1241,10 +1288,10 @@ podía empezar pero no crecer, y el segundo superadministrador salía de un `INS
 `Identities.grantPlatformAdmin` y `revokePlatformAdmin` son esa operación, con actor, motivo y
 bitácora.
 
-Las tres rutas son **globales** —`/api/v1/superadministradores`— y eso es lo que decide quién pasa:
+Las tres rutas son **globales** —`/api/v1/platform-admins`— y eso es lo que decide quién pasa:
 sin condominio en la ruta, el filtro del #17 no corre y las únicas autoridades de la petición son las
 que puso el de identidad. Un `CONDO_ADMIN` llega sin ninguna y recibe 403 **por la forma de la ruta**,
-sin una regla escrita aparte. El permiso es `INVITAR_SOLO_ADMINISTRADORES`, que es la celda de
+sin una regla escrita aparte. El permiso es `INVITE_ADMINS_ONLY`, que es la celda de
 `PLATFORM_ADMIN` en la fila "Invitar usuarios y asignar roles": conceder el rol de plataforma es
 asignar un rol administrativo, el mayor de ellos, así que la celda ya lo cubre y **no hace falta
 añadir una fila a la matriz**, que sería cambiar el análisis.
@@ -1266,7 +1313,7 @@ tiene responde **404 y no 422**: quién administra la plataforma no es dato púb
 
 ##### La bitácora de plataforma: dos consultas y no una
 
-`GET /api/v1/auditoria` devuelve las filas con `condominium_id` nulo —conceder y revocar el rol de
+`GET /api/v1/audit-log` devuelve las filas con `condominium_id` nulo —conceder y revocar el rol de
 superadministrador, y el primer acceso de una cuenta—. Llega con este issue porque es el que trae la
 operación de concederlo: antes, la única fila de plataforma la escribía el arranque y no había a quién
 enseñársela.
@@ -1277,7 +1324,7 @@ olvidarse de pasar el filtro lo muestra todo es la clase de endpoint que acaba f
 debía. Además no podría ser una ni queriendo: en `a.condominiumId = :condominio` un parámetro nulo no
 empareja con las filas nulas, porque en SQL `null = null` no es cierto.
 
-Las dos piden `CONSULTAR_AUDITORIA` y **el alcance de la ruta hace el resto**, igual que con el rol de
+Las dos piden `VIEW_AUDIT_LOG` y **el alcance de la ruta hace el resto**, igual que con el rol de
 plataforma. Por eso viven en el mismo controlador aunque sus rutas no se parezcan: lo que hay que
 poder leer junto es en qué se diferencian.
 
@@ -1295,7 +1342,7 @@ el PostgreSQL de desarrollo antes de decidir:
 Es decir: RLS da exactamente el criterio "ninguna consulta de negocio puede ejecutarse sin
 condominio en contexto", pero **solo si la aplicación deja de conectarse como superusuario**. Eso es
 un cambio de despliegue —rol propio, permisos, el Compose y las variables de producción—, más un
-enganche que ejecute `SET LOCAL` al abrir cada transacción, más resolver el alta de un condominio,
+enganche que ejecute `SET COMMERCIAL` al abrir cada transacción, más resolver el alta de un condominio,
 que ocurre cuando todavía no hay condominio en contexto. Mezclarlo con el filtro habría hecho un
 cambio de seguridad y uno de infraestructura en el mismo PR.
 
