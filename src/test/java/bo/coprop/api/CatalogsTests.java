@@ -45,9 +45,9 @@ class CatalogsTests {
     private static final String PARAMETRICAS = "/api/v1/catalogs";
     private static final String MATRIZ = PARAMETRICAS + "/permission-matrix";
 
-    /** Los paquetes raiz de los tres modulos cuyas enumeraciones son contrato. */
+    /** Los paquetes raiz de los cuatro modulos de dominio cuyas enumeraciones son contrato. */
     private static final List<String> PAQUETES =
-            List.of("bo.coprop.condominium", "bo.coprop.identity", "bo.coprop.shared");
+            List.of("bo.coprop.billing", "bo.coprop.condominium", "bo.coprop.identity", "bo.coprop.shared");
 
     @Autowired
     private MockMvc mockMvc;
@@ -72,7 +72,12 @@ class CatalogsTests {
                 .andExpect(jsonPath("$.enumerations.MembershipRole.length()").value(7))
                 .andExpect(jsonPath("$.enumerations.MembershipRole[0]").value("PLATFORM_ADMIN"))
                 .andExpect(jsonPath("$.enumerations.Permission.length()").value(23))
-                .andExpect(jsonPath("$.enumerations.ErrorCode.length()").value(10));
+                .andExpect(jsonPath("$.enumerations.ErrorCode.length()").value(10))
+                // Las dos del concepto de cobro (#100). El grupo de pago no tiene los mismos
+                // valores que el tipo a proposito: el porque esta en PaymentGroup.
+                .andExpect(jsonPath("$.enumerations.ChargeConceptType.length()").value(6))
+                .andExpect(jsonPath("$.enumerations.ChargeConceptType[0]").value("DUES"))
+                .andExpect(jsonPath("$.enumerations.PaymentGroup.length()").value(4));
     }
 
     @Test
@@ -139,7 +144,7 @@ class CatalogsTests {
     }
 
     /**
-     * Las enumeraciones publicas de los paquetes raiz de los tres modulos, por nombre simple.
+     * Las enumeraciones publicas de los paquetes raiz de los cuatro modulos, por nombre simple.
      *
      * <p>Se excluyen los subpaquetes {@code internal}: no son contrato, y exponerlas ataria la API a
      * como este guardado el dato. Si algun dia aparece una enumeracion ahi, este test no la exige y

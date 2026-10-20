@@ -20,7 +20,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Lo que la migracion V5 promete, comprobado contra PostgreSQL de verdad.
+ * Lo que la migracion V5 promete --y, desde el issue #100, lo que añade la V11--, comprobado contra
+ * PostgreSQL de verdad.
  *
  * <p>Va sobre SQL y no sobre el dominio a proposito: lo que se prueba aqui son las garantias del
  * esquema --indices parciales, claves foraneas compuestas, {@code NULLS NOT DISTINCT}--, que son
@@ -265,10 +266,43 @@ class IdentitySchemaTests {
         UUID unit = unit(condominium, "802");
         UUID person = person("9920001");
 
-        billingResponsibility(condominium, unit, person, UUID.randomUUID());
-        billingResponsibility(condominium, unit, person, UUID.randomUUID());
+        // Conceptos de verdad y no identificadores inventados: desde la V11 la columna tiene clave
+        // foranea, asi que un UUID al azar ya no entra.
+        billingResponsibility(condominium, unit, person, chargeConcept(condominium, "EXP"));
+        billingResponsibility(condominium, unit, person, chargeConcept(condominium, "AGUA"));
 
         assertThat(cuantas("billing_responsibility", "unit_id = ?", unit)).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("una responsabilidad de pago no puede apuntar al concepto de otro condominio")
+    void theBillingResponsibilityCannotPointToAnotherCondominiumsConcept() {
+        UUID propio = condominium("1000000031", "Con concepto propio");
+        UUID ajeno = condominium("1000000032", "Con concepto ajeno");
+        UUID unit = unit(propio, "803");
+        UUID person = person("9920002");
+        UUID conceptoAjeno = chargeConcept(ajeno, "EXP");
+
+        // Lo rechaza la base y no el servicio, y es la decision del issue #100: UnitRelations es de
+        // condominium, que no depende de billing, asi que desde el servicio no hay forma de mirar de
+        // quien es el concepto. La clave foranea apunta a (id, condominium_id) justo para esto.
+        assertThatThrownBy(() -> billingResponsibility(propio, unit, person, conceptoAjeno))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("billing_responsibility_concept_fk");
+    }
+
+    @Test
+    @DisplayName("el concepto de cobro es unico por codigo dentro del condominio, y no entre condominios")
+    void theChargeConceptCodeIsUniquePerCondominium() {
+        UUID lasPalmas = condominium("1000000033", "Las Palmas");
+        UUID villaSol = condominium("1000000034", "Villa Sol");
+        chargeConcept(lasPalmas, "UQ-33");
+        chargeConcept(villaSol, "UQ-33");
+
+        assertThat(cuantas("charge_concept", "code = ?", "UQ-33")).isEqualTo(2);
+        assertThatThrownBy(() -> chargeConcept(lasPalmas, "UQ-33"))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("charge_concept_code_uq");
     }
 
     @Test
@@ -425,6 +459,28 @@ class IdentitySchemaTests {
                 personId,
                 rol,
                 DESDE);
+    }
+
+    /**
+     * Un concepto de cobro, por SQL como todo aqui. Issue #100.
+     *
+     * <p>El tipo y el grupo de pago se fijan en los mas comunes: lo que estos tests comprueban es la
+     * clave foranea y la unicidad del codigo, no el catalogo.
+     */
+    private UUID chargeConcept(UUID condominiumId, String code) {
+        UUID id = UUID.randomUUID();
+        jdbc.update(
+                """
+                INSERT INTO charge_concept (id, condominium_id, code, name, type, payment_group)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                id,
+                condominiumId,
+                code,
+                "Concepto " + code,
+                "DUES",
+                "DUES");
+        return id;
     }
 
     private void billingResponsibility(UUID condominiumId, UUID unitId, UUID personId, @Nullable UUID conceptId) {

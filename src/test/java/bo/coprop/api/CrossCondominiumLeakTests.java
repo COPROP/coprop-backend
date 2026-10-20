@@ -239,15 +239,15 @@ class CrossCondominiumLeakTests {
     }
 
     /**
-     * Los veintinueve endpoints que cuelgan de un condominio.
+     * Los treinta y un endpoints que cuelgan de un condominio.
      *
      * <p>Son todos los que hay: los demas --personas, cuentas, el perfil propio, los
      * superadministradores, la bitacora de plataforma y las dos llamadas de quien llega con un token
      * de invitacion-- son globales a proposito (Seguridad 2 y 6.1) y no tienen condominio del que
      * aislarse. Cuando entre uno nuevo bajo {@code /condominiums/{id}}, su caso entra aqui; los cinco
      * de invitaciones entraron asi con el issue #18, la auditoria con el #21, los siete de bajas,
-     * suspensiones y cierres de relacion con el #19, el cambio de roles con el #20 y la edicion de la
-     * ficha con el #90.
+     * suspensiones y cierres de relacion con el #19, el cambio de roles con el #20, la edicion de la
+     * ficha con el #90 y los dos del catalogo de conceptos de cobro con el #100.
      */
     private List<Endpoint> endpoints() {
         String person = personaSuelta.toString();
@@ -262,6 +262,19 @@ class CrossCondominiumLeakTests {
                         HttpMethod.PUT,
                         "/api/v1/condominiums/%s/configuration",
                         "{\"issueDay\":5,\"dueDay\":10}"),
+                // El catalogo de conceptos de cobro (#100). El codigo es propio de esta suite, como
+                // el NIT de arriba: es unico por condominio y la rejilla de autorizacion corre
+                // contra la misma base.
+                new Endpoint(
+                        "dar de alta un concepto de cobro",
+                        HttpMethod.POST,
+                        "/api/v1/condominiums/%s/charge-concepts",
+                        "{\"code\":\"X-EXP\",\"name\":\"Expensas\",\"type\":\"DUES\",\"paymentGroup\":\"DUES\"}"),
+                new Endpoint(
+                        "listar los conceptos de cobro",
+                        HttpMethod.GET,
+                        "/api/v1/condominiums/%s/charge-concepts",
+                        null),
                 new Endpoint(
                         "dar de alta una unidad",
                         HttpMethod.POST,

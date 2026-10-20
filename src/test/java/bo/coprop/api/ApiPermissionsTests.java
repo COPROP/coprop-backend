@@ -109,8 +109,18 @@ class ApiPermissionsTests {
 
     private static final String UNIDAD = "{\"code\":\"A-1\",\"type\":\"APARTMENT\",\"aliquot\":\"1.000000\"}";
 
+    private static final String CONCEPTO =
+            "{\"code\":\"EXP\",\"name\":\"Expensas\",\"type\":\"DUES\",\"paymentGroup\":\"DUES\"}";
+
+    /**
+     * El cuerpo admite nulo desde el issue #100: la rejilla de esta suite tenia solo altas, y el
+     * catalogo de conceptos añade un GET que hay que comprobar contra dos roles.
+     */
     private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder authorizedRequest(
-            HttpMethod metodo, String path, String authorizationHeader, String cuerpo) {
+            HttpMethod metodo,
+            String path,
+            String authorizationHeader,
+            @org.jspecify.annotations.Nullable String cuerpo) {
         var constructor = request(metodo, path)
                 .with(SecurityMockMvcRequestPostProcessors.csrf())
                 .header(HttpHeaders.AUTHORIZATION, authorizationHeader);
@@ -165,6 +175,29 @@ class ApiPermissionsTests {
                         "/api/v1/condominiums/" + condominium + "/configuration",
                         tokenDe(condominium, MembershipRole.FINANCE_ADMIN),
                         "{\"issueDay\":7,\"dueDay\":15}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("el catalogo de conceptos de cobro es del financiero, tambien para leerlo")
+    void theChargeConceptCatalogBelongsToTheFinanceAdmin() throws Exception {
+        UUID condominium = condominioNuevo();
+        String ruta = "/api/v1/condominiums/" + condominium + "/charge-concepts";
+
+        mockMvc.perform(authorizedRequest(
+                        HttpMethod.POST, ruta, tokenDe(condominium, MembershipRole.CONDO_ADMIN), CONCEPTO))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("NO_PERMISSION"));
+
+        // El listado tambien, y no es un descuido: el catalogo dice que cobra la administracion.
+        mockMvc.perform(authorizedRequest(HttpMethod.GET, ruta, tokenDe(condominium, MembershipRole.OWNER), null))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("NO_PERMISSION"));
+
+        String financiero = tokenDe(condominium, MembershipRole.FINANCE_ADMIN);
+        mockMvc.perform(authorizedRequest(HttpMethod.POST, ruta, financiero, CONCEPTO))
+                .andExpect(status().isCreated());
+        mockMvc.perform(authorizedRequest(HttpMethod.GET, ruta, financiero, null))
                 .andExpect(status().isOk());
     }
 

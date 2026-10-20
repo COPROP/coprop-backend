@@ -26,9 +26,16 @@
  * autorizacion completa cruza los dos dominios --la matriz de permisos es de {@code identity} y las
  * relaciones de la unidad son de {@code condominium}-- y este es el unico modulo que ve las dos.
  * Los controladores lo invocan por nombre de bean desde {@code @PreAuthorize}, igual que
- * {@code @autorizacion}, asi que ninguno de los dos dominios tiene que importarlo.
+ * {@code @authorization}, asi que ninguno de los dos dominios tiene que importarlo.
+ *
+ * <p>Depende de {@code billing} desde el issue #100, y por una sola razon: el catalogo de
+ * parametricas. {@code GET /api/v1/catalogs} publica las enumeraciones del dominio para que ningun
+ * cliente las copie a mano, y las dos del concepto de cobro --{@code ChargeConceptType} y
+ * {@code PaymentGroup}-- son contrato igual que las de los otros modulos. Es la direccion que
+ * permite la regla 6 --api hacia el dominio-- y no cambia nada mas: ningun otro archivo de aqui
+ * importa {@code billing}, que tiene su propio controlador.
  */
 @org.springframework.modulith.ApplicationModule(
-        allowedDependencies = {"shared", "identity", "condominium"},
+        allowedDependencies = {"shared", "identity", "condominium", "billing"},
         displayName = "API")
 package bo.coprop.api;

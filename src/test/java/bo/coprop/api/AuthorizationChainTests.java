@@ -63,10 +63,11 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
  * La cadena de autorizacion completa del issue #15: <strong>cada endpoint, contra cada rol</strong>.
  *
  * <p>Es el segundo criterio del issue --"existe un test que recorre la matriz de roles y
- * endpoints"-- y recorre las dos dimensiones de verdad: los cuarenta y un endpoints de la API por los
+ * endpoints"-- y recorre las dos dimensiones de verdad: los cuarenta y tres endpoints de la API por los
  * siete roles de Seguridad 3, con el resultado esperado declarado celda a celda. Los cinco de
  * invitaciones entraron con el issue #18, los dos del catalogo de parametricas con el #89, la
- * edicion del condominio con el #90, y asi entra cada endpoint nuevo.
+ * edicion del condominio con el #90, los dos del catalogo de conceptos de cobro con el #100, y asi
+ * entra cada endpoint nuevo.
  *
  * <p><strong>Cada endpoint declara los siete roles, no solo los que pueden.</strong> Es la leccion
  * que dejo el issue #16, donde el test que declaraba las columnas completas encontro que a
@@ -552,6 +553,23 @@ class AuthorizationChainTests {
                         "{\"issueDay\":5,\"dueDay\":10}",
                         soloPara(FINANCE_ADMIN)),
 
+                // El catalogo de conceptos de cobro (issue #100), las dos operaciones. El listado va
+                // tambien por CONFIGURE_CHARGES: el catalogo dice que cobra la administracion, y
+                // cuando una pantalla de propietario necesite los nombres sera su respuesta la que
+                // los traiga, no este endpoint.
+                new Endpoint(
+                        "dar de alta un concepto de cobro",
+                        HttpMethod.POST,
+                        enElCondominio + "/charge-concepts",
+                        conceptoConCodigo(),
+                        soloPara(FINANCE_ADMIN)),
+                new Endpoint(
+                        "listar los conceptos de cobro",
+                        HttpMethod.GET,
+                        enElCondominio + "/charge-concepts",
+                        null,
+                        soloPara(FINANCE_ADMIN)),
+
                 // Crear condominios es del superadministrador.
                 new Endpoint(
                         "dar de alta un condominio",
@@ -722,6 +740,18 @@ class AuthorizationChainTests {
         return "{\"code\":\"R-" + sufijo + "\",\"type\":\"APARTMENT\",\"aliquot\":\"1.000000\"}";
     }
 
+    /**
+     * Un concepto de cobro con codigo distinto cada vez.
+     *
+     * <p>Hace falta por lo mismo que en la unidad: la rejilla da de alta una vez por rol permitido y
+     * el codigo es unico en el condominio, asi que un codigo fijo convertiria el segundo alta en un
+     * 409 y la celda pareceria una negativa de autorizacion.
+     */
+    private static String conceptoConCodigo() {
+        String sufijo = UUID.randomUUID().toString().substring(0, 8);
+        return "{\"code\":\"C-" + sufijo + "\",\"name\":\"Expensas\",\"type\":\"DUES\",\"paymentGroup\":\"DUES\"}";
+    }
+
     private static String altaDeCondominioJson() {
         return "{\"name\":\"Torre " + UUID.randomUUID() + "\",\"nit\":\"" + nitNuevo()
                 + "\",\"type\":\"BUILDING\",\"timeZone\":\"America/La_Paz\",\"issueDay\":5,\"dueDay\":10}";
@@ -772,7 +802,7 @@ class AuthorizationChainTests {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("celdas")
-    @DisplayName("la rejilla entera: los cuarenta y un endpoints por los siete roles")
+    @DisplayName("la rejilla entera: los cuarenta y tres endpoints por los siete roles")
     void theWholeGrid(Celda celda) throws Exception {
         var result = mockMvc.perform(
                 authorizedRequest(celda.endpoint(), principal(celda.rol()).authorizationHeader()));
