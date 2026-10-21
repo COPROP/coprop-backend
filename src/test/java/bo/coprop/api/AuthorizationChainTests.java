@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
@@ -63,11 +64,11 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
  * La cadena de autorizacion completa del issue #15: <strong>cada endpoint, contra cada rol</strong>.
  *
  * <p>Es el segundo criterio del issue --"existe un test que recorre la matriz de roles y
- * endpoints"-- y recorre las dos dimensiones de verdad: los cuarenta y tres endpoints de la API por los
- * siete roles de Seguridad 3, con el resultado esperado declarado celda a celda. Los cinco de
- * invitaciones entraron con el issue #18, los dos del catalogo de parametricas con el #89, la
- * edicion del condominio con el #90, los dos del catalogo de conceptos de cobro con el #100, y asi
- * entra cada endpoint nuevo.
+ * endpoints"-- y recorre las dos dimensiones de verdad: los cuarenta y cinco endpoints de la API
+ * por los siete roles de Seguridad 3, con el resultado esperado declarado celda a celda. Los cinco
+ * de invitaciones entraron con el issue #18, los dos del catalogo de parametricas con el #89, la
+ * edicion del condominio con el #90, los dos del catalogo de conceptos de cobro con el #100, los
+ * dos de los periodos de facturacion con el #101, y asi entra cada endpoint nuevo.
  *
  * <p><strong>Cada endpoint declara los siete roles, no solo los que pueden.</strong> Es la leccion
  * que dejo el issue #16, donde el test que declaraba las columnas completas encontro que a
@@ -88,6 +89,9 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 @AutoConfigureMockMvc
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AuthorizationChainTests {
+
+    /** Reparte un año-mes distinto a cada apertura de periodo. El porque esta en periodoNuevo(). */
+    private static final AtomicInteger PERIODOS = new AtomicInteger();
 
     /** Lo que la cadena tiene que contestar, que son tres cosas y no dos. */
     enum Result {
@@ -570,6 +574,23 @@ class AuthorizationChainTests {
                         null,
                         soloPara(FINANCE_ADMIN)),
 
+                // Los periodos de facturacion (issue #101), tambien las dos por
+                // CONFIGURE_CHARGES: preparar el mes que se va a cobrar es del que maneja el
+                // dinero. Emitir y cerrar no estan aqui porque no tienen ruta --viven en el
+                // dominio y las llamara el #24--.
+                new Endpoint(
+                        "abrir un periodo de facturacion",
+                        HttpMethod.POST,
+                        enElCondominio + "/billing-periods",
+                        periodoNuevo(),
+                        soloPara(FINANCE_ADMIN)),
+                new Endpoint(
+                        "listar los periodos de facturacion",
+                        HttpMethod.GET,
+                        enElCondominio + "/billing-periods",
+                        null,
+                        soloPara(FINANCE_ADMIN)),
+
                 // Crear condominios es del superadministrador.
                 new Endpoint(
                         "dar de alta un condominio",
@@ -747,6 +768,19 @@ class AuthorizationChainTests {
      * el codigo es unico en el condominio, asi que un codigo fijo convertiria el segundo alta en un
      * 409 y la celda pareceria una negativa de autorizacion.
      */
+    /**
+     * Un periodo de facturacion distinto cada vez.
+     *
+     * <p>Por lo mismo que el concepto: el par año-mes es unico en el condominio, asi que un mes
+     * fijo convertiria una segunda apertura en un 409 y la celda pareceria una negativa de
+     * autorizacion. Un contador y no un azar porque el año esta acotado entre 2000 y 2100 y un
+     * numero al azar puede repetirse; asi no se repite nunca dentro de la misma ejecucion.
+     */
+    private static String periodoNuevo() {
+        int n = PERIODOS.getAndIncrement();
+        return "{\"year\":" + (2000 + n / 12) + ",\"month\":" + (1 + n % 12) + "}";
+    }
+
     private static String conceptoConCodigo() {
         String sufijo = UUID.randomUUID().toString().substring(0, 8);
         return "{\"code\":\"C-" + sufijo + "\",\"name\":\"Expensas\",\"type\":\"DUES\",\"paymentGroup\":\"DUES\"}";
@@ -802,7 +836,7 @@ class AuthorizationChainTests {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("celdas")
-    @DisplayName("la rejilla entera: los cuarenta y tres endpoints por los siete roles")
+    @DisplayName("la rejilla entera: los cuarenta y cinco endpoints por los siete roles")
     void theWholeGrid(Celda celda) throws Exception {
         var result = mockMvc.perform(
                 authorizedRequest(celda.endpoint(), principal(celda.rol()).authorizationHeader()));

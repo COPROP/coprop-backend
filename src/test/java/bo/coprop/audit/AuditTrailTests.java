@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import bo.coprop.TestcontainersConfiguration;
+import bo.coprop.billing.BillingPeriods;
 import bo.coprop.billing.ChargeConceptType;
 import bo.coprop.billing.ChargeConcepts;
+import bo.coprop.billing.NewBillingPeriod;
 import bo.coprop.billing.NewChargeConcept;
 import bo.coprop.billing.PaymentGroup;
 import bo.coprop.condominium.CondominiumType;
@@ -82,6 +84,9 @@ class AuditTrailTests {
 
     @Autowired
     private ChargeConcepts chargeConcepts;
+
+    @Autowired
+    private BillingPeriods billingPeriods;
 
     @Autowired
     private DataSource fuenteDeDatos;
@@ -226,6 +231,26 @@ class AuditTrailTests {
                 // El grupo de pago se guarda aunque hoy coincida con el tipo: es el que decide con
                 // que se cobra, y de el dependera que un QR acepte o rechace una obligacion.
                 .containsEntry("paymentGroup", "DUES");
+    }
+
+    @Test
+    @DisplayName("abrir y emitir un periodo dejan dos filas, y la segunda lleva las dos mitades")
+    void theBillingPeriodLifecycleIsRecorded() {
+        var period = billingPeriods.open(condominium, new NewBillingPeriod(2026, 10), administradora.toString());
+        billingPeriods.issue(condominium, period.id(), administradora.toString());
+
+        AuditEntryView apertura = laFilaDe("BILLING_PERIOD_OPENED");
+        assertThat(apertura.entity()).isEqualTo("periodo-de-facturacion");
+        assertThat(apertura.condominium()).isEqualTo(condominium);
+        assertThat(apertura.oldValues()).isNull();
+        assertThat(apertura.newValues()).containsEntry("month", "10").containsEntry("status", "DRAFT");
+
+        // El nombre de la accion sale del estado al que paso, no del nombre del record: un solo
+        // evento sirve a las dos transiciones, igual que en la invitacion emitida o reenviada.
+        AuditEntryView emision = laFilaDe("BILLING_PERIOD_ISSUED");
+        assertThat(emision.entityId()).isEqualTo(period.id());
+        assertThat(emision.oldValues()).containsEntry("status", "DRAFT");
+        assertThat(emision.newValues()).containsEntry("status", "ISSUED");
     }
 
     @Test

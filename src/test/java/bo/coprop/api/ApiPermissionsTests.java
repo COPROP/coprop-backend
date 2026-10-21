@@ -112,6 +112,8 @@ class ApiPermissionsTests {
     private static final String CONCEPTO =
             "{\"code\":\"EXP\",\"name\":\"Expensas\",\"type\":\"DUES\",\"paymentGroup\":\"DUES\"}";
 
+    private static final String PERIODO = "{\"year\":2026,\"month\":10}";
+
     /**
      * El cuerpo admite nulo desde el issue #100: la rejilla de esta suite tenia solo altas, y el
      * catalogo de conceptos añade un GET que hay que comprobar contra dos roles.
@@ -196,6 +198,32 @@ class ApiPermissionsTests {
 
         String financiero = tokenDe(condominium, MembershipRole.FINANCE_ADMIN);
         mockMvc.perform(authorizedRequest(HttpMethod.POST, ruta, financiero, CONCEPTO))
+                .andExpect(status().isCreated());
+        mockMvc.perform(authorizedRequest(HttpMethod.GET, ruta, financiero, null))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("los periodos de facturacion son del financiero, tambien para leerlos")
+    void theBillingPeriodsBelongToTheFinanceAdmin() throws Exception {
+        UUID condominium = condominioNuevo();
+        String ruta = "/api/v1/condominiums/" + condominium + "/billing-periods";
+
+        // Preparar el mes que se va a cobrar es del que maneja el dinero, igual que el catalogo
+        // de conceptos: el administrador del condominio tampoco abre periodos.
+        mockMvc.perform(authorizedRequest(
+                        HttpMethod.POST, ruta, tokenDe(condominium, MembershipRole.CONDO_ADMIN), PERIODO))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("NO_PERMISSION"));
+
+        // Y el listado tampoco: los periodos sin emitir dicen que meses lleva la administracion
+        // sin cobrar.
+        mockMvc.perform(authorizedRequest(HttpMethod.GET, ruta, tokenDe(condominium, MembershipRole.OWNER), null))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("NO_PERMISSION"));
+
+        String financiero = tokenDe(condominium, MembershipRole.FINANCE_ADMIN);
+        mockMvc.perform(authorizedRequest(HttpMethod.POST, ruta, financiero, PERIODO))
                 .andExpect(status().isCreated());
         mockMvc.perform(authorizedRequest(HttpMethod.GET, ruta, financiero, null))
                 .andExpect(status().isOk());

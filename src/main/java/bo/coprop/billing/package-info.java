@@ -14,6 +14,12 @@
  * {@code condominium}, al contrario que la dependencia de codigo; esa asimetria es a proposito y
  * esta explicada en la V11 y en ARCHITECTURE.md.
  *
+ * <p>Y del <strong>periodo de facturacion</strong> ({@code BillingPeriod}, issue #101), que es el mes al
+ * que pertenece cada obligacion y la segunda maquina de estados del modulo:
+ * {@code DRAFT -> ISSUED -> CLOSED}. Se abre antes de emitir y nace en {@code DRAFT}; la emision lo
+ * abre si falta, de forma idempotente, para que el worker del #28 no falle en un mes que nadie
+ * preparo. Las lecturas de agua del #26 se cuelgan de el, y por eso no podia nacer al emitir.
+ *
  * <p>No conoce proveedores de pago ni QR: eso es de {@code payments}.
  */
 @org.springframework.modulith.ApplicationModule(
