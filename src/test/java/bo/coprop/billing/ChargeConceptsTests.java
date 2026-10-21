@@ -8,6 +8,7 @@ import bo.coprop.TestcontainersConfiguration;
 import bo.coprop.condominium.CondominiumType;
 import bo.coprop.condominium.Condominiums;
 import bo.coprop.condominium.NewCondominium;
+import bo.coprop.identity.InvitationDoubles;
 import bo.coprop.shared.ResourceNotFound;
 import bo.coprop.shared.StateConflict;
 import java.util.Map;
@@ -33,7 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
  * pago apunte al concepto de otro condominio: eso no lo decide este modulo sino el esquema, y esta
  * en {@code IdentitySchemaTests} con las demas garantias de la base.
  */
-@Import(TestcontainersConfiguration.class)
+@Import({TestcontainersConfiguration.class, InvitationDoubles.class})
 @ApplicationModuleTest(BootstrapMode.DIRECT_DEPENDENCIES)
 @Transactional
 class ChargeConceptsTests {

@@ -65,13 +65,13 @@ public interface BillingPeriods {
     /**
      * Cierra el mes: {@code ISSUED -> CLOSED}.
      *
-     * <p><strong>Falta una comprobacion que no se puede escribir todavia</strong>: el ticket pide que
-     * un periodo con obligaciones en {@code DRAFT} no se pueda cerrar, y {@code PaymentObligation}
-     * nace con el #23. La consulta entra con ese issue --los dos viven en este modulo, asi que es
-     * añadir un {@code existsBy...} y su caso de prueba-- y hasta entonces el #101 queda abierto.
+     * <p><strong>Un periodo con obligaciones en {@code DRAFT} no se cierra</strong>: o se emiten o
+     * se anulan. Era el criterio que el #101 dejo pendiente y que el #23 cerro al traer la
+     * obligacion de pago.
      *
      * @throws bo.coprop.shared.ResourceNotFound si el periodo no es de ese condominio o no existe
      * @throws bo.coprop.shared.StateConflict si todavia esta en {@code DRAFT} o si ya estaba cerrado
+     * @throws bo.coprop.shared.BusinessRuleViolated si el periodo tiene obligaciones en borrador
      */
     BillingPeriodView close(UUID condominiumId, UUID periodId, String actor);
 }

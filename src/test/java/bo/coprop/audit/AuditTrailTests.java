@@ -9,7 +9,9 @@ import bo.coprop.billing.ChargeConceptType;
 import bo.coprop.billing.ChargeConcepts;
 import bo.coprop.billing.NewBillingPeriod;
 import bo.coprop.billing.NewChargeConcept;
+import bo.coprop.billing.NewPaymentObligation;
 import bo.coprop.billing.PaymentGroup;
+import bo.coprop.billing.PaymentObligations;
 import bo.coprop.condominium.CondominiumType;
 import bo.coprop.condominium.Condominiums;
 import bo.coprop.condominium.NewCondominium;
@@ -29,6 +31,7 @@ import bo.coprop.shared.PagedResponse;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -87,6 +90,9 @@ class AuditTrailTests {
 
     @Autowired
     private BillingPeriods billingPeriods;
+
+    @Autowired
+    private PaymentObligations obligations;
 
     @Autowired
     private DataSource fuenteDeDatos;
@@ -251,6 +257,62 @@ class AuditTrailTests {
         assertThat(emision.entityId()).isEqualTo(period.id());
         assertThat(emision.oldValues()).containsEntry("status", "DRAFT");
         assertThat(emision.newValues()).containsEntry("status", "ISSUED");
+    }
+
+    @Test
+    @DisplayName("emitir y anular una obligacion dejan fila; crearla en borrador no")
+    void thePaymentObligationLifecycleIsRecorded() {
+        UUID unit = units.register(
+                        condominium,
+                        new NewUnit("AUD-1", UnitType.APARTMENT, new BigDecimal("1.000000"), null, null, null),
+                        administradora.toString())
+                .id();
+        UUID concept = chargeConcepts
+                .register(
+                        condominium,
+                        new NewChargeConcept("AUD-OBL", "Expensas", ChargeConceptType.DUES, PaymentGroup.DUES),
+                        administradora.toString())
+                .id();
+        UUID period = billingPeriods
+                .open(condominium, new NewBillingPeriod(2026, 11), administradora.toString())
+                .id();
+        UUID obligation = obligations
+                .register(
+                        condominium,
+                        new NewPaymentObligation(
+                                unit,
+                                people.register(new NewPerson("Aud", "Quispe", null), "admin")
+                                        .id(),
+                                concept,
+                                period,
+                                new BigDecimal("350.00"),
+                                LocalDate.of(2099, 12, 31),
+                                null,
+                                null,
+                                null),
+                        administradora.toString())
+                .id();
+
+        // El borrador no deja fila, y es una decision del #23: un calculo que el propietario no ve
+        // no es una accion que auditar. Si algun dia se audita, este caso es el que lo dira.
+        assertThat(delCondominio())
+                .extracting(AuditEntryView::action)
+                .doesNotContain("PAYMENT_OBLIGATION_ISSUED", "PAYMENT_OBLIGATION_CANCELLED");
+
+        obligations.issue(condominium, obligation, administradora.toString());
+        AuditEntryView emision = laFilaDe("PAYMENT_OBLIGATION_ISSUED");
+        assertThat(emision.entity()).isEqualTo("obligacion-de-pago");
+        assertThat(emision.entityId()).isEqualTo(obligation);
+        assertThat(emision.newValues())
+                .containsEntry("status", "ISSUED")
+                .containsEntry("amount", "350.00")
+                .containsEntry("currency", "BOB");
+
+        obligations.cancel(condominium, obligation, "se emitio a la unidad equivocada", administradora.toString());
+        AuditEntryView anulacion = laFilaDe("PAYMENT_OBLIGATION_CANCELLED");
+        // El motivo vive solo en la bitacora, igual que en la baja de una membresia.
+        assertThat(anulacion.newValues()).containsEntry("reason", "se emitio a la unidad equivocada");
+        assertThat(anulacion.oldValues()).containsEntry("status", "ISSUED");
     }
 
     @Test

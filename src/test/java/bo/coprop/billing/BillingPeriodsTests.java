@@ -8,8 +8,17 @@ import bo.coprop.TestcontainersConfiguration;
 import bo.coprop.condominium.CondominiumType;
 import bo.coprop.condominium.Condominiums;
 import bo.coprop.condominium.NewCondominium;
+import bo.coprop.condominium.NewUnit;
+import bo.coprop.condominium.UnitType;
+import bo.coprop.condominium.Units;
+import bo.coprop.identity.InvitationDoubles;
+import bo.coprop.identity.NewPerson;
+import bo.coprop.identity.People;
+import bo.coprop.shared.BusinessRuleViolated;
 import bo.coprop.shared.ResourceNotFound;
 import bo.coprop.shared.StateConflict;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,7 +42,7 @@ import org.springframework.transaction.annotation.Transactional;
  * obligaciones en {@code DRAFT} no se pueda cerrar necesita {@code PaymentObligation}, que nace con
  * el #23. Su caso entra con ese issue.
  */
-@Import(TestcontainersConfiguration.class)
+@Import({TestcontainersConfiguration.class, InvitationDoubles.class})
 @ApplicationModuleTest(BootstrapMode.DIRECT_DEPENDENCIES)
 @Transactional
 class BillingPeriodsTests {
@@ -43,6 +52,18 @@ class BillingPeriodsTests {
 
     @Autowired
     private Condominiums condominiums;
+
+    @Autowired
+    private PaymentObligations obligations;
+
+    @Autowired
+    private ChargeConcepts concepts;
+
+    @Autowired
+    private Units units;
+
+    @Autowired
+    private People people;
 
     private UUID lasPalmas;
 
@@ -188,6 +209,61 @@ class BillingPeriodsTests {
 
         assertThatThrownBy(() -> periods.issue(villaSol, period, "emma")).isInstanceOf(ResourceNotFound.class);
         assertThatThrownBy(() -> periods.close(villaSol, period, "emma")).isInstanceOf(ResourceNotFound.class);
+    }
+
+    @Test
+    @DisplayName("un periodo con obligaciones en borrador no se cierra")
+    void aPeriodWithDraftObligationsIsNotClosed() {
+        // El criterio que el #101 dejo pendiente y que el #23 cierra: hasta que exista
+        // PaymentObligation no habia nada que contar.
+        UUID period =
+                periods.open(lasPalmas, new NewBillingPeriod(2026, 10), "emma").id();
+        UUID obligation = unaObligacionEnBorrador(period);
+        periods.issue(lasPalmas, period, "emma");
+
+        assertThatThrownBy(() -> periods.close(lasPalmas, period, "emma"))
+                .isInstanceOf(BusinessRuleViolated.class)
+                .hasMessageContaining("2026-10");
+
+        // Y con el borrador resuelto --emitido o anulado-- el mes cierra.
+        obligations.cancel(lasPalmas, obligation, "no correspondia a esta unidad", "emma");
+        assertThat(periods.close(lasPalmas, period, "emma").status()).isEqualTo(BillingPeriodStatus.CLOSED);
+    }
+
+    /**
+     * Una obligacion en borrador colgada de ese periodo.
+     *
+     * <p>Hace falta una unidad, una persona y un concepto: la obligacion los exige todos, y es el
+     * precio de probar el cierre de verdad en vez de simularlo.
+     */
+    private UUID unaObligacionEnBorrador(UUID period) {
+        UUID unit = units.register(
+                        lasPalmas,
+                        new NewUnit("B-101", UnitType.APARTMENT, new BigDecimal("1.000000"), null, null, null),
+                        "emma")
+                .id();
+        UUID person =
+                people.register(new NewPerson("Ana", "Quispe", null), "emma").id();
+        UUID concept = concepts.register(
+                        lasPalmas,
+                        new NewChargeConcept("EXP", "Expensas", ChargeConceptType.DUES, PaymentGroup.DUES),
+                        "emma")
+                .id();
+        return obligations
+                .register(
+                        lasPalmas,
+                        new NewPaymentObligation(
+                                unit,
+                                person,
+                                concept,
+                                period,
+                                new BigDecimal("350.00"),
+                                LocalDate.of(2099, 12, 31),
+                                null,
+                                null,
+                                null),
+                        "emma")
+                .id();
     }
 
     @Test

@@ -20,8 +20,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Lo que la migracion V5 promete --y, desde el issue #100, lo que añade la V11--, comprobado contra
- * PostgreSQL de verdad.
+ * Lo que la migracion V5 promete --y, desde el #100 y el #23, lo que añaden la V11 y la V13--,
+ * comprobado contra PostgreSQL de verdad.
  *
  * <p>Va sobre SQL y no sobre el dominio a proposito: lo que se prueba aqui son las garantias del
  * esquema --indices parciales, claves foraneas compuestas, {@code NULLS NOT DISTINCT}--, que son
@@ -355,6 +355,109 @@ class IdentitySchemaTests {
     }
 
     // ----------------------------------------------------------------------------------------
+    // Lo que promete la V13: la obligacion de pago (issue #23)
+    // ----------------------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("#100: un concepto con una obligacion emitida no se puede borrar, y lo rechaza la base")
+    void aConceptInUseCannotBeDeleted() {
+        // Es el tercer criterio del issue #100, que se quedo sin poder demostrar hasta que existio
+        // payment_obligation. Lo rechaza la clave foranea, que no lleva ON DELETE a proposito.
+        UUID condominium = condominium("1000000031", "Las Palmas");
+        UUID unit = unit(condominium, "302");
+        UUID person = person("8123401");
+        UUID concept = chargeConcept(condominium, "EXP");
+        obligation(condominium, unit, person, concept, null, "EXP-2026-09-302");
+
+        assertThatThrownBy(() -> jdbc.update("DELETE FROM charge_concept WHERE id = ?", concept))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("payment_obligation_concept_fk");
+    }
+
+    @Test
+    @DisplayName("una obligacion no puede juntar la unidad de un condominio con el concepto de otro")
+    void anObligationCannotMixCondominiums() {
+        UUID lasPalmas = condominium("1000000032", "Las Palmas");
+        UUID villaSol = condominium("1000000033", "Villa Sol");
+        UUID unit = unit(lasPalmas, "302");
+        UUID person = person("8123402");
+        UUID conceptoAjeno = chargeConcept(villaSol, "EXP");
+
+        // La clave foranea es compuesta --(concept_id, condominium_id)-- asi que el concepto de
+        // Villa Sol no existe para una obligacion de Las Palmas. Esto lo garantiza el esquema y no
+        // el servicio, que es lo que lo hace valido tambien para quien escriba por otra via.
+        assertThatThrownBy(() -> obligation(lasPalmas, unit, person, conceptoAjeno, null, "EXP-2026-09-302"))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("payment_obligation_concept_fk");
+    }
+
+    @Test
+    @DisplayName("el numero legible es unico dentro del condominio, y se repite en otro")
+    void theNumberIsUniqueWithinTheCondominium() {
+        UUID lasPalmas = condominium("1000000034", "Las Palmas");
+        UUID unit = unit(lasPalmas, "302");
+        UUID person = person("8123403");
+        UUID concept = chargeConcept(lasPalmas, "EXP");
+        obligation(lasPalmas, unit, person, concept, null, "EXP-2026-09-302");
+
+        assertThatThrownBy(() -> obligation(lasPalmas, unit, person, concept, null, "EXP-2026-09-302"))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("payment_obligation_number_uq");
+    }
+
+    @Test
+    @DisplayName("una obligacion emitida sin fecha de emision la rechaza la base")
+    void anIssuedObligationNeedsItsIssuedAt() {
+        UUID condominium = condominium("1000000035", "Las Palmas");
+        UUID unit = unit(condominium, "302");
+        UUID person = person("8123404");
+        UUID concept = chargeConcept(condominium, "EXP");
+
+        // Es la unica regla de la maquina de estados que la base puede comprobar sola, y vale la
+        // pena: una emitida sin fecha de emision no se puede reconstruir despues.
+        assertThatThrownBy(() -> jdbc.update(
+                        """
+                        INSERT INTO payment_obligation
+                            (id, condominium_id, unit_id, responsible_person_id, concept_id, number,
+                             amount, currency, due_date, status)
+                        VALUES (?, ?, ?, ?, ?, 'EXP-2026-09-302', 350.00, 'BOB', DATE '2026-09-15', 'ISSUED')
+                        """,
+                        UUID.randomUUID(),
+                        condominium,
+                        unit,
+                        person,
+                        concept))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("payment_obligation_issued_at_ck");
+    }
+
+    @Test
+    @DisplayName("una obligacion no puede ser su propia mora")
+    void anObligationCannotBeItsOwnLateFee() {
+        UUID condominium = condominium("1000000036", "Las Palmas");
+        UUID unit = unit(condominium, "302");
+        UUID person = person("8123405");
+        UUID concept = chargeConcept(condominium, "EXP");
+        UUID id = UUID.randomUUID();
+
+        assertThatThrownBy(() -> jdbc.update(
+                        """
+                        INSERT INTO payment_obligation
+                            (id, condominium_id, unit_id, responsible_person_id, concept_id, number,
+                             amount, currency, due_date, status, parent_obligation_id)
+                        VALUES (?, ?, ?, ?, ?, 'MORA-2026-09-302', 35.00, 'BOB', DATE '2026-10-15', 'DRAFT', ?)
+                        """,
+                        id,
+                        condominium,
+                        unit,
+                        person,
+                        concept,
+                        id))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("payment_obligation_parent_ck");
+    }
+
+    // ----------------------------------------------------------------------------------------
     // Ayudantes
     // ----------------------------------------------------------------------------------------
 
@@ -467,6 +570,27 @@ class IdentitySchemaTests {
      * <p>El tipo y el grupo de pago se fijan en los mas comunes: lo que estos tests comprueban es la
      * clave foranea y la unicidad del codigo, no el catalogo.
      */
+    private UUID obligation(
+            UUID condominiumId, UUID unitId, UUID personId, UUID conceptId, @Nullable UUID periodId, String number) {
+        UUID id = UUID.randomUUID();
+        jdbc.update(
+                """
+                INSERT INTO payment_obligation
+                    (id, condominium_id, unit_id, responsible_person_id, concept_id, period_id,
+                     number, amount, currency, issued_at, due_date, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 350.00, 'BOB', ?, DATE '2026-09-15', 'ISSUED')
+                """,
+                id,
+                condominiumId,
+                unitId,
+                personId,
+                conceptId,
+                periodId,
+                number,
+                DESDE);
+        return id;
+    }
+
     private UUID chargeConcept(UUID condominiumId, String code) {
         UUID id = UUID.randomUUID();
         jdbc.update(

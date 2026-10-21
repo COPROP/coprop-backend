@@ -594,6 +594,8 @@ lo que sustituye a esa correspondencia directa.**
 | concepto de cobro | `chargeConcept` |
 | grupo de pago | `paymentGroup` |
 | periodo de facturación | `billingPeriod` |
+| obligación de pago | `paymentObligation` |
+| convenio de pago | `agreement` |
 | alícuota | `aliquot` |
 | saldo a favor | `creditBalance` |
 | estado de cuenta | `accountStatement` |
