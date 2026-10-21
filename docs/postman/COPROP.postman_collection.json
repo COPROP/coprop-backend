@@ -77,7 +77,7 @@
       "type": "string"
     },
     {
-      "key": "condominioAjeno",
+      "key": "otherCondominiumId",
       "value": "bbbbbbbb-0000-4000-8000-000000000002",
       "type": "string"
     },
@@ -87,7 +87,7 @@
       "type": "string"
     },
     {
-      "key": "otraPersonaId",
+      "key": "otherPersonId",
       "value": "",
       "type": "string"
     },
@@ -160,7 +160,7 @@
                 "api",
                 "v1",
                 "me",
-                "sesiones"
+                "sessions"
               ]
             },
             "description": "Dónde está abierta tu cuenta ahora mismo (Seguridad §8).\n\n**Son dos mitades y salen juntas.** `origen: BROWSER` son las sesiones de servidor del BFF, las que sostienen la cookie: de esas se sabe cuándo caducan, porque sus tiempos los pone esta aplicación. `origen: PROVIDER` son las de Keycloak, las que sostienen el refresh token de la app móvil: de esas se sabe la IP, que la tabla del BFF no guarda. Una lista que mirara solo una de las dos diría que no hay nadie dentro mientras el teléfono sigue renovando su token.\n\n`actual: true` marca la sesión desde la que estás preguntando. **Desde Postman siempre sale `false`**: se entra con `Bearer` y ahí no hay sesión de servidor con la que compararse.\n\nSi Keycloak no contesta, devuelve media lista y no un error."
@@ -180,8 +180,8 @@
                 "api",
                 "v1",
                 "me",
-                "sesiones",
-                "cierre"
+                "sessions",
+                "closure"
               ]
             },
             "description": "El botón de Seguridad §5.3, cuyo motivo típico está escrito en la propia tabla del análisis: la pérdida o el robo del celular.\n\n**Cierra también la sesión desde la que lo pides**, y las dos puertas: las del BFF y las de Keycloak. Dejar la tuya obligaría a decidir cuál es la tuya, que es justo lo que no se puede emparejar entre las dos mitades.\n\nResponde **204**. Después de esto, el `Bearer` de Postman deja de servir en cuanto Keycloak invalide el refresh token: hay que volver a pedirlo.\n\nDeja fila en la bitácora **de plataforma** —`SESSIONS_CLOSED`, sin condominio— porque una sesión no es de ningún edificio."
@@ -211,7 +211,7 @@
               "path": [
                 "api",
                 "v1",
-                "personas"
+                "people"
               ]
             },
             "description": "Devuelve **201 siempre**, también cuando la persona ya estaba y se reutilizó la fila. Es deliberado: un 200 para \"ya existía\" le diría al administrador de un condominio que esa persona está en otro.\n\nSin carnet siempre crea una nueva: dos personas pueden llamarse igual, y fusionarlas por el nombre es peor que duplicar una.\n\n**La segunda vez devuelve la misma persona**, con el mismo id: el carnet ya está registrado y se reutiliza la fila.",
@@ -257,7 +257,7 @@
               "path": [
                 "api",
                 "v1",
-                "personas",
+                "people",
                 "{{personId}}"
               ]
             }
@@ -281,9 +281,9 @@
               "path": [
                 "api",
                 "v1",
-                "personas",
+                "people",
                 "{{personId}}",
-                "cuenta"
+                "account"
               ]
             },
             "description": "La cuenta nace en `INVITED` y sin contraseña: esa la guarda Keycloak, no esta aplicación. Pasa a `ACTIVE` en el primer login, que es cuando queda vinculada al sujeto del proveedor de identidad.\n\nUna persona tiene **una sola cuenta**, y dos cuentas no comparten correo.",
@@ -329,7 +329,7 @@
               "path": [
                 "api",
                 "v1",
-                "cuentas",
+                "accounts",
                 "{{accountId}}"
               ]
             },
@@ -359,7 +359,7 @@
               "path": [
                 "api",
                 "v1",
-                "condominios"
+                "condominiums"
               ]
             },
             "description": "`type`: `BUILDING`, `HOUSES` o `MIXED`. El `nit` no se puede repetir: dos condominios con el mismo serían el mismo, y a partir de ahí los pagos de uno podrían aplicarse al otro.\n\n**No pisa la variable `condominiumId`** a propósito: no serías miembro del que acabas de crear, así que las peticiones de abajo empezarían a responder 404. `timeZone` tiene que ser una zona IANA de verdad, y se valida en el alta y no meses después, cuando ya haya vencimientos mal calculados.\n\n**Ojo**: esta ruta no cuelga de ningún condominio, así que cualquier cuenta puede crear uno. Quién debería poder es el issue #16. Y después del 201, consultarlo responde **404** hasta que tengas membresía.",
@@ -387,7 +387,7 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}"
               ]
             },
@@ -412,7 +412,7 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}"
               ]
             },
@@ -446,9 +446,9 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "configuracion"
+                "configuration"
               ]
             },
             "description": "La configuración lleva **vigencia**: no se actualiza en sitio, se cierra la fila anterior y se abre otra. Lo que puede cambiar y afecta a documentos ya emitidos nunca se pisa.\n\nLa mora y las tarifas de agua llegan en M2.",
@@ -486,9 +486,9 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "bloques"
+                "blocks"
               ]
             },
             "body": {
@@ -538,11 +538,11 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "bloques",
+                "blocks",
                 "{{blockId}}",
-                "pisos"
+                "floors"
               ]
             },
             "description": "El piso cuelga del **bloque**, no del condominio (análisis §5.2). Para usar pisos hay que crear al menos un bloque aunque el edificio sea uno solo.",
@@ -575,9 +575,9 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "unidades"
+                "units"
               ]
             },
             "description": "`type`: `APARTMENT`, `HOUSE`, `COMMERCIAL`, `PARKING` o `STORAGE`.\n\nLa **alícuota lleva seis decimales** a propósito: a dos, un edificio de 200 unidades deja bolivianos sin repartir cada mes. No se valida contra el 100% —eso no se puede comprobar unidad a unidad; es validación de la emisión, en M2—, solo se acota entre 0 y 100.",
@@ -628,16 +628,16 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "unidades",
-                "lote"
+                "units",
+                "batch"
               ]
             },
             "description": "**Todo o nada**: si una falla no se crea ninguna. Los códigos repetidos se comprueban antes de tocar la base y en una sola consulta, para que el error diga cuáles son en vez de llegar como un choque de integridad.\n\nRecibe una lista, no un archivo: la importación desde Excel es el issue #30.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"unidades\": [\n    {\n      \"code\": \"A-302\",\n      \"type\": \"APARTMENT\",\n      \"aliquot\": \"1.250000\"\n    },\n    {\n      \"code\": \"P-12\",\n      \"type\": \"PARKING\",\n      \"aliquot\": \"0.100000\"\n    }\n  ]\n}",
+              "raw": "{\n  \"units\": [\n    {\n      \"code\": \"A-302\",\n      \"type\": \"APARTMENT\",\n      \"aliquot\": \"1.250000\"\n    },\n    {\n      \"code\": \"P-12\",\n      \"type\": \"PARKING\",\n      \"aliquot\": \"0.100000\"\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -659,9 +659,9 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "unidades",
+                "units",
                 "{{unitId}}"
               ]
             },
@@ -692,11 +692,11 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "unidades",
+                "units",
                 "{{unitId}}",
-                "propietarios"
+                "owners"
               ]
             },
             "description": "Una unidad admite varios copropietarios vigentes, cada uno con su porcentaje.",
@@ -724,11 +724,11 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "unidades",
+                "units",
                 "{{unitId}}",
-                "propietarios"
+                "owners"
               ]
             },
             "description": "Solo los vigentes. Son a quienes se les cobra."
@@ -752,11 +752,11 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "unidades",
+                "units",
                 "{{unitId}}",
-                "ocupantes"
+                "occupants"
               ]
             },
             "description": "`role`: `RESIDENT` o `TENANT`.\n\nLa ocupación **no es un estado de la unidad**: \"ocupada por propietario\", \"alquilada\" y \"desocupada\" se modelan aquí, con vigencia. La unidad solo está `ACTIVE` o `INACTIVE`.",
@@ -789,11 +789,11 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "unidades",
+                "units",
                 "{{unitId}}",
-                "responsables-de-pago"
+                "billing-responsibles"
               ]
             },
             "description": "`conceptId` nulo = responde por todo lo que se le cobre a la unidad. El concepto como entidad nace en M2, así que hoy no se comprueba que exista.",
@@ -827,17 +827,17 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "unidades",
+                "units",
                 "{{unitId}}",
-                "transferencia"
+                "transfer"
               ]
             },
             "description": "La venta de la unidad (#19). Cierra las TRES relaciones del vendedor con ella —titularidad, ocupación y responsabilidades de pago— y abre la titularidad del comprador con el mismo porcentaje, todo en una transacción. Después de esto, pedir el histórico de propietarios muestra las dos filas: la del vendedor con su valid_to puesto y la del comprador abierta.\n\nUna venta parcial no es esto: cambia el reparto de la unidad y se registra titularidad por titularidad. Por lo mismo, vender a quien ya es copropietario responde 422.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fromPersonId\": \"{{personId}}\",\n  \"toPersonId\": \"{{otraPersonaId}}\"\n}",
+              "raw": "{\n  \"fromPersonId\": \"{{personId}}\",\n  \"toPersonId\": \"{{otherPersonId}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -859,12 +859,12 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "unidades",
+                "units",
                 "{{unitId}}",
-                "propietarios",
-                "historico"
+                "owners",
+                "history"
               ]
             },
             "description": "Quién ha sido dueño de esta unidad y cuándo, de lo más reciente a lo más antiguo, incluida la titularidad vigente (#19).\n\nPide MANAGE_UNITS y no VIEW_ACCOUNT_STATEMENT como el listado de arriba: Seguridad §6.2 deja el comprobante de la época del vendedor en manos del administrador, y dejar que un copropietario de hoy vea la cadena entera de dueños le daría el nombre de gente que ya no tiene nada que ver con el edificio."
@@ -883,11 +883,11 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "unidades",
+                "units",
                 "{{unitId}}",
-                "ocupantes",
+                "occupants",
                 "{{personId}}"
               ]
             },
@@ -907,11 +907,11 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "unidades",
+                "units",
                 "{{unitId}}",
-                "responsables-de-pago",
+                "billing-responsibles",
                 "{{personId}}"
               ]
             },
@@ -942,9 +942,9 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "membresias"
+                "memberships"
               ]
             },
             "description": "`roles`, al menos uno: `PLATFORM_ADMIN`, `CONDO_ADMIN`, `FINANCE_ADMIN`, `OWNER`, `TENANT`, `MAINTENANCE`, `BOARD`. Una membresía sin roles no autoriza nada.\n\n`invitedBy` nulo en la del primer administrador, que no la invita nadie.\n\n**Los roles no viajan en el token**: viven aquí y se resuelven en cada petición, para que quitar uno surta efecto sin esperar a que el token expire.",
@@ -990,9 +990,9 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "membresias"
+                "memberships"
               ]
             },
             "description": "Solo las vigentes. Las cerradas son historia y las sacará el issue #19."
@@ -1011,9 +1011,9 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "membresias",
+                "memberships",
                 "{{membershipId}}"
               ]
             }
@@ -1033,13 +1033,13 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "membresias"
+                "memberships"
               ],
               "query": [
                 {
-                  "key": "cerradas",
+                  "key": "closed",
                   "value": "true",
                   "description": "Incluye las membresías dadas de baja. Por defecto no."
                 }
@@ -1066,9 +1066,9 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "membresias",
+                "memberships",
                 "{{membershipId}}",
                 "roles"
               ]
@@ -1076,7 +1076,7 @@
             "description": "El administrador del condominio asigna y quita roles dentro de SU condominio, sin pasar por el superadministrador (#20, §10.1).\n\nEl conjunto llega COMPLETO: lo que no venga aquí es lo que se quita. Es un PUT y no un PATCH porque los roles de una membresía son un solo valor; así repetir la petición no cambia nada y la bitácora puede guardar las dos mitades del cambio.\n\nNO cierra la membresía: edita la fila, así que la respuesta sigue trayendo validTo nulo. El padrón no muestra una baja que nadie dio, y la historia de los roles vive en la bitácora.\n\nSurte efecto en la SIGUIENTE petición: los roles se releen en cada request y nunca estuvieron en el token.\n\nCuatro rechazos que conviene conocer:\n- PLATFORM_ADMIN en el cuerpo → 422. No es un rol de condominio, y no lo es para nadie: se concede por POST /api/v1/platform-admins.\n- Una membresía de otro condominio → 404, nunca 403.\n- Quitarle CONDO_ADMIN al último administrador → 422.\n- Cambiarse los roles a sí mismo → 422.\n\nSi el cambio RETIRA un rol administrativo, se le cierran las sesiones aunque siga en el condominio (§8). Y si quedan CONDO_ADMIN y FINANCE_ADMIN en la misma persona, la bitácora lo registra con concentraFunciones: true.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"roles\": [\"OWNER\", \"CONDO_ADMIN\"],\n  \"motivo\": \"se hace cargo del edificio\"\n}",
+              "raw": "{\n  \"roles\": [\"OWNER\", \"CONDO_ADMIN\"],\n  \"reason\": \"se hace cargo del edificio\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1103,17 +1103,17 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "membresias",
+                "memberships",
                 "{{membershipId}}",
-                "baja"
+                "termination"
               ]
             },
             "description": "Esa cuenta deja de pertenecer a este condominio (#19). No borra nada: cierra la vigencia de la fila y responde la membresía con su validTo puesto.\n\nSurte efecto en la SIGUIENTE petición, sin esperar a que caduque ningún token: el filtro de condominio relee la membresía en cada request. Para verlo, pedir GET /api/v1/condominiums/{{condominiumId}} con el token de esa persona —responde 404— y GET /api/v1/me, que sigue respondiendo 200 con la lista de condominios vacía.\n\nEl motivo es obligatorio y acaba SÓLO en la bitácora: la fila cerrada dice cuándo y la bitácora por qué.\n\nDos rechazos que conviene conocer: nadie se da de baja a sí mismo (422) y no se cierra la última membresía con CONDO_ADMIN del condominio (422).",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"motivo\": \"vendio su departamento\"\n}",
+              "raw": "{\n  \"reason\": \"vendio su departamento\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1140,9 +1140,9 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "membresias",
+                "memberships",
                 "{{membershipId}}",
                 "suspension"
               ]
@@ -1150,7 +1150,7 @@
             "description": "Suspensión temporal (#19). La fila NO se cierra: cambia a SUSPENDED y sigue abierta, así que la persona sigue siendo del condominio y no entra. Eso es lo que la distingue de una baja, que no se deshace.\n\nSuspender dos veces responde 409.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"motivo\": \"cuota impaga desde tres meses\"\n}",
+              "raw": "{\n  \"reason\": \"cuota impaga desde tres meses\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1177,17 +1177,17 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "membresias",
+                "memberships",
                 "{{membershipId}}",
-                "reactivacion"
+                "reactivation"
               ]
             },
             "description": "Levanta la suspensión (#19). Vuelve a dar acceso en la siguiente petición y la persona no tiene que hacer nada: sus roles nunca estuvieron en su token. Lo que NO le devuelve es la sesión, si se le cerró.\n\nReactivar una que está activa responde 409; reactivar una dada de baja también, y el mensaje dice lo que hay que hacer en su lugar: conceder una membresía nueva.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"motivo\": \"pago al dia\"\n}",
+              "raw": "{\n  \"reason\": \"pago al dia\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1220,9 +1220,9 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "invitaciones"
+                "invitations"
               ]
             },
             "description": "Apunta a una **cuenta que ya existe**, no a un correo suelto: la persona y su cuenta se dan de alta antes, con las peticiones de la carpeta 1.\n\nLas **unidades no viajan aquí** aunque el ticket las nombre: son del módulo `condominium` y se registran con la carpeta 4, antes de invitar.\n\nPide poder conceder esos roles, la misma regla que el alta directa de membresía: es lo mismo diferido. `PLATFORM_ADMIN` no se invita.\n\nManda el correo al emitir. **Mira Mailpit**: ahí está el enlace con el token.",
@@ -1270,9 +1270,9 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "invitaciones"
+                "invitations"
               ]
             },
             "description": "Las vivas y las cerradas: quien administra necesita ver que ya invitó a alguien y no entró.\n\nNinguna lleva el token. No hay campo de estado tampoco: `acceptedAt` y `revokedAt` nulos con `expiresAt` en el futuro significa que sigue viva."
@@ -1291,9 +1291,9 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "invitaciones",
+                "invitations",
                 "{{invitationId}}"
               ]
             }
@@ -1312,11 +1312,11 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "invitaciones",
+                "invitations",
                 "{{invitationId}}",
-                "reenvio"
+                "resend"
               ]
             },
             "description": "Revoca esta y emite otra. **No prolonga la anterior**: el enlace viejo deja de valer en el acto, porque dos enlaces vivos son dos accesos y solo uno se controla.\n\nResponde **201** y la `Location` de la nueva, que es el recurso que de verdad queda vivo.\n\nSirve también para una vencida: es el \"EXPIRADO → INVITED\" del diagrama de Seguridad §6."
@@ -1352,11 +1352,11 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "invitaciones",
+                "invitations",
                 "{{invitationId}}",
-                "revocacion"
+                "revocation"
               ]
             },
             "description": "`POST .../revocation` y no `DELETE`: la fila no se borra, se cierra con una fecha. Lo que la bitácora del issue #21 querrá es la fila cerrada, no su ausencia.\n\nUna invitación ya aceptada no se revoca: la membresía existe y lo que toca es darla de baja (issue #19)."
@@ -1383,8 +1383,8 @@
               "path": [
                 "api",
                 "v1",
-                "invitaciones",
-                "apertura"
+                "invitations",
+                "opening"
               ]
             },
             "description": "**Pública, y tiene que serlo**: quien acaba de recibir el enlace no tiene con qué autenticarse —el realm tiene el registro cerrado, así que ni contraseña—. Lo que la autoriza es el token.\n\nNo cuelga de un condominio: quien llega con un token todavía no está en ninguno, que es lo que la invitación va a arreglar.\n\nResuelve los dos casos de §6.1. Si la cuenta nunca entró, crea el usuario en Keycloak, le pide a Keycloak que le escriba para poner su contraseña —ese correo también llega a Mailpit— y responde `credencialEnviada: true`. Si ya participa en otro condominio, viene en `false` y solo le toca iniciar sesión.\n\n**No consume el token**: abrirlo dos veces vuelve a mandar el correo.",
@@ -1417,8 +1417,8 @@
               "path": [
                 "api",
                 "v1",
-                "invitaciones",
-                "aceptacion"
+                "invitations",
+                "acceptance"
               ]
             },
             "description": "Ya **autenticada**, y con el token de la persona invitada: hay que volver a pedir el token de Keycloak con su correo, no con `dev@coprop.local`.\n\nSella la invitación y concede la membresía con los roles que llevaba. El enlace de otro responde **404**, igual que uno inventado: un 403 confirmaría que ese enlace es bueno.\n\nEl token va en el **cuerpo y no en la ruta** porque es una credencial: en la ruta acabaría en el log de accesos y en el historial del navegador.",
@@ -1452,17 +1452,17 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}",
-                "auditoria"
+                "audit-log"
               ],
               "query": [
                 {
-                  "key": "tamano",
+                  "key": "size",
                   "value": "20"
                 },
                 {
-                  "key": "pagina",
+                  "key": "page",
                   "value": "0",
                   "disabled": true
                 },
@@ -1472,23 +1472,23 @@
                   "disabled": true
                 },
                 {
-                  "key": "entidad",
+                  "key": "entity",
                   "value": "invitacion",
                   "disabled": true
                 },
                 {
-                  "key": "desde",
+                  "key": "from",
                   "value": "2026-10-01T00:00:00Z",
                   "disabled": true
                 },
                 {
-                  "key": "hasta",
+                  "key": "until",
                   "value": "2026-11-01T00:00:00Z",
                   "disabled": true
                 }
               ]
             },
-            "description": "Pide `VIEW_AUDIT_LOG`: los dos administradores del condominio y el superadministrador, que no opera pero audita (Seguridad §10.1).\n\nLos cuatro filtros de abajo vienen **desactivados**: actívalos para probarlos. Se combinan, y `entidad` toma `membresia`, `invitacion`, `configuracion` o `cuenta`.\n\n`desde` es inclusivo y `hasta` exclusivo, así que dos rangos contiguos no devuelven la misma fila dos veces. Las fechas van en ISO-8601 con zona, igual que las que devuelve la respuesta: lo que se lee en una fila se puede pegar tal cual como filtro.\n\nCada fila trae el actor, la acción, sobre qué, los valores de antes y de después, la IP y el `traceId` de la petición que la originó. Con ese `traceId` se encuentran sus líneas de log.\n\n**Paginada siempre**: es el primer endpoint paginado del sistema, y por él se movió el sobre `PagedResponse` de `api` a `shared`. El tope de `tamano` es 200."
+            "description": "Pide `VIEW_AUDIT_LOG`: los dos administradores del condominio y el superadministrador, que no opera pero audita (Seguridad §10.1).\n\nLos cuatro filtros de abajo vienen **desactivados**: actívalos para probarlos. Se combinan, y `entity` toma uno de los once nombres de entidad que escribe la bitácora: `condominio`, `configuracion`, `membresia`, `invitacion`, `cuenta`, `superadministrador`, `titularidad`, `ocupacion`, `responsabilidad-de-pago`, `concepto-de-cobro` o `periodo-de-facturacion`.\n\n**Esos valores van en español a propósito**, al contrario que el resto del contrato: el análisis §5.2 nombra la bitácora por sus datos y no traduce las entidades, así que `entity=membership` no devuelve nada.\n\n`from` es inclusivo y `until` exclusivo, así que dos rangos contiguos no devuelven la misma fila dos veces. Las fechas van en ISO-8601 con zona, igual que las que devuelve la respuesta: lo que se lee en una fila se puede pegar tal cual como filtro.\n\nCada fila trae el actor, la acción, sobre qué, los valores de antes y de después, la IP y el `traceId` de la petición que la originó. Con ese `traceId` se encuentran sus líneas de log.\n\n**Paginada siempre**: es el primer endpoint paginado del sistema, y por él se movió el sobre `PagedResponse` de `api` a `shared`. El tope de `size` es 200."
           }
         },
         {
@@ -1504,15 +1504,15 @@
               "path": [
                 "api",
                 "v1",
-                "auditoria"
+                "audit-log"
               ],
               "query": [
                 {
-                  "key": "tamano",
+                  "key": "size",
                   "value": "20"
                 },
                 {
-                  "key": "entidad",
+                  "key": "entity",
                   "value": "superadministrador",
                   "disabled": true
                 }
@@ -1533,15 +1533,15 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominioAjeno}}",
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{otherCondominiumId}}",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "v1",
-                "condominios",
-                "{{condominioAjeno}}"
+                "condominiums",
+                "{{otherCondominiumId}}"
               ]
             },
             "description": "Nunca 403. Distinguir \"no existe\" de \"no puedes\" le diría a cualquiera con una cuenta qué condominios hay, y con eso se enumeran probando identificadores."
@@ -1560,7 +1560,7 @@
               "path": [
                 "api",
                 "v1",
-                "condominios",
+                "condominiums",
                 "{{condominiumId}}"
               ]
             },
@@ -1589,7 +1589,7 @@
               "path": [
                 "api",
                 "v1",
-                "superadministradores"
+                "platform-admins"
               ]
             },
             "description": "Quién lo administra HOY, de la concesión más reciente a la más antigua.\n\nNo sale quien lo tuvo: revocar borra la fila —o administras la plataforma o no, sin grados ni vigencias— y esa historia la cuenta la bitácora de plataforma.\n\nEl primero de todos viene con `grantedBy` nulo: no lo concedió nadie, lo abrió el arranque."
@@ -1613,7 +1613,7 @@
               "path": [
                 "api",
                 "v1",
-                "superadministradores"
+                "platform-admins"
               ]
             },
             "description": "Hasta el issue #20 el rol sólo lo abría el arranque, y sólo cuando no había ninguno: la plataforma podía empezar pero no crecer, y el segundo superadministrador salía de un INSERT a mano.\n\nSin motivo, igual que el alta de una membresía: lo que hay que explicar es por qué se quita.\n\n**Nadie se lo concede a sí mismo** (422), y lo impide además un CHECK en la base. A quien ya lo tiene responde 409: la fila existe y no hay grados.\n\nSurte efecto en la siguiente petición. Para verlo: pedir POST /api/v1/condominiums con el token de esa cuenta antes —403— y después —201—.",
@@ -1646,15 +1646,15 @@
               "path": [
                 "api",
                 "v1",
-                "superadministradores",
+                "platform-admins",
                 "{{accountId}}",
-                "revocacion"
+                "revocation"
               ]
             },
             "description": "Borra la fila y le cierra las sesiones en el momento, las del BFF y las de Keycloak: §8 pide revocar sesiones al retirar un rol administrativo, y no hay rol más administrativo que este.\n\nResponde **204**: no hay recurso que devolver, porque el rol ya no está.\n\nEs un POST con motivo y no un DELETE, por lo mismo que la baja de una membresía: la fila se borra, así que el motivo de la bitácora es lo único que queda explicando el cambio.\n\n**Nadie se lo revoca a sí mismo** (422): se quedaría sin la única pantalla desde la que podría devolvérselo. Para dejar el puesto se le pide a otro.\n\nY a una cuenta que no lo tiene responde **404**, no 422: quién administra la plataforma no es dato público.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"motivo\": \"dejo la empresa\"\n}",
+              "raw": "{\n  \"reason\": \"dejo la empresa\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1724,7 +1724,7 @@
               "path": [
                 "api",
                 "v1",
-                "parametricas"
+                "catalogs"
               ]
             },
             "description": "Las dieciséis enumeraciones públicas del dominio, por nombre y con sus valores.\n\nLas claves son el nombre de la enumeración tal como la nombra el análisis §5.2, así que no hay traducción entre leer esa sección y leer la respuesta.\n\nLos valores van en el orden en que se declararon y no alfabético: `AccountStatus` empieza por `INVITED` porque ese es el ciclo de vida de la cuenta, y ordenarlo de otro modo movería las opciones de sitio en un desplegable.\n\nSolo códigos, sin etiquetas: el texto que lee una persona es del cliente."
@@ -1743,8 +1743,8 @@
               "path": [
                 "api",
                 "v1",
-                "parametricas",
-                "matriz-de-permisos"
+                "catalogs",
+                "permission-matrix"
               ]
             },
             "description": "La matriz de Seguridad §3 tal como la aplica el backend: 23 permisos por 7 roles, 161 celdas.\n\nSale de `PermissionMatrix`, la misma clase que decide cada `@PreAuthorize`, así que una pantalla que la pinte desde aquí no puede divergir de la autorización real.\n\n**Cada fila declara los siete roles, incluidos los que no pueden**, con `NONE`. Omitirlos daría una respuesta más corta y obligaría al cliente a decidir qué significa una ausencia: no puede, o no se declaró."
