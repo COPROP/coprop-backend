@@ -321,14 +321,14 @@ Al revés no hace falta, porque a quien *pierde* un rol administrativo se le cie
 el acto desde el #20.
 
 **El step-up es el cuarto control de la cadena** (§7.2) y lo añaden solo las operaciones sensibles
-que §7.3 enumera. Lo comprueba `ReauthenticationControl` (bean `@reautenticacion`) sobre dos
+que §7.3 enumera. Lo comprueba `ReauthenticationControl` (bean `@reauthentication`) sobre dos
 afirmaciones del token que `IdentityFilter` guarda en `AuthenticatedIdentity`: `amr` —`otp` o
 `hwk`; `pwd` no es un segundo factor— y `auth_time`, que tiene que ser de hace menos de cinco
 minutos. No es lo mismo que la expiración del token: uno recién renovado trae `iat` de hace un
 segundo y `auth_time` de hace tres días.
 
 ```java
-@PreAuthorize("@autorizacion.puedeCambiar(...) and @reautenticacion.reciente(authentication)")
+@PreAuthorize("@authorization.canChange(...) and @reauthentication.recent(authentication)")
 ```
 
 **El orden de la expresión no es estético.** SpEL corta en el primer `false`, así que la
@@ -740,11 +740,11 @@ pequeño: es una condición sobre *cuál* recurso, y quien la resuelve es la cad
 —la sección siguiente—. Tratarla como un sí abriría las unidades del vecino; como un no, dejaría al
 propietario sin su estado de cuenta.
 
-Los controladores preguntan con `@PreAuthorize("@autorizacion.puede(authentication, 'X')")`. El bean
+Los controladores preguntan con `@PreAuthorize("@authorization.can(authentication, 'X')")`. El bean
 se referencia **por nombre**, que es una cadena: por eso un controlador de `condominium` lo usa sin
 importar nada de `identity` y sin romper la regla de dependencias. El precio es que el compilador no
 ve ese uso —un permiso mal escrito revienta en ejecución, no al compilar— y por eso cada endpoint
-protegido tiene su caso en `PermissionsDeApiTests`.
+protegido tiene su caso en `ApiPermissionsTests`.
 
 No hace falta consultar la base: los roles del condominio de la ruta ya los dejó el filtro del #17
 como autoridades de la petición. Solo se baja a la base en las rutas que no cuelgan de un condominio
@@ -761,7 +761,7 @@ Vive en `api`, con el bean `acceso`, porque es **el único módulo que ve las do
 es de `identity` y las relaciones de la unidad son de `condominium`, y las reglas 2 y 6 prohíben que
 esos dos se miren entre sí. Mismo motivo que `MeController`, y no relaja ningún límite: `api`
 compone lo que cada dominio ya publica. Los controladores lo invocan por nombre de bean desde
-`@PreAuthorize`, igual que `@autorizacion`.
+`@PreAuthorize`, igual que `@authorization`.
 
 **Las tres relaciones cuentan por igual** —`UnitOwnership`, `UnitOccupancy` y
 `BillingResponsibility`—, no solo la titularidad. El propietario que alquiló ya no ocupa y sigue
@@ -927,7 +927,7 @@ Dos cosas del adaptador de la Admin API que costaron tiempo:
 Lo que lo sostiene: `InvitationsTests` con los cuatro motivos por los que un token no sirve —no
 existe, usado, revocado, vencido— y los dos casos de §6.1; `AcceptInvitationTests` con un token
 firmado de verdad, para la costura con el #13; y los cinco endpoints nuevos añadidos a
-`CrossCondominiumLeakTests` y a `CadenaDeAuthorizationTests`. **El test lee el token del correo**, con
+`CrossCondominiumLeakTests` y a `AuthorizationChainTests`. **El test lee el token del correo**, con
 un doble del puerto, igual que lo leería la persona invitada: es el único sitio donde existe, y uno
 que lo sacara de la base estaría probando otro sistema.
 
@@ -1116,7 +1116,7 @@ cerrarla a mano.
   nadie que pueda invitar, repartir roles ni dar de alta unidades. Es más fácil impedirlo que
   arreglarlo.
 
-Y una de autorización: las tres operaciones piden `@autorizacion.puedeCambiar`, que es `puedeConceder`
+Y una de autorización: las tres operaciones piden `@authorization.canChange`, que es `canGrant`
 leído al revés, con los roles que la membresía **tiene** en vez de los que se van a conceder: *quien
 no puede nombrar a un administrador tampoco puede quitarlo*. Sin eso, el superadministrador —que
 según la matriz sólo reparte roles administrativos— podría dar de baja a cualquier propietario de
@@ -1224,20 +1224,20 @@ anterior para describir el que quiere.
 ##### La autorización pide las dos mitades, y en ese orden
 
 ```java
-@PreAuthorize("@autorizacion.puedeCambiar(authentication, #condominiumId, #membershipId)"
-        + " and @autorizacion.puedeConceder(authentication, #nuevos.roles())"
-        + " and @reautenticacion.reciente(authentication)")
+@PreAuthorize("@authorization.canChange(authentication, #condominiumId, #membershipId)"
+        + " and @authorization.canGrant(authentication, #nuevos.roles())"
+        + " and @reauthentication.recent(authentication)")
 ```
 
 La tercera cláusula la añadió el #22 y está explicada en
-[Tiempos de sesión y reautenticación](#tiempos-de-sesión-y-reautenticación). `puedeCambiar` por los
-roles que se van, `puedeConceder` por los que llegan. Con una sola mitad se
-escapa justo lo que la celda "Solo administradores" acota: con sólo `puedeConceder`, el
-superadministrador convertiría a un propietario en `CONDO_ADMIN`; con sólo `puedeCambiar`, podría
+[Tiempos de sesión y reautenticación](#tiempos-de-sesión-y-reautenticación). `canChange` por los
+roles que se van, `canGrant` por los que llegan. Con una sola mitad se
+escapa justo lo que la celda "Solo administradores" acota: con sólo `canGrant`, el
+superadministrador convertiría a un propietario en `CONDO_ADMIN`; con sólo `canChange`, podría
 quitarle a un administrador sus roles y dejarle `OWNER`, que es repartir un rol que no le toca. Las
 dos negativas se prueban en `AdminRolesTests`, una por mitad.
 
-**El orden no es estético.** `puedeCambiar` *lanza* cuando la membresía es de otro condominio, y SpEL
+**El orden no es estético.** `canChange` *lanza* cuando la membresía es de otro condominio, y SpEL
 corta en el primer `and` que falla: puesto primero, el segundo criterio del issue —"un `CONDO_ADMIN`
 no puede tocar roles de otro condominio"— responde **404** y no un 403 que confirmaría que esa
 membresía existe. Al revés, un rol sin permiso vería el 403 antes de que nadie comprobara de qué

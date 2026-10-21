@@ -120,7 +120,7 @@ class SessionsController {
      * <strong>esta</strong>. Sin esa marca, una lista de tres sesiones no le dice a nadie cual
      * puede cerrar sin quedarse fuera, que es justo la pregunta que lleva a esta pantalla.
      *
-     * @param actual si es la sesion desde la que se esta mirando. Siempre falso en las del
+     * @param current si es la sesion desde la que se esta mirando. Siempre falso en las del
      *     proveedor: sus identificadores son de otro espacio y no se pueden emparejar con el de la
      *     sesion del navegador
      */

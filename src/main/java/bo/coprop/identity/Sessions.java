@@ -40,7 +40,7 @@ public interface Sessions {
      * <p><strong>Es idempotente y no falla si no hay ninguna</strong>: a quien nunca entro por la
      * web no hay nada que cerrarle, y eso no es un error.
      *
-     * @param nombres los nombres con los que esa cuenta puede estar identificada en una sesion
+     * @param names los nombres con los que esa cuenta puede estar identificada en una sesion
      * @return cuantas cerro
      */
     int closeThoseOf(Set<String> names);
@@ -68,9 +68,9 @@ public interface Sessions {
      * junta las dos mitades.
      *
      * @param id el identificador de la sesion, que es lo que hay que mandar para cerrarla
-     * @param creada cuando se abrio, que es lo que mide el tope de 24 horas
-     * @param ultimoAcceso la ultima peticion que la uso
-     * @param inactividad cuanto aguanta sin usarse, ya resuelta por rol (Seguridad 5.3)
+     * @param created cuando se abrio, que es lo que mide el tope de 24 horas
+     * @param lastAccess la ultima peticion que la uso
+     * @param inactivity cuanto aguanta sin usarse, ya resuelta por rol (Seguridad 5.3)
      */
     record BffSession(String id, Instant created, Instant lastAccess, Duration inactivity) {}
 }

@@ -19,12 +19,12 @@ import org.jspecify.annotations.Nullable;
  * una con otra, "cerrar esta" no se puede cumplir.
  *
  * @param id el identificador de la sesion en su origen
- * @param origen de cual de las dos mitades sale
+ * @param origin de cual de las dos mitades sale
  * @param ip desde donde se abrio; <strong>solo la del proveedor la tiene</strong>, la tabla de
  *     sesiones del BFF no guarda de donde vino la peticion
- * @param creada cuando se abrio
- * @param ultimoAcceso la ultima vez que se uso
- * @param expira cuando caduca por inactividad si no se vuelve a usar; nula en las del proveedor,
+ * @param created cuando se abrio
+ * @param lastAccess la ultima vez que se uso
+ * @param expiresAt cuando caduca por inactividad si no se vuelve a usar; nula en las del proveedor,
  *     cuyos tiempos los gobierna el realm y no esta aplicacion
  */
 public record ActiveSessionView(

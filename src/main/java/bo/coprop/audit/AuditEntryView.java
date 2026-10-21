@@ -12,9 +12,9 @@ import org.jspecify.annotations.Nullable;
  * analisis no nombra esta entidad en ingles: la nombra por sus datos, en 5.2 --"actor, accion,
  * entidad, antes, despues, fecha, IP"-- y esos son los nombres que usa.
  *
- * @param condominio nulo en las acciones de plataforma, que no cuelgan de ninguno
- * @param antes nulo cuando no habia nada antes, que es el caso de toda alta
- * @param despues nulo cuando la accion no deja valores que mirar, como una revocacion
+ * @param condominium nulo en las acciones de plataforma, que no cuelgan de ninguno
+ * @param oldValues nulo cuando no habia nada antes, que es el caso de toda alta
+ * @param newValues nulo cuando la accion no deja valores que mirar, como una revocacion
  * @param ip nula cuando el evento se reentrego tras un reinicio y no habia peticion de la que
  *     sacarla
  * @param traceId la traza de la peticion, para encontrar sus lineas de log

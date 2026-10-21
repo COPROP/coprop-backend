@@ -27,7 +27,7 @@ import org.springframework.stereotype.Component;
  *
  * <p>Vive aqui por lo mismo que {@link AccessControl}: lo que se comprueba son las afirmaciones
  * del token, que es cosa de la capa web, y los controladores lo invocan por nombre de bean
- * ({@code @reautenticacion}) desde {@code @PreAuthorize}.
+ * ({@code @reauthentication}) desde {@code @PreAuthorize}.
  *
  * <h2>Se escribe despues de la autorizacion, nunca antes</h2>
  *

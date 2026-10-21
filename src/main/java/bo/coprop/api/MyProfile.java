@@ -25,12 +25,12 @@ import java.util.Set;
  * --{@link PagedResponse}, las extensiones de problem+json--, y los de dentro en ingles, porque son los
  * que el analisis le da al dominio.
  *
- * @param cuenta la cuenta con la que entro, no la persona: son dos cosas y la pantalla de perfil
+ * @param account la cuenta con la que entro, no la persona: son dos cosas y la pantalla de perfil
  *     muestra las dos
- * @param administraLaPlataforma si es superadministrador. Va aqui y no como un rol mas de la lista
+ * @param managesThePlatform si es superadministrador. Va aqui y no como un rol mas de la lista
  *     porque no cuelga de ningun condominio (Seguridad 3), y meterlo en {@code roles} de alguno
  *     haria creer al cliente que ese condominio se lo dio
- * @param condominios solo los de membresia <strong>activa</strong>, ordenados por nombre. Una
+ * @param condominiums solo los de membresia <strong>activa</strong>, ordenados por nombre. Una
  *     membresia suspendida no se lista: el filtro de aislamiento le responderia 404 a todo lo de ese
  *     condominio, asi que ofrecerlo en el selector seria ofrecer una puerta cerrada
  */
@@ -42,7 +42,7 @@ public record MyProfile(
      *
      * @param roles los de su membresia en <strong>este</strong> condominio, que es lo que decide que
      *     puede hacer aqui
-     * @param unidades las unidades con las que tiene alguna relacion vigente. Vacio para quien
+     * @param units las unidades con las que tiene alguna relacion vigente. Vacio para quien
      *     administra y no es propietario, que es lo normal
      */
     public record MyCondominium(CondominiumView condominium, Set<MembershipRole> roles, List<RelatedUnitView> units) {}

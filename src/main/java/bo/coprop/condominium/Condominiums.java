@@ -19,7 +19,7 @@ public interface Condominiums {
      * deja el alta en la bitacora. Lo hace desde el 16-oct-2026: el evento existia desde el primer
      * dia pero no implementaba la interfaz, asi que nadie lo escuchaba y el alta no se registraba.
      *
-     * @param nuevo los datos del alta, ya validados
+     * @param body los datos del alta, ya validados
      * @param actor quien lo da de alta, para la bitacora
      * @throws bo.coprop.shared.BusinessRuleViolated si ya existe un condominio con ese NIT
      */

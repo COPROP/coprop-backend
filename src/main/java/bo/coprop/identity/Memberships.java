@@ -56,7 +56,7 @@ public interface Memberships {
      * <p>Publica {@link MembershipRevoked}, que es donde queda el motivo: la fila cerrada dice
      * cuando y la bitacora por que.
      *
-     * @param motivo por que se le da de baja. Obligatorio, lo exige el alcance del issue
+     * @param reason por que se le da de baja. Obligatorio, lo exige el alcance del issue
      * @throws bo.coprop.shared.ResourceNotFound si la membresia no existe o no es de ese
      *     condominio
      * @throws bo.coprop.shared.StateConflict si ya estaba dada de baja
@@ -128,7 +128,7 @@ public interface Memberships {
      * @param roles el conjunto completo que la membresia tendra. Al menos uno, y ninguno puede ser
      *     {@code PLATFORM_ADMIN}: ese rol no cuelga de un condominio y se concede por su propia
      *     operacion, {@link Identities#grantPlatformAdmin}
-     * @param motivo por que se le cambian. Obligatorio, por lo mismo que en la baja: acaba en la
+     * @param reason por que se le cambian. Obligatorio, por lo mismo que en la baja: acaba en la
      *     bitacora y es lo unico que explica el cambio dentro de un año
      * @throws bo.coprop.shared.ResourceNotFound si la membresia no existe o no es de ese
      *     condominio
@@ -184,6 +184,8 @@ public interface Memberships {
     List<MembershipView> ofAccount(UUID accountId);
 
     /**
+     * Una membresia del condominio, por su identificador.
+     *
      * @throws bo.coprop.shared.ResourceNotFound si no existe, o si no es de ese condominio
      */
     MembershipView find(UUID condominiumId, UUID membershipId);

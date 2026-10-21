@@ -28,7 +28,7 @@ public interface Mail {
      * eso aporta a que una invitacion llegue. Cuando haya varios avisos con formato, lo que toca es
      * una plantilla aqui, no HTML pegado en cada llamada.
      *
-     * @param destinatario una sola direccion; no hay aviso del MVP que vaya a dos
+     * @param recipient una sola direccion; no hay aviso del MVP que vaya a dos
      * @throws FalloDeEnvio si no se pudo entregar al servidor de correo. No se traga: quien envia
      *     decide que hacer, y en la invitacion lo que se hace es deshacer la emision.
      */

@@ -86,6 +86,8 @@ public interface Invitations {
     List<InvitationView> ofCondominium(UUID condominiumId);
 
     /**
+     * Una invitacion del condominio, por su identificador.
+     *
      * @throws bo.coprop.shared.ResourceNotFound si no existe o no es de ese condominio
      */
     InvitationView find(UUID condominiumId, UUID invitationId);
@@ -114,7 +116,7 @@ public interface Invitations {
     /**
      * Lo que la pantalla de la invitacion necesita saber antes de mandar a nadie al login.
      *
-     * @param credencialEnviada si hubo que pedirle al proveedor de identidad que le envie a la
+     * @param credentialSent si hubo que pedirle al proveedor de identidad que le envie a la
      *     persona la accion para poner su contraseña. En falso, ya puede iniciar sesion.
      * @param condominiumId a que condominio la invitan, para poder decir su nombre
      */

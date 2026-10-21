@@ -74,7 +74,7 @@ class TestTokenProvider {
         return token(tokenSubject, email, true, Instant.now().plus(5, ChronoUnit.MINUTES), AUDIENCIA, CLAVE);
     }
 
-    /** Como {@link #valido}, pero autenticado solo con contraseña: no hay segundo factor. */
+    /** Como {@link #valid}, pero autenticado solo con contraseña: no hay segundo factor. */
     static String sinSegundoFactor(String tokenSubject, String email) {
         return token(
                 tokenSubject,

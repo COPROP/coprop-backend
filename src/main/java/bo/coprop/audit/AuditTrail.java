@@ -44,10 +44,10 @@ public interface AuditTrail {
      * {@code shared}.
      *
      * @param actor el identificador de cuenta de quien hizo la accion; nulo para no filtrar
-     * @param entidad el tipo de cosa sobre la que se actuo --{@code membresia},
+     * @param entity el tipo de cosa sobre la que se actuo --{@code membresia},
      *     {@code invitacion}--; nulo para no filtrar
-     * @param desde inclusive; nulo para no acotar por abajo
-     * @param hasta exclusive, para que dos consultas consecutivas no devuelvan la misma fila dos
+     * @param from inclusive; nulo para no acotar por abajo
+     * @param until exclusive, para que dos consultas consecutivas no devuelvan la misma fila dos
      *     veces; nulo para no acotar por arriba
      */
     PagedResponse<AuditEntryView> ofCondominium(

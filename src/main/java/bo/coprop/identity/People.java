@@ -33,6 +33,8 @@ public interface People {
     PersonView register(NewPerson body, String actor);
 
     /**
+     * La persona, por su identificador.
+     *
      * @throws bo.coprop.shared.ResourceNotFound si no existe
      */
     PersonView find(UUID personId);
@@ -55,6 +57,8 @@ public interface People {
     AccountView openAccount(UUID personId, String email, @Nullable String phone, String actor);
 
     /**
+     * La cuenta, por su identificador.
+     *
      * @throws bo.coprop.shared.ResourceNotFound si no existe
      */
     AccountView findAccount(UUID accountId);

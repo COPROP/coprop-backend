@@ -30,7 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>El condominio va en la ruta, nunca en el cuerpo: asi no puede haber discrepancia entre uno y
  * otro, que es como se acaba creando una unidad en el condominio equivocado. La forma de la ruta
- * es la que fija Seguridad 5.4, {@code /api/v1/condominiums/{condominioId}/...}, y es la misma
+ * es la que fija Seguridad 5.4, {@code /api/v1/condominiums/{condominiumId}/...}, y es la misma
  * sobre la que el issue #17 montara el filtro de aislamiento.
  *
  * <p><strong>El condominio de la ruta se comprueba contra el recurso</strong>, no solo se recibe:
@@ -100,7 +100,7 @@ class UnitController {
      *
      * <p>La matriz no tiene una fila que diga "ver una unidad": sus veintiuna son acciones sobre
      * dinero y administracion. Asi que esto lo gobierna el cruce de los dos eslabones anteriores de
-     * la cadena, y lo resuelve {@code @acceso}: el administrador de unidades las ve todas, y
+     * la cadena, y lo resuelve {@code @access}: el administrador de unidades las ve todas, y
      * cualquier otro miembro solo aquellas con las que tiene una relacion vigente. Una ajena
      * responde <strong>404</strong>, igual que si no existiera, para que nadie recorra el edificio
      * probando identificadores.

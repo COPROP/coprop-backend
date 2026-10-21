@@ -35,11 +35,11 @@ import org.springframework.web.bind.annotation.RestController;
  * puede conceder <em>esos</em> roles es una segunda regla, y de ahi {@code canGrant}.
  *
  * <p>La baja, la suspension y la reactivacion son el <strong>#19</strong>, y las tres piden
- * {@code puedeCambiar}, que es la misma regla del alta leida al reves: quien no puede nombrar a un
+ * {@code canChange}, que es la misma regla del alta leida al reves: quien no puede nombrar a un
  * administrador tampoco puede quitarlo ni dejarlo fuera.
  *
  * <p>El cambio de roles es el <strong>#20</strong>, y es el unico que pide las <strong>dos</strong>
- * mitades a la vez: {@code puedeCambiar} por los que se van y {@code canGrant} por los que
+ * mitades a la vez: {@code canChange} por los que se van y {@code canGrant} por los que
  * llegan. El rol de plataforma no se reparte desde aqui --no cuelga de ningun condominio-- sino en
  * {@link PlatformAdminController}.
  */
@@ -80,7 +80,7 @@ class MembershipController {
      * trabajar con ella. <strong>Quien quiera su propia membresia no viene aqui</strong>: la trae
      * {@code GET /api/v1/me} con sus roles, y por eso esto no necesita una excepcion para lo propio.
      *
-     * @param cerradas si incluir las membresias dadas de baja (issue #19). Por defecto no: lo que se
+     * @param closed si incluir las membresias dadas de baja (issue #19). Por defecto no: lo que se
      *     pide casi siempre es quien esta hoy, y una lista que mezcle a los de antes sin pedirlo
      *     haria que el administrador invitara a gente que ya se fue creyendo que sigue dentro. Con
      *     {@code true} salen todas, de la mas reciente a la mas antigua, y la misma cuenta puede
@@ -143,14 +143,14 @@ class MembershipController {
      * Cambia los roles de una membresia. Issue #20.
      *
      * <p><strong>Pide las dos mitades de la regla y no una</strong>: poder quitar los roles que la
-     * membresia tiene hoy ({@code puedeCambiar}) <em>y</em> poder conceder los que llegan en el
+     * membresia tiene hoy ({@code canChange}) <em>y</em> poder conceder los que llegan en el
      * cuerpo ({@code canGrant}). Un cambio es las dos cosas a la vez, y con una sola mitad se
      * escapa justo lo que la matriz acota: con solo {@code canGrant}, el superadministrador
      * convertiria a un propietario en {@code CONDO_ADMIN} --y la celda "Solo administradores" le
-     * prohibe tocar propietarios--; con solo {@code puedeCambiar}, podria quitarle sus roles
+     * prohibe tocar propietarios--; con solo {@code canChange}, podria quitarle sus roles
      * administrativos a alguien y dejarle {@code OWNER}, que es repartir un rol que no le toca.
      *
-     * <p>El orden importa, y no es estetico: {@code puedeCambiar} <strong>lanza</strong> cuando la
+     * <p>El orden importa, y no es estetico: {@code canChange} <strong>lanza</strong> cuando la
      * membresia es de otro condominio, y SpEL corta en el primer {@code and} que falla. Puesto
      * primero, pedir la membresia de otro edificio responde 404 --el segundo criterio del issue-- y
      * no un 403 que confirmaria que existe.

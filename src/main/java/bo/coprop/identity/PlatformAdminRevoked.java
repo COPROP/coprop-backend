@@ -17,7 +17,7 @@ import org.jspecify.annotations.Nullable;
  * <p>Va sin condominio, como {@link PlatformAdminGranted}: el alcance de este rol es la plataforma.
  * Las dos salen por {@code GET /api/v1/audit-log} y no por la de un condominio.
  *
- * @param sesionesCerradas si se le cerraron las sesiones. Se intenta siempre --Seguridad 8 pide
+ * @param closedSessions si se le cerraron las sesiones. Se intenta siempre --Seguridad 8 pide
  *     revocarlas al retirar un rol administrativo, y no hay rol mas administrativo que este-- y lo
  *     que se registra es si quedaron cerradas, no si se intento
  */

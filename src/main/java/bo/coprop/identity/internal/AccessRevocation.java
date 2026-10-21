@@ -120,7 +120,7 @@ class AccessRevocation {
      * <p>Solo cuando se <strong>quita</strong>: añadir {@code FINANCE_ADMIN} a quien ya administra
      * no cierra nada, y cambiar entre roles que no son administrativos tampoco.
      *
-     * @param retirados los roles que la membresia tenia y ya no tiene
+     * @param removed los roles que la membresia tenia y ya no tiene
      * @return si se cerraron. Falso tanto cuando no hacia falta como cuando se intento y fallo, por
      *     lo mismo que en la otra entrada
      */

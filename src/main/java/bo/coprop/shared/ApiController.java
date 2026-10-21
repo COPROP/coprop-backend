@@ -10,8 +10,8 @@ import java.lang.annotation.Target;
  * Marca un controlador como parte de la API publica versionada.
  *
  * <p>La capa web le antepone el prefijo de version, asi que el controlador declara su ruta sin el:
- * {@code @RequestMapping("/condominiums/{condominioId}/units")} queda servido en
- * {@code /api/v1/condominiums/{condominioId}/units}. Lo que no es API versionada -- el receptor
+ * {@code @RequestMapping("/condominiums/{condominiumId}/units")} queda servido en
+ * {@code /api/v1/condominiums/{condominiumId}/units}. Lo que no es API versionada -- el receptor
  * de webhooks, por ejemplo -- no lleva esta anotacion y declara su ruta completa.
  *
  * <p>Vive en shared y no en api para que un modulo de dominio pueda anotar su controlador sin

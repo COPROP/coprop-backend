@@ -185,7 +185,7 @@ class AdminRolesTests {
                 .andExpect(jsonPath("$.code").value("NOT_FOUND"));
 
         // Y por la del propio --con el identificador de una membresia del ajeno, que es el intento
-        // de verdad-- lo corta puedeCambiar, que exige que la membresia sea de ESTE condominio y
+        // de verdad-- lo corta canChange, que exige que la membresia sea de ESTE condominio y
         // lanza en vez de devolver falso, para que la respuesta sea 404 y no 403.
         mockMvc.perform(authorizedRequest(
                         HttpMethod.PUT, laRutaDeRoles(propio, enElAjeno.id()), administrador.token(), cuerpo))

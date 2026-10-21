@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
  *
  * @param roles los que tenia al darsele de baja. Van dentro porque para entonces la fila esta
  *     cerrada y nadie la va a volver a leer para reconstruir la bitacora
- * @param sesionesCerradas si se le cerraron las sesiones, que solo pasa cuando esta era su ultima
+ * @param closedSessions si se le cerraron las sesiones, que solo pasa cuando esta era su ultima
  *     membresia activa y no administra la plataforma
  */
 public record MembershipRevoked(

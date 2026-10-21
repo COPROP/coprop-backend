@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 interface PlatformAdminRepository extends JpaRepository<PlatformAdmin, UUID> {
 
     /** Lo pregunta el filtro de identidad en cada peticion, asi que va por clave primaria. */
+    @Override
     boolean existsById(UUID accountId);
 
     /**
