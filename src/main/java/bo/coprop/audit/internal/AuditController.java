@@ -73,10 +73,10 @@ class AuditController {
      * asi lo que se lee en una fila se puede pegar tal cual como filtro.
      *
      * @param actor identificador de cuenta de quien hizo la accion
-     * @param entidad tipo de cosa sobre la que se actuo: {@code membresia}, {@code invitacion},
+     * @param entity tipo de cosa sobre la que se actuo: {@code membresia}, {@code invitacion},
      *     {@code configuracion}, {@code cuenta}
-     * @param desde inclusive
-     * @param hasta exclusive, para que dos rangos contiguos no repitan una fila
+     * @param from inclusive
+     * @param until exclusive, para que dos rangos contiguos no repitan una fila
      */
     @PreAuthorize("@authorization.can(authentication, 'VIEW_AUDIT_LOG')")
     @GetMapping("/condominiums/{condominiumId}/audit-log")

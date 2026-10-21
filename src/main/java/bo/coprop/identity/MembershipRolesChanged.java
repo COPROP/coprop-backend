@@ -19,12 +19,12 @@ import java.util.stream.Collectors;
  * <p>Lleva las dos mitades, los de antes y los de despues, porque son lo que de verdad se pregunta
  * despues: no "que roles tiene" --eso lo dice la fila-- sino "que le quitaron y quien".
  *
- * @param antesDeLosRoles los que tenia; nunca vacio, una membresia no existe sin roles
+ * @param beforeTheRoles los que tenia; nunca vacio, una membresia no existe sin roles
  * @param roles los que tiene a partir de ahora
- * @param concentraFunciones si la misma persona queda con {@code CONDO_ADMIN} y
+ * @param concentratesDuties si la misma persona queda con {@code CONDO_ADMIN} y
  *     {@code FINANCE_ADMIN}. Es el aviso que pide el alcance del issue, y va aqui porque Seguridad
  *     10.1 permite la concentracion a condicion de que quede registrada
- * @param sesionesCerradas si se le cerraron las sesiones, que pasa cuando el cambio le retira un
+ * @param closedSessions si se le cerraron las sesiones, que pasa cuando el cambio le retira un
  *     rol administrativo (Seguridad 8)
  */
 public record MembershipRolesChanged(

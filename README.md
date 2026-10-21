@@ -142,8 +142,8 @@ así, con `VIEW_AUDIT_LOG` —los dos administradores del condominio—:
 
 ```
 GET /api/v1/condominiums/{id}/audit-log
-GET /api/v1/condominiums/{id}/audit-log?entidad=invitacion&desde=2026-10-01T00:00:00Z
-GET /api/v1/condominiums/{id}/audit-log?actor={accountId}&pagina=0&tamano=20
+GET /api/v1/condominiums/{id}/audit-log?entity=invitacion&from=2026-10-01T00:00:00Z
+GET /api/v1/condominiums/{id}/audit-log?actor={accountId}&page=0&size=20
 ```
 
 Los tres filtros se combinan y todos son opcionales. `desde` es inclusivo y `hasta` exclusivo, así
@@ -168,7 +168,7 @@ superadministrador:
 
 ```
 GET /api/v1/audit-log
-GET /api/v1/audit-log?entidad=superadministrador
+GET /api/v1/audit-log?entity=superadministrador
 ```
 
 Son dos consultas y no una con el condominio opcional, a propósito: una donde olvidarse de pasarlo

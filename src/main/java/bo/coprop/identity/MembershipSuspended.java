@@ -15,7 +15,7 @@ import java.util.UUID;
  *
  * <p>El motivo queda aqui y solo aqui, por lo mismo que en {@link MembershipRevoked}.
  *
- * @param sesionesCerradas si se le cerraron las sesiones, que solo pasa cuando esta era su ultima
+ * @param closedSessions si se le cerraron las sesiones, que solo pasa cuando esta era su ultima
  *     membresia activa y no administra la plataforma
  */
 public record MembershipSuspended(

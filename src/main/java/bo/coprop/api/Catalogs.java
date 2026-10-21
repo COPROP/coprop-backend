@@ -18,7 +18,7 @@ import java.util.Map;
  * etiqueta aqui congelaria la redaccion en el contrato y obligaria a desplegar el backend para
  * cambiar una palabra de una pantalla.
  *
- * @param enumeraciones de nombre a valores, ordenadas por nombre y cada lista en el orden en que se
+ * @param enumerations de nombre a valores, ordenadas por nombre y cada lista en el orden en que se
  *     declaro la enumeracion. El orden importa: una respuesta que cambia entre dos peticiones
  *     mueve las opciones de sitio en un desplegable
  */

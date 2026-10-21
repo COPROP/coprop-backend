@@ -23,7 +23,7 @@ import org.jspecify.annotations.Nullable;
  * administrador que retira un rol o da de baja sigue cerrandolas, pero eso ya se audita en el
  * evento de la operacion que lo provoco, donde el motivo esta a la vista.
  *
- * @param cerradas cuantas sesiones del BFF se cerraron. Las del proveedor no se cuentan: las cierra
+ * @param closed cuantas sesiones del BFF se cerraron. Las del proveedor no se cuentan: las cierra
  *     todas de una sola llamada y no dice cuantas eran
  * @param enElProveedor si tambien se cerraron las del proveedor. Falso cuando el proveedor no
  *     contesto, y entonces la app movil sigue renovando su token: es justo lo que hay que poder

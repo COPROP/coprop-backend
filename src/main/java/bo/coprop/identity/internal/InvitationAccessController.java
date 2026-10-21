@@ -89,7 +89,7 @@ class InvitationAccessController {
     record ConToken(@NotBlank @Size(max = 200) String token) {}
 
     /**
-     * @param credencialEnviada en cierto, le mandamos un correo para que ponga su contraseña y
+     * @param credentialSent en cierto, le mandamos un correo para que ponga su contraseña y
      *     todavia no puede iniciar sesion. En falso, ya tiene cuenta en el proveedor --participa en
      *     otro condominio-- y solo le toca entrar.
      */

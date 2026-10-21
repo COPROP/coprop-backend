@@ -87,8 +87,8 @@ public interface IdentityProvider {
      *
      * @param id el identificador de la sesion en el proveedor
      * @param ip desde donde se abrio; nula si el proveedor no la da
-     * @param creada cuando empezo
-     * @param ultimoAcceso la ultima vez que se uso
+     * @param created cuando empezo
+     * @param lastAccess la ultima vez que se uso
      */
     record ProviderSession(
             String id, @org.jspecify.annotations.Nullable String ip, Instant created, Instant lastAccess) {}

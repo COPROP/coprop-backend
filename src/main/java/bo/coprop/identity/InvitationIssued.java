@@ -17,7 +17,7 @@ import java.util.UUID;
  * es exactamente lo que Seguridad 6.1 evita guardando solo su hash. El envio ocurre en la emision,
  * que es el unico momento en que el token existe en memoria.
  *
- * @param reenviada si sustituye a una invitacion anterior que se revoco en el acto; el
+ * @param resent si sustituye a una invitacion anterior que se revoco en el acto; el
  *     administrador que reenvia y el que emite por primera vez hacen lo mismo, pero la bitacora
  *     tiene que poder distinguirlos
  */

@@ -38,7 +38,7 @@ public interface Identities {
      *
      * @param idpSubject el {@code sub} del token
      * @param email el correo del token
-     * @param emailVerificado el {@code email_verified} del token
+     * @param emailVerified el {@code email_verified} del token
      */
     @Nullable
     AccountView signIn(String idpSubject, String email, boolean emailVerified);
@@ -88,7 +88,7 @@ public interface Identities {
      *
      * <p>Publica {@link PlatformAdminRevoked}.
      *
-     * @param motivo por que se le quita. Obligatorio: la fila se borra, asi que esto es lo unico que
+     * @param reason por que se le quita. Obligatorio: la fila se borra, asi que esto es lo unico que
      *     lo explica
      * @throws bo.coprop.shared.ResourceNotFound si esa cuenta no lo tiene --y responde lo mismo
      *     que si no existiera, porque quien administra la plataforma no es dato publico--

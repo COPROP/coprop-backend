@@ -17,11 +17,11 @@ import org.springframework.data.domain.Page;
  * motivo: un tipo que todo modulo necesita para hablar por HTTP no puede obligar a depender de quien
  * sabe de HTTP. Estaba anotado como deuda desde el #10, que por esto no trajo listado de unidades.
  *
- * @param contenido los elementos de esta pagina
- * @param pagina indice de la pagina, empezando en 0
- * @param tamano elementos por pagina solicitados
+ * @param content los elementos de esta pagina
+ * @param page indice de la pagina, empezando en 0
+ * @param size elementos por pagina solicitados
  * @param total elementos que hay en total
- * @param totalPaginas paginas que hay en total
+ * @param totalPages paginas que hay en total
  */
 public record PagedResponse<T>(List<T> content, int page, int size, long total, int totalPages) {
 

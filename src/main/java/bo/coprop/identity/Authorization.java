@@ -8,7 +8,7 @@ import org.springframework.security.core.Authentication;
  * Seguridad 7.2.
  *
  * <p>Se invoca desde {@code @PreAuthorize} por <strong>nombre de bean</strong>
- * ({@code @autorizacion}), que es una cadena: por eso un controlador de {@code condominium} puede
+ * ({@code @authorization}), que es una cadena: por eso un controlador de {@code condominium} puede
  * usarlo sin importar nada de {@code identity} y sin romper la regla de dependencias. El precio es
  * que el compilador no ve ese uso, asi que lo sostienen los tests de cada endpoint.
  *
@@ -29,7 +29,7 @@ public interface Authorization {
      *
      * <p>Devuelve el alcance mayor de los roles de la peticion, nunca nulo.
      *
-     * @param permiso el nombre de un {@link Permission}
+     * @param permission el nombre de un {@link Permission}
      */
     Scope scopeOf(Authentication principal, String permission);
 
@@ -47,7 +47,7 @@ public interface Authorization {
      * operaciones de alcance de condominio --dar de alta una unidad, cambiar la configuracion--,
      * que son las que no nombran ningun recurso propio.
      *
-     * @param permiso el nombre de un {@link Permission}
+     * @param permission el nombre de un {@link Permission}
      */
     boolean can(Authentication principal, String permission);
 

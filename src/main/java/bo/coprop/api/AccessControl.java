@@ -27,8 +27,8 @@ import org.springframework.stereotype.Component;
  * {@link MeController} esta aqui, y no relaja ningun limite: {@code api} compone lo que cada
  * dominio ya publica.
  *
- * <p>Los controladores lo invocan por <strong>nombre de bean</strong> ({@code @acceso}) desde
- * {@code @PreAuthorize}, igual que {@code @autorizacion}. La anotacion es una cadena, asi que un
+ * <p>Los controladores lo invocan por <strong>nombre de bean</strong> ({@code @access}) desde
+ * {@code @PreAuthorize}, igual que {@code @authorization}. La anotacion es una cadena, asi que un
  * controlador de {@code condominium} lo usa sin importar nada de este paquete --y el compilador no
  * ve ese uso, de modo que lo sostienen los tests de cada endpoint--.
  *
@@ -82,7 +82,7 @@ class AccessControl {
      * que la usa es la consulta de propietarios. No es adelantarse: la decision de cada celda ya
      * esta tomada y esto es lo que la hace valer.
      *
-     * @param permiso el nombre de un {@code Permission}; mal escrito, revienta en el primer test que
+     * @param permission el nombre de un {@code Permission}; mal escrito, revienta en el primer test que
      *     toque el endpoint, que es mejor que denegar en silencio
      * @throws ResourceNotFound si el permiso le alcanza solo para lo propio y esta unidad no lo
      *     es

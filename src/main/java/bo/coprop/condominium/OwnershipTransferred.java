@@ -22,7 +22,7 @@ import java.util.UUID;
  * @param fromPersonId quien vendio
  * @param toPersonId quien compro
  * @param share el porcentaje que cambio de manos, que es el que tenia el vendedor
- * @param relacionesCerradas cuantas relaciones del vendedor con esa unidad se cerraron con la
+ * @param closedRelations cuantas relaciones del vendedor con esa unidad se cerraron con la
  *     venta: la titularidad siempre, y ademas su ocupacion y sus responsabilidades de pago si las
  *     tenia. Va en la bitacora porque es lo que explica que el vendedor perdiera el acceso
  */
