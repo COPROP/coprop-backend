@@ -18,7 +18,7 @@ no declaró, el build falla.
 | `api` | Contrato HTTP: problem+json, prefijo de versión, seguridad, OpenAPI. | `shared`, `identity`, `condominium`, `billing` |
 | `identity` | Personas, cuentas de acceso, membresías por condominio, roles, invitaciones. | `shared`, `notifications` |
 | `condominium` | Condominios, su configuración, sus unidades, y las tres relaciones de la unidad con las personas: titularidad, ocupación y responsabilidad de pago. | `shared` |
-| `billing` | El catálogo de conceptos de cobro, `PaymentObligation` y su máquina de estados; expensas, agua, mora. | `shared`, `condominium`, `identity` |
+| `billing` | El catálogo de conceptos de cobro, el periodo de facturación, `PaymentObligation` y su máquina de estados; expensas, agua, mora. | `shared`, `condominium`, `identity` |
 | `payments` | Intents, QR, inbox de eventos, registro y aplicación de pagos, conciliación. | `shared`, `billing`, `condominium` |
 | `notifications` | Envío de avisos. Solo correo en el MVP. | `shared` |
 | `audit` | Bitácora inmutable append-only, retención de un año. Escucha `AuditableEvent`. | `shared` |
@@ -593,6 +593,7 @@ lo que sustituye a esa correspondencia directa.**
 | mora | `lateFee` |
 | concepto de cobro | `chargeConcept` |
 | grupo de pago | `paymentGroup` |
+| periodo de facturación | `billingPeriod` |
 | alícuota | `aliquot` |
 | saldo a favor | `creditBalance` |
 | estado de cuenta | `accountStatement` |
@@ -715,7 +716,7 @@ Los roles de la membresía quedan como autoridades de la petición. Hoy no los m
 es el issue #16— pero es donde Spring los va a buscar, y cargarlos aquí evita que esa matriz vuelva
 a consultar la membresía en cada comprobación.
 
-Lo que lo sostiene es `CrossCondominiumLeakTests`: los treinta y un endpoints acotados a un condominio,
+Lo que lo sostiene es `CrossCondominiumLeakTests`: los treinta y tres endpoints acotados a un condominio,
 cada uno pedido desde el condominio ajeno —tiene que dar 404— y desde el propio —tiene que dar
 cualquier cosa menos 404—. **La segunda mitad no es decorativa**: sin ella, una ruta mal escrita
 daría 404 en las dos y la batería entera pasaría sin comprobar nada. Pasó: cazó un cuerpo de
@@ -806,7 +807,7 @@ alta: la suya, o cualquiera si administra algún condominio. Sin esa excepción,
 del alta de una cuenta apuntaría a una ruta que a su dueño responde 403. Niegan con 403, no con 404,
 porque la ruta es global y la respuesta no cambia con el identificador.
 
-Lo que lo sostiene es `CadenaDeAuthorizationTests`: **los cuarenta y tres endpoints por los siete roles**, con
+Lo que lo sostiene es `AuthorizationChainTests`: **los cuarenta y cinco endpoints por los siete roles**, con
 el resultado declarado celda a celda y un caso que falla si una fila se olvida de un rol. Es el
 mismo descuido que en el #16 dejó un permiso de menos en `CONDO_ADMIN`, y lo cazó justo el test que
 exigía las columnas completas. Dos cosas que esa rejilla enseñó y conviene no volver a descubrir:

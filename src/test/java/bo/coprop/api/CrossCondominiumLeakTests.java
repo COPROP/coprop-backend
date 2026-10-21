@@ -239,7 +239,7 @@ class CrossCondominiumLeakTests {
     }
 
     /**
-     * Los treinta y un endpoints que cuelgan de un condominio.
+     * Los treinta y tres endpoints que cuelgan de un condominio.
      *
      * <p>Son todos los que hay: los demas --personas, cuentas, el perfil propio, los
      * superadministradores, la bitacora de plataforma y las dos llamadas de quien llega con un token
@@ -247,7 +247,8 @@ class CrossCondominiumLeakTests {
      * aislarse. Cuando entre uno nuevo bajo {@code /condominiums/{id}}, su caso entra aqui; los cinco
      * de invitaciones entraron asi con el issue #18, la auditoria con el #21, los siete de bajas,
      * suspensiones y cierres de relacion con el #19, el cambio de roles con el #20, la edicion de la
-     * ficha con el #90 y los dos del catalogo de conceptos de cobro con el #100.
+     * ficha con el #90, los dos del catalogo de conceptos de cobro con el #100 y los dos de los
+     * periodos de facturacion con el #101.
      */
     private List<Endpoint> endpoints() {
         String person = personaSuelta.toString();
@@ -274,6 +275,18 @@ class CrossCondominiumLeakTests {
                         "listar los conceptos de cobro",
                         HttpMethod.GET,
                         "/api/v1/condominiums/%s/charge-concepts",
+                        null),
+                // Los periodos de facturacion (#101). El mes es propio de esta suite por lo mismo
+                // que el codigo de arriba: el par año-mes es unico por condominio.
+                new Endpoint(
+                        "abrir un periodo de facturacion",
+                        HttpMethod.POST,
+                        "/api/v1/condominiums/%s/billing-periods",
+                        "{\"year\":2099,\"month\":12}"),
+                new Endpoint(
+                        "listar los periodos de facturacion",
+                        HttpMethod.GET,
+                        "/api/v1/condominiums/%s/billing-periods",
                         null),
                 new Endpoint(
                         "dar de alta una unidad",

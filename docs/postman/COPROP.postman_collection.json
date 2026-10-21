@@ -1727,7 +1727,7 @@
                 "parametricas"
               ]
             },
-            "description": "Las quince enumeraciones públicas del dominio, por nombre y con sus valores.\n\nLas claves son el nombre de la enumeración tal como la nombra el análisis §5.2, así que no hay traducción entre leer esa sección y leer la respuesta.\n\nLos valores van en el orden en que se declararon y no alfabético: `AccountStatus` empieza por `INVITED` porque ese es el ciclo de vida de la cuenta, y ordenarlo de otro modo movería las opciones de sitio en un desplegable.\n\nSolo códigos, sin etiquetas: el texto que lee una persona es del cliente."
+            "description": "Las dieciséis enumeraciones públicas del dominio, por nombre y con sus valores.\n\nLas claves son el nombre de la enumeración tal como la nombra el análisis §5.2, así que no hay traducción entre leer esa sección y leer la respuesta.\n\nLos valores van en el orden en que se declararon y no alfabético: `AccountStatus` empieza por `INVITED` porque ese es el ciclo de vida de la cuenta, y ordenarlo de otro modo movería las opciones de sitio en un desplegable.\n\nSolo códigos, sin etiquetas: el texto que lee una persona es del cliente."
           }
         },
         {
@@ -1810,6 +1810,68 @@
               ]
             },
             "description": "El catálogo entero, ordenado por código. **Sin paginar**, al contrario que la bitácora: son unas pocas filas y quien lo pide lo pide entero, para pintar un desplegable o para emitir."
+          }
+        }
+      ]
+    },
+    {
+      "name": "12. Periodos de facturacion",
+      "description": "El mes al que pertenece cada obligación (#101). El análisis §5.2 lo quiere como entidad propia y con estado: sin él, `PaymentObligation` (#23) no tiene con qué agrupar las obligaciones de un mes, el worker de emisión programada (#28) no tiene qué cerrar y las lecturas de agua (#26) no tienen dónde colgarse.\n\n**El periodo se abre ANTES de emitir y nace en `DRAFT`.** Se decidió el 19-oct-2026 contra la alternativa de crearlo al emitir, y la razón que más pesó: si naciera al emitir, nacería en `ISSUED` y `DRAFT` sería un valor que nadie escribe nunca.\n\n**Las dos piden `CONFIGURE_CHARGES`**, también el listado: preparar el mes que se va a cobrar es del que maneja el dinero.\n\n**No hay petición para emitir ni para cerrar**, y no es un olvido: las dos transiciones viven en el dominio y no en HTTP. Emitir es del #24 (expensas) y del #25 (agua) —que crean las obligaciones, y ahí cambiar el estado es lo de menos— y el calendario de cierre es del #28. Una ruta de estado hoy sería una forma de emitir un mes sin emitir ninguna obligación.",
+      "item": [
+        {
+          "name": "Abrir un periodo de facturacion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/billing-periods",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominiums",
+                "{{condominiumId}}",
+                "billing-periods"
+              ]
+            },
+            "description": "El año y el mes van en dos números y no en una fecha: un periodo es un mes entero, y una fecha obligaría a elegir un día que no significa nada.\n\nUn `month` fuera de 1 a 12 responde **422** con el campo señalado. El mismo año y mes dos veces en el mismo condominio responde **409**; en otro condominio sí se admite.\n\nEl estado no viaja en el cuerpo: nace siempre en `DRAFT`.\n\nDevuelve 201 con el periodo y **sin cabecera `Location`**, igual que el alta de un concepto de cobro.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"year\": 2026,\n  \"month\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Listar los periodos de facturacion",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/billing-periods",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominiums",
+                "{{condominiumId}}",
+                "billing-periods"
+              ]
+            },
+            "description": "Los periodos del condominio, **del más reciente al más antiguo**: el mes de arriba es el que se está facturando, que es el que se busca al abrir la pantalla. Sin paginar, por lo mismo que el catálogo de conceptos: son doce al año."
           }
         }
       ]

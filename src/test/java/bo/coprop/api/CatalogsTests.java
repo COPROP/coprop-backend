@@ -77,7 +77,12 @@ class CatalogsTests {
                 // valores que el tipo a proposito: el porque esta en PaymentGroup.
                 .andExpect(jsonPath("$.enumerations.ChargeConceptType.length()").value(6))
                 .andExpect(jsonPath("$.enumerations.ChargeConceptType[0]").value("DUES"))
-                .andExpect(jsonPath("$.enumerations.PaymentGroup.length()").value(4));
+                .andExpect(jsonPath("$.enumerations.PaymentGroup.length()").value(4))
+                // La del periodo de facturacion (#101). El primero es DRAFT porque es donde nace,
+                // y el orden de la declaracion es el de la maquina de estados.
+                .andExpect(
+                        jsonPath("$.enumerations.BillingPeriodStatus.length()").value(3))
+                .andExpect(jsonPath("$.enumerations.BillingPeriodStatus[0]").value("DRAFT"));
     }
 
     @Test
