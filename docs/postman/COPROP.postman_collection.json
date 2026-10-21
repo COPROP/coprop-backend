@@ -1727,7 +1727,7 @@
                 "parametricas"
               ]
             },
-            "description": "Las trece enumeraciones públicas del dominio, por nombre y con sus valores.\n\nLas claves son el nombre de la enumeración tal como la nombra el análisis §5.2, así que no hay traducción entre leer esa sección y leer la respuesta.\n\nLos valores van en el orden en que se declararon y no alfabético: `AccountStatus` empieza por `INVITED` porque ese es el ciclo de vida de la cuenta, y ordenarlo de otro modo movería las opciones de sitio en un desplegable.\n\nSolo códigos, sin etiquetas: el texto que lee una persona es del cliente."
+            "description": "Las quince enumeraciones públicas del dominio, por nombre y con sus valores.\n\nLas claves son el nombre de la enumeración tal como la nombra el análisis §5.2, así que no hay traducción entre leer esa sección y leer la respuesta.\n\nLos valores van en el orden en que se declararon y no alfabético: `AccountStatus` empieza por `INVITED` porque ese es el ciclo de vida de la cuenta, y ordenarlo de otro modo movería las opciones de sitio en un desplegable.\n\nSolo códigos, sin etiquetas: el texto que lee una persona es del cliente."
           }
         },
         {
@@ -1748,6 +1748,68 @@
               ]
             },
             "description": "La matriz de Seguridad §3 tal como la aplica el backend: 23 permisos por 7 roles, 161 celdas.\n\nSale de `PermissionMatrix`, la misma clase que decide cada `@PreAuthorize`, así que una pantalla que la pinte desde aquí no puede divergir de la autorización real.\n\n**Cada fila declara los siete roles, incluidos los que no pueden**, con `NONE`. Omitirlos daría una respuesta más corta y obligaría al cliente a decidir qué significa una ausencia: no puede, o no se declaró."
+          }
+        }
+      ]
+    },
+    {
+      "name": "11. Conceptos de cobro",
+      "description": "Qué se cobra en este condominio (#100). Es el catálogo que `PaymentObligation` necesita para decir de qué es cada cargo, y el análisis §5.2 lo quiere configurable por condominio y no como una enumeración fija.\n\n**Las dos piden `CONFIGURE_CHARGES`**, también el listado: es del que maneja el dinero y de nadie más, ni siquiera del administrador del condominio. Misma separación de funciones que `PUT /condominiums/{id}/configuration`.\n\n**No hay borrado ni edición.** Un concepto con obligaciones emitidas no se puede borrar sin partir en dos la historia de un cobro, y la base lo rechaza. Retirar uno que ya no se usa es otra decisión y todavía no tiene ticket.",
+      "item": [
+        {
+          "name": "Dar de alta un concepto de cobro",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/charge-concepts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominiums",
+                "{{condominiumId}}",
+                "charge-concepts"
+              ]
+            },
+            "description": "`type`: `DUES`, `WATER`, `FINE`, `LATE_FEE`, `RESERVATION` u `OTHER`. `paymentGroup`: `DUES`, `WATER`, `RESERVATIONS` o `FINES`.\n\n**El grupo de pago no se deduce del tipo, y se pide siempre.** Es lo que decide qué obligaciones caben en un mismo QR (§5.3), y la mora es el caso que lo obliga: el análisis exige que la mora del agua se pague con el agua, así que un condominio tiene un `LATE_FEE` por grupo en el que cobre mora —`MORA-EXP` con grupo `DUES` y `MORA-AGUA` con grupo `WATER`—.\n\nEl `code` es único dentro del condominio: repetirlo responde **409**. El mismo código en otro condominio sí se admite.\n\n**No lleva monto ni fórmula**: cuánto se cobra lo deciden las expensas por alícuota (#24), el agua (#25) y la política de mora (#27).\n\nDevuelve 201 con el concepto y **sin cabecera `Location`**: no hay ruta que consulte un concepto por su identificador.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"EXP\",\n  \"name\": \"Expensas ordinarias\",\n  \"type\": \"DUES\",\n  \"paymentGroup\": \"DUES\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Listar los conceptos de cobro",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/charge-concepts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominiums",
+                "{{condominiumId}}",
+                "charge-concepts"
+              ]
+            },
+            "description": "El catálogo entero, ordenado por código. **Sin paginar**, al contrario que la bitácora: son unas pocas filas y quien lo pide lo pide entero, para pintar un desplegable o para emitir."
           }
         }
       ]

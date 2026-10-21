@@ -4,6 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import bo.coprop.TestcontainersConfiguration;
+import bo.coprop.billing.ChargeConceptType;
+import bo.coprop.billing.ChargeConcepts;
+import bo.coprop.billing.NewChargeConcept;
+import bo.coprop.billing.PaymentGroup;
 import bo.coprop.condominium.CondominiumType;
 import bo.coprop.condominium.Condominiums;
 import bo.coprop.condominium.NewCondominium;
@@ -75,6 +79,9 @@ class AuditTrailTests {
 
     @Autowired
     private UnitRelations relations;
+
+    @Autowired
+    private ChargeConcepts chargeConcepts;
 
     @Autowired
     private DataSource fuenteDeDatos;
@@ -195,6 +202,30 @@ class AuditTrailTests {
         assertThat(fila.newValues()).containsEntry("accountId", invited.toString());
         // Ordenados al escribirlos, para que dos filas con los mismos roles se vean iguales.
         assertThat(fila.newValues()).containsEntry("roles", "BOARD,OWNER");
+    }
+
+    @Test
+    @DisplayName("el alta de un concepto de cobro queda en la bitacora, con su tipo y su grupo")
+    void theChargeConceptRegistrationIsRecorded() {
+        // Por la misma razon que el caso del condominio de arriba: que un evento implemente
+        // AuditableEvent es toda la declaracion que hay, y olvidarlo no rompe nada --simplemente la
+        // accion no se registra--. Este caso es lo que lo comprueba para el issue #100.
+        chargeConcepts.register(
+                condominium,
+                new NewChargeConcept("AUD-EXP", "Expensas ordinarias", ChargeConceptType.DUES, PaymentGroup.DUES),
+                administradora.toString());
+
+        AuditEntryView fila = laFilaDe("CHARGE_CONCEPT_REGISTERED");
+        assertThat(fila.actor()).isEqualTo(administradora.toString());
+        assertThat(fila.entity()).isEqualTo("concepto-de-cobro");
+        assertThat(fila.condominium()).isEqualTo(condominium);
+        assertThat(fila.oldValues()).isNull();
+        assertThat(fila.newValues())
+                .containsEntry("code", "AUD-EXP")
+                .containsEntry("type", "DUES")
+                // El grupo de pago se guarda aunque hoy coincida con el tipo: es el que decide con
+                // que se cobra, y de el dependera que un QR acepte o rechace una obligacion.
+                .containsEntry("paymentGroup", "DUES");
     }
 
     @Test

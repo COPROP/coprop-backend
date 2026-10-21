@@ -162,8 +162,8 @@ class UnitRelationsTests {
         UUID unit = unit(condominium, "802");
         UUID person = person("6000009");
 
-        relations.assignBilling(condominium, unit, person, UUID.randomUUID(), "admin");
-        relations.assignBilling(condominium, unit, person, UUID.randomUUID(), "admin");
+        relations.assignBilling(condominium, unit, person, chargeConcept(condominium, "EXP"), "admin");
+        relations.assignBilling(condominium, unit, person, chargeConcept(condominium, "AGUA"), "admin");
 
         // La unidad sale una sola vez aunque haya dos responsabilidades.
         assertThat(relations.unitsBilledTo(condominium, person)).containsExactly(unit);
@@ -326,7 +326,7 @@ class UnitRelationsTests {
         UUID condominium = condominium("Responsabilidades", "3000000018");
         UUID unit = unit(condominium, "1107");
         UUID person = person("6000025");
-        UUID agua = UUID.randomUUID();
+        UUID agua = chargeConcept(condominium, "AGUA");
         relations.assignBilling(condominium, unit, person, null, "admin");
         relations.assignBilling(condominium, unit, person, agua, "admin");
 
@@ -404,6 +404,30 @@ class UnitRelationsTests {
                 id,
                 carnet,
                 OffsetDateTime.ofInstant(AHORA, ZoneOffset.UTC));
+        return id;
+    }
+
+    /**
+     * Un concepto de cobro, por SQL y por la misma razon que la persona: {@code charge_concept} es de
+     * {@code billing} y este modulo no depende de el.
+     *
+     * <p>Hace falta desde el issue #100: antes bastaba un identificador inventado, pero la V11 le
+     * puso clave foranea a {@code billing_responsibility.concept_id}, asi que ahora el concepto tiene
+     * que existir y ser de este condominio.
+     */
+    private UUID chargeConcept(UUID condominiumId, String code) {
+        UUID id = UUID.randomUUID();
+        jdbc.update(
+                """
+                INSERT INTO charge_concept (id, condominium_id, code, name, type, payment_group)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                id,
+                condominiumId,
+                code,
+                "Concepto " + code,
+                "DUES",
+                "DUES");
         return id;
     }
 

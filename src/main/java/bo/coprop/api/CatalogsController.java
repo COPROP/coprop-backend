@@ -1,5 +1,7 @@
 package bo.coprop.api;
 
+import bo.coprop.billing.ChargeConceptType;
+import bo.coprop.billing.PaymentGroup;
 import bo.coprop.condominium.CondominiumStatus;
 import bo.coprop.condominium.CondominiumType;
 import bo.coprop.condominium.OccupancyRole;
@@ -32,9 +34,9 @@ import org.springframework.web.bind.annotation.RestController;
  * MVP: Seguridad 3 no deja crear roles-- esto es todo lo que hace falta.
  *
  * <p><strong>Vive en {@code api} y no en un modulo de dominio</strong> por la misma razon que
- * {@code MeController}: la respuesta cruza {@code condominium}, {@code identity} y {@code shared}, y
- * este es el unico modulo que ve los tres. Ponerlo en cualquiera de ellos exigiria que ese modulo
- * dependiera de los otros, que es lo que prohiben las reglas 2 y 6.
+ * {@code MeController}: la respuesta cruza {@code billing}, {@code condominium}, {@code identity} y
+ * {@code shared}, y este es el unico modulo que ve los cuatro. Ponerlo en cualquiera de ellos
+ * exigiria que ese modulo dependiera de los otros, que es lo que prohiben las reglas 2 y 6.
  *
  * <p><strong>Sin {@code @PreAuthorize}, y es una decision.</strong> No hay nada que autorizar: lo que
  * devuelve es la forma de la API, no datos de nadie. Una lista de tipos de unidad no dice cuantas
@@ -46,9 +48,9 @@ import org.springframework.web.bind.annotation.RestController;
  * <p><strong>La lista de enumeraciones se escribe a mano, y un test la vigila.</strong> Descubrirla
  * por reflexion en arranque haria que el contrato cambiara solo el dia que alguien añadiera un enum
  * publico sin pensar en esto. Escrita aqui, añadirlo es una decision, y olvidarse rompe el build:
- * {@code CatalogsTests} recorre los paquetes raiz de los tres modulos y exige que no falte
- * ninguno. Es el mismo reparto que usa la rejilla de autorizacion --se declara a mano y un test
- * cuenta las celdas--.
+ * {@code CatalogsTests} recorre los paquetes raiz de los cuatro modulos de dominio y exige que no
+ * falte ninguno. Es el mismo reparto que usa la rejilla de autorizacion --se declara a mano y un
+ * test cuenta las celdas--.
  */
 @ApiController
 @RestController
@@ -56,8 +58,8 @@ import org.springframework.web.bind.annotation.RestController;
 class CatalogsController {
 
     /**
-     * Las enumeraciones publicas de los paquetes raiz de {@code condominium}, {@code identity} y
-     * {@code shared}, en orden alfabetico.
+     * Las enumeraciones publicas de los paquetes raiz de {@code billing}, {@code condominium},
+     * {@code identity} y {@code shared}.
      *
      * <p>No entran las de {@code internal}: no son contrato, y exponerlas ataria la API a como este
      * guardado el dato. Hoy no hay ninguna, y el test lo comprueba para que el dia que la haya se
@@ -76,7 +78,9 @@ class CatalogsController {
             Permission.class,
             UnitRelation.class,
             UnitStatus.class,
-            UnitType.class);
+            UnitType.class,
+            ChargeConceptType.class,
+            PaymentGroup.class);
 
     @GetMapping
     Catalogs consultar() {
