@@ -25,6 +25,15 @@ import org.springframework.context.annotation.Primary;
  * Que haga falta es la prueba de que la dependencia va en la direccion correcta: el dominio declara
  * y {@code api} implementa.
  *
+ * <p><strong>Y desde el #23 hace falta tambien en los tests de modulo de {@code billing}</strong>
+ * --que la importan a traves de {@link InvitationDoubles}, porque ahi arrastran ademas el correo--,
+ * aunque no
+ * tocan ninguna sesion. El motivo: la obligacion de pago pregunta a {@code People} si la persona
+ * responsable existe, asi que {@code billing} pasa a depender de {@code identity} de verdad --no
+ * solo en el {@code package-info}-- y un {@code ApplicationModuleTest} con sus dependencias
+ * directas arranca ahora los beans de {@code identity}. El sintoma, cuando falta:
+ * {@code accessRevocation} no encuentra {@code Sessions} y no arranca ni un test del modulo.
+ *
  * <p>Los metodos de fabrica no se llaman como los beans de produccion
  * --{@code proveedorDeIdentidadKeycloak}, {@code sesionesDelBff}--: dos definiciones con el mismo
  * nombre dan un {@code BeanDefinitionOverrideException} en vez de sustituirse.

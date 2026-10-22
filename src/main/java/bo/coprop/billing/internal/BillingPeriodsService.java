@@ -6,7 +6,9 @@ import bo.coprop.billing.BillingPeriodStatusChanged;
 import bo.coprop.billing.BillingPeriodView;
 import bo.coprop.billing.BillingPeriods;
 import bo.coprop.billing.NewBillingPeriod;
+import bo.coprop.billing.PaymentObligationStatus;
 import bo.coprop.condominium.Condominiums;
+import bo.coprop.shared.BusinessRuleViolated;
 import bo.coprop.shared.ResourceNotFound;
 import bo.coprop.shared.StateConflict;
 import java.time.Clock;
@@ -20,16 +22,19 @@ import org.springframework.transaction.annotation.Transactional;
 class BillingPeriodsService implements BillingPeriods {
 
     private final BillingPeriodRepository periods;
+    private final PaymentObligationRepository obligations;
     private final Condominiums condominiums;
     private final ApplicationEventPublisher eventos;
     private final Clock clock;
 
     BillingPeriodsService(
             BillingPeriodRepository periods,
+            PaymentObligationRepository obligations,
             Condominiums condominiums,
             ApplicationEventPublisher eventos,
             Clock clock) {
         this.periods = periods;
+        this.obligations = obligations;
         this.condominiums = condominiums;
         this.eventos = eventos;
         this.clock = clock;
@@ -86,10 +91,17 @@ class BillingPeriodsService implements BillingPeriods {
         BillingPeriod period = require(condominiumId, periodId);
         BillingPeriodStatus from = period.getStatus();
 
-        // Falta aqui la comprobacion de que no queden obligaciones en DRAFT, que el ticket pide y
-        // que no se puede escribir todavia: payment_obligation nace con el #23. Entra con ese
-        // issue, en este mismo metodo y con una sola consulta, porque la obligacion es de este
-        // modulo. Hasta entonces el #101 queda abierto.
+        // El criterio que el #101 dejo pendiente, y que el #23 cierra: un mes con borradores dentro
+        // no esta listo para cerrarse. Se pregunta antes de la transicion para que la respuesta diga
+        // que falta en vez de un conflicto de estado generico.
+        if (obligations.existsByCondominiumIdAndPeriodIdAndStatus(
+                condominiumId, periodId, PaymentObligationStatus.DRAFT)) {
+            throw new BusinessRuleViolated(
+                    ("El periodo %d-%02d tiene obligaciones en borrador: emitelas o anulalas antes de"
+                                    + " cerrar el mes.")
+                            .formatted(period.getYear(), period.getMonth()));
+        }
+
         period.close();
 
         publishChange(period, from, actor);

@@ -1,9 +1,21 @@
 /**
  * Cargos y obligaciones de pago: expensas, agua, mora.
  *
- * <p>Dueno de {@code PaymentObligation}, la entidad central del sistema, y de su maquina de estados
- * {@code DRAFT -> ISSUED -> PAID} (analisis seccion 5.3). Emite el evento de obligacion emitida y
- * reacciona al de obligacion pagada que publica {@code payments}.
+ * <p>Dueno de {@code PaymentObligation}, la entidad central del sistema (issue #23), y de su maquina
+ * de estados {@code DRAFT -> ISSUED -> PAID} con salidas a {@code CANCELLED} e
+ * {@code IN_AGREEMENT} (analisis 5.3). Publica {@code PaymentObligationIssued} y
+ * {@code PaymentObligationPaid} --el {@code ObligationPaid} del analisis 5.1, al que reacciona el
+ * modulo que origino la deuda-- y reaccionara al evento de dinero recibido que publique
+ * {@code payments}.
+ *
+ * <p><strong>La deuda no se hereda, se referencia</strong> (analisis 5.1): no hay una obligacion por
+ * clase de cargo. Cada modulo guarda su entidad de negocio --el periodo de expensas, la lectura de
+ * agua, la multa, la reserva-- y la obligacion apunta a ella con {@code sourceType} y
+ * {@code sourceId}. Asi el cobro no conoce las reglas del agua ni de las reservas. <strong>Esos dos
+ * campos estan vacios hasta el #24</strong>, que trae la primera entidad de origen.
+ *
+ * <p>Este modulo depende de {@code identity} por una sola cosa: la obligacion guarda quien responde
+ * por ella, y comprobar que esa persona existe se le pregunta a {@code People}.
  *
  * <p>Dueno tambien del <strong>catalogo de conceptos de cobro</strong> ({@code ChargeConcept}, issue
  * #100), que es lo que dice <em>que</em> se cobra. Vive aqui y no en {@code condominium} --donde esta

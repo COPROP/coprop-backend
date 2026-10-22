@@ -82,7 +82,13 @@ class CatalogsTests {
                 // y el orden de la declaracion es el de la maquina de estados.
                 .andExpect(
                         jsonPath("$.enumerations.BillingPeriodStatus.length()").value(3))
-                .andExpect(jsonPath("$.enumerations.BillingPeriodStatus[0]").value("DRAFT"));
+                .andExpect(jsonPath("$.enumerations.BillingPeriodStatus[0]").value("DRAFT"))
+                // La de la obligacion de pago (#23). Son cinco y no seis: VENCIDA no esta, porque
+                // vencer se deriva de la fecha y no es un estado (analisis 5.3).
+                .andExpect(jsonPath("$.enumerations.PaymentObligationStatus.length()")
+                        .value(5))
+                .andExpect(jsonPath("$.enumerations.PaymentObligationStatus[0]").value("DRAFT"))
+                .andExpect(jsonPath("$.enumerations.PaymentObligationStatus[2]").value("PAID"));
     }
 
     @Test

@@ -3,6 +3,7 @@ package bo.coprop.api;
 import bo.coprop.billing.BillingPeriodStatus;
 import bo.coprop.billing.ChargeConceptType;
 import bo.coprop.billing.PaymentGroup;
+import bo.coprop.billing.PaymentObligationStatus;
 import bo.coprop.condominium.CondominiumStatus;
 import bo.coprop.condominium.CondominiumType;
 import bo.coprop.condominium.OccupancyRole;
@@ -82,7 +83,8 @@ class CatalogsController {
             UnitType.class,
             BillingPeriodStatus.class,
             ChargeConceptType.class,
-            PaymentGroup.class);
+            PaymentGroup.class,
+            PaymentObligationStatus.class);
 
     @GetMapping
     Catalogs consultar() {
