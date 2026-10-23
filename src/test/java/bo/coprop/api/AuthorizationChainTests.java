@@ -64,12 +64,12 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
  * La cadena de autorizacion completa del issue #15: <strong>cada endpoint, contra cada rol</strong>.
  *
  * <p>Es el segundo criterio del issue --"existe un test que recorre la matriz de roles y
- * endpoints"-- y recorre las dos dimensiones de verdad: los cincuenta y dos endpoints de la API
+ * endpoints"-- y recorre las dos dimensiones de verdad: los cincuenta y tres endpoints de la API
  * por los siete roles de Seguridad 3, con el resultado esperado declarado celda a celda. Los cinco
  * de invitaciones entraron con el issue #18, los dos del catalogo de parametricas con el #89, la
  * edicion del condominio con el #90, los dos del catalogo de conceptos de cobro con el #100, los
- * dos de los periodos de facturacion con el #101, los cinco de las expensas con el #24, y asi entra
- * cada endpoint nuevo.
+ * dos de los periodos de facturacion con el #101, los cinco de las expensas con el #24, el de los
+ * responsables de pago con el #29, y asi entra cada endpoint nuevo.
  *
  * <p><strong>Cada endpoint declara los siete roles, no solo los que pueden.</strong> Es la leccion
  * que dejo el issue #16, donde el test que declaraba las columnas completas encontro que a
@@ -685,6 +685,20 @@ class AuthorizationChainTests {
                                 OWNER, PERMITIDO,
                                 TENANT, PERMITIDO))),
 
+                // Quien responde por los cobros de la unidad (issues #24 y #29): misma celda que los
+                // propietarios de arriba, y por la misma razon --es la cabecera de un estado de
+                // cuenta--. El propietario tiene que poder ver que la factura va a su nombre.
+                new Endpoint(
+                        "listar los responsables de pago de la unidad propia",
+                        HttpMethod.GET,
+                        theUnit + "/billing-responsibles",
+                        null,
+                        tabla(Map.of(
+                                CONDO_ADMIN, PERMITIDO,
+                                FINANCE_ADMIN, PERMITIDO,
+                                OWNER, PERMITIDO,
+                                TENANT, PERMITIDO))),
+
                 // Bajas y suspensiones (issue #19). Piden poder conceder los roles que la membresia
                 // tiene, que es el alta leida al reves: el administrador del condominio puede con
                 // cualquiera y el superadministrador solo con roles administrativos, y estas tres
@@ -907,7 +921,7 @@ class AuthorizationChainTests {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("celdas")
-    @DisplayName("la rejilla entera: los cincuenta y dos endpoints por los siete roles")
+    @DisplayName("la rejilla entera: los cincuenta y tres endpoints por los siete roles")
     void theWholeGrid(Celda celda) throws Exception {
         var result = mockMvc.perform(
                 authorizedRequest(celda.endpoint(), principal(celda.rol()).authorizationHeader()));

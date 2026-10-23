@@ -85,6 +85,23 @@ class UnitRelationsController {
         return relations.ownersOf(condominiumId, unitId);
     }
 
+    /**
+     * Quien responde por los cobros de esta unidad: el general y los de cada concepto. Issue #29.
+     *
+     * <p>Mismo permiso y misma cadena por unidad que el listado de propietarios de arriba, y por la
+     * misma razon: es la cabecera de un estado de cuenta. El propietario tiene que poder ver que la
+     * factura va a su nombre, y el inquilino que el agua va al suyo.
+     *
+     * <p><strong>Una lista vacia significa algo concreto</strong>: la unidad esta en copropiedad y
+     * nadie dijo quien paga, asi que no se puede emitir hasta configurarlo. Con una sola propietaria
+     * siempre hay al menos una fila, la que el #29 abre por defecto.
+     */
+    @PreAuthorize("@access.canOnUnit(authentication, 'VIEW_ACCOUNT_STATEMENT', #condominiumId, #unitId)")
+    @GetMapping("/billing-responsibles")
+    List<BillingResponsibilityView> billingResponsibles(@PathVariable UUID condominiumId, @PathVariable UUID unitId) {
+        return relations.billingResponsiblesOf(condominiumId, unitId);
+    }
+
     @PreAuthorize("@authorization.can(authentication, 'MANAGE_UNITS')")
     @PostMapping("/occupants")
     ResponseEntity<OccupancyView> registerOccupant(

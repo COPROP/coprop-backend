@@ -36,7 +36,21 @@ public interface UnitRelations {
      * sumen 100</strong>, por la misma razon que no se validan las alicuotas: no se puede
      * comprobar fila a fila, y es una validacion de la emision de expensas que le toca a M2.
      *
-     * <p>Publica {@link OwnershipGranted}.
+     * <p><strong>Abre ademas la responsabilidad de pago por defecto</strong> si esta persona queda
+     * como <em>unica</em> propietaria vigente de la unidad y la unidad no tenia ya un responsable
+     * general: es la regla de RF-08 y de la decision 13.3 --"el propietario, para todos los
+     * conceptos; el inquilino solo si se configura explicitamente"-- y la trae el issue
+     * <strong>#29</strong>. Sin ella, la emision de expensas del #24 se detiene en cuanto una unidad
+     * no tiene responsable, que es lo que pasaba con toda unidad recien dada de alta.
+     *
+     * <p><strong>Una unidad en copropiedad no recibe defecto</strong>, y es una decision: la
+     * obligacion tiene UN responsable, y elegir al del porcentaje mayor seria decidir a quien se le
+     * reclama el dinero sin que nadie lo haya dicho. Esas unidades se configuran a mano. Añadir un
+     * segundo copropietario <em>no</em> retira el defecto que ya se abrio: era una decision tomada
+     * cuando habia un solo dueño, y retirarla cambiaria en silencio quien paga.
+     *
+     * <p>Publica {@link OwnershipGranted}, y {@link BillingResponsibilityAssigned} con
+     * {@code byDefault} cuando abre el defecto.
      *
      * @param share porcentaje de copropiedad, mayor que 0 y hasta 100
      * @param actor quien lo registra, para la bitacora
@@ -62,8 +76,11 @@ public interface UnitRelations {
      * <p>Publica {@link BillingResponsibilityAssigned}.
      *
      * @param conceptId nulo = responde por todo lo que se cobre a la unidad; con valor, solo por
-     *     ese concepto. El concepto como entidad nace en M2, asi que hoy no se comprueba que
-     *     exista.
+     *     ese concepto. <strong>Que el concepto exista y sea de este condominio lo comprueba la
+     *     base</strong> --la clave foranea compuesta que añadio la V11-- y no este servicio: la
+     *     regla 2 prohibe que este modulo dependa de {@code billing}, asi que desde aqui no hay a
+     *     quien preguntarlo. El precio es que un concepto ajeno no responde 404 como el resto
+     *     del sistema, y esta anotado como cabo suelto del #29
      * @throws bo.coprop.shared.ResourceNotFound si la unidad no es de ese condominio
      * @throws bo.coprop.shared.BusinessRuleViolated si esa persona ya responde por ese concepto
      *     de esa unidad
@@ -92,9 +109,16 @@ public interface UnitRelations {
      * esto, se registra cerrando y abriendo las titularidades a mano, y aceptar aqui un porcentaje
      * distinto dejaria que una venta cambiara en silencio el reparto de la unidad.
      *
+     * <p><strong>Al comprador se le abre la responsabilidad de pago por defecto</strong>, con la
+     * misma regla que en {@link #grantOwnership}: si queda como unico propietario y la unidad se
+     * quedo sin responsable general --porque el que habia era el del vendedor, y se acaba de
+     * cerrar--. Sin esto, una unidad vendida no se podia emitir, que es el agujero que el #29
+     * encontro al revisar el #24.
+     *
      * <p>Lo historico no se toca, que es el segundo criterio del issue: las filas cerradas se
      * quedan, y las obligaciones ya emitidas siguen apuntando a quien respondia cuando se
-     * emitieron.
+     * emitieron. <strong>Eso vale tambien para el defecto</strong>: cambiar de responsable afecta a
+     * lo que se emita despues, nunca a lo emitido.
      *
      * <p>Publica {@link OwnershipTransferred}.
      *
@@ -199,6 +223,21 @@ public interface UnitRelations {
      * servicio a depender de {@code Condominiums} para nada.
      */
     List<BillingResponsibilityView> billingResponsibilitiesFor(UUID condominiumId, UUID conceptId);
+
+    /**
+     * Quien responde vigentemente por los cobros de una unidad: el general y los de cada concepto.
+     *
+     * <p>Es lo que contesta "a quien se le cobra esta unidad" de una vez, y desde el issue
+     * <strong>#29</strong> tiene respuesta hasta sin configurar nada: la propietaria unica tiene su
+     * fila por defecto. Una lista vacia significa una cosa concreta --la unidad esta en copropiedad
+     * y nadie dijo quien paga-- y es justo lo que hay que arreglar antes de emitir.
+     *
+     * <p>El general primero y despues los de un concepto: se lee como "todo lo demas lo paga X, y
+     * estas son las excepciones".
+     *
+     * @throws bo.coprop.shared.ResourceNotFound si la unidad no es de ese condominio
+     */
+    List<BillingResponsibilityView> billingResponsiblesOf(UUID condominiumId, UUID unitId);
 
     /** Las titularidades vigentes de una unidad, para saber a quien se le cobra. */
     List<OwnershipView> ownersOf(UUID condominiumId, UUID unitId);

@@ -71,6 +71,8 @@ class UnitRelationsService implements UnitRelations {
 
         eventos.publishEvent(new OwnershipGranted(condominiumId, unitId, personId, share, actor, ahora));
 
+        abrirResponsabilidadPorDefecto(condominiumId, unitId, personId, ahora, actor);
+
         return view(ownership);
     }
 
@@ -114,7 +116,7 @@ class UnitRelationsService implements UnitRelations {
                 new BillingResponsibility(condominiumId, unitId, personId, conceptId, ahora));
 
         eventos.publishEvent(
-                new BillingResponsibilityAssigned(condominiumId, unitId, personId, conceptId, actor, ahora));
+                new BillingResponsibilityAssigned(condominiumId, unitId, personId, conceptId, false, actor, ahora));
 
         return view(billingResponsibility);
     }
@@ -168,7 +170,58 @@ class UnitRelationsService implements UnitRelations {
         eventos.publishEvent(new OwnershipTransferred(
                 condominiumId, unitId, fromPersonId, toPersonId, percentage, closed, actor, ahora));
 
+        // El comprador hereda el defecto, no la fila del vendedor: la del vendedor se acaba de
+        // cerrar dos lineas arriba. Sin esto una unidad vendida se quedaba sin responsable y no se
+        // podia emitir, que es el agujero que el #29 encontro revisando el #24.
+        abrirResponsabilidadPorDefecto(condominiumId, unitId, toPersonId, ahora, actor);
+
         return view(delComprador);
+    }
+
+    /**
+     * Abre la responsabilidad de pago por defecto de una unidad, si corresponde.
+     *
+     * <p>Es la regla de RF-08 y de la decision 13.3 del analisis --"el propietario, para todos los
+     * conceptos; el inquilino solo si se configura explicitamente"-- hecha dato: el issue #29
+     * decidio que el defecto es una <strong>fila de verdad</strong> y no algo que la emision
+     * resuelva, para que {@code billing_responsibility} conteste sola "a quien se le cobra esta
+     * unidad", que es lo que el analisis 7.1 da por supuesto.
+     *
+     * <p><strong>Dos condiciones, y las dos importan:</strong>
+     *
+     * <ul>
+     *   <li><em>Una sola propietaria vigente.</em> Con dos o mas no hay defecto: la obligacion lleva
+     *       un responsable, y elegir al del porcentaje mayor seria decidir a quien se le reclama el
+     *       dinero sin que nadie lo haya dicho. Se decidio asi el 23-oct-2026.
+     *   <li><em>La unidad no tiene ya responsable general.</em> Lo configurado a mano manda sobre el
+     *       defecto, y volver a abrirlo chocaria contra el indice unico parcial de la V5.
+     * </ul>
+     *
+     * <p>Las dos consultas ven lo que esta transaccion acaba de escribir sin pedir un
+     * {@code flush}: son consultas derivadas, y JPA vuelca lo pendiente antes de ejecutarlas. De eso
+     * depende que el conteo de propietarias incluya a la que se acaba de guardar.
+     *
+     * <p>Publica {@link BillingResponsibilityAssigned} con {@code byDefault}, para que la bitacora
+     * distinga "lo decidio alguien" de "lo decidio la regla".
+     */
+    private void abrirResponsabilidadPorDefecto(
+            UUID condominiumId, UUID unitId, UUID personId, Instant ahora, String actor) {
+        boolean unicaPropietaria = ownerships
+                        .findByCondominiumIdAndUnitIdAndValidToIsNull(condominiumId, unitId)
+                        .size()
+                == 1;
+        if (!unicaPropietaria) {
+            return;
+        }
+        if (billingResponsibilities.existsByCondominiumIdAndUnitIdAndConceptIdIsNullAndValidToIsNull(
+                condominiumId, unitId)) {
+            return;
+        }
+
+        billingResponsibilities.save(new BillingResponsibility(condominiumId, unitId, personId, null, ahora));
+
+        eventos.publishEvent(
+                new BillingResponsibilityAssigned(condominiumId, unitId, personId, null, true, actor, ahora));
     }
 
     /**
@@ -321,6 +374,15 @@ class UnitRelationsService implements UnitRelations {
     @Transactional(readOnly = true)
     public List<BillingResponsibilityView> billingResponsibilitiesFor(UUID condominiumId, UUID conceptId) {
         return billingResponsibilities.currentFor(condominiumId, conceptId).stream()
+                .map(UnitRelationsService::view)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BillingResponsibilityView> billingResponsiblesOf(UUID condominiumId, UUID unitId) {
+        requireUnitOfCondominium(condominiumId, unitId);
+        return billingResponsibilities.currentOfUnit(condominiumId, unitId).stream()
                 .map(UnitRelationsService::view)
                 .toList();
     }

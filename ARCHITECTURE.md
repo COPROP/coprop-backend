@@ -17,7 +17,7 @@ no declaró, el build falla.
 | `shared` | Tipos comunes: identificadores, dinero, periodo, errores de dominio. Módulo abierto. | — |
 | `api` | Contrato HTTP: problem+json, prefijo de versión, seguridad, OpenAPI. | `shared`, `identity`, `condominium`, `billing` |
 | `identity` | Personas, cuentas de acceso, membresías por condominio, roles, invitaciones. | `shared`, `notifications` |
-| `condominium` | Condominios, su configuración, sus unidades, y las tres relaciones de la unidad con las personas: titularidad, ocupación y responsabilidad de pago. | `shared` |
+| `condominium` | Condominios, su configuración, sus unidades, y las tres relaciones de la unidad con las personas: titularidad, ocupación y responsabilidad de pago —esta última con su defecto al propietario—. | `shared` |
 | `billing` | El catálogo de conceptos de cobro, el periodo de facturación, `PaymentObligation` y su máquina de estados, la configuración de expensas y su emisión por unidad; agua y mora. | `shared`, `condominium`, `identity` |
 | `payments` | Intents, QR, inbox de eventos, registro y aplicación de pagos, conciliación. | `shared`, `billing`, `condominium` |
 | `notifications` | Envío de avisos. Solo correo en el MVP. | `shared` |
@@ -654,6 +654,37 @@ Dos detalles que cuesta descubrir solos:
 calculó, así que «¿con qué monto se emitió esto?» no se contesta buscando por fechas, se contesta
 siguiendo un identificador.
 
+### Quién paga una unidad, y el defecto
+
+**El responsable de pago por defecto es el propietario, y es una fila**, no una regla que la emisión
+resuelva (issue #29, RF-08 y decisión §13.3 del análisis). `grantOwnership` y `transferOwnership`
+abren la responsabilidad general cuando esa persona queda como **único** propietario de la unidad y
+la unidad no tiene ya un responsable general.
+
+Se eligió la fila sobre la regla implícita por tres razones:
+
+1. §7.1 dice que la emisión asigna el responsable «según `BillingResponsibility`», sin más. Con una
+   regla implícita esa tabla dejaría de contestar la pregunta sola, y la emisión tendría que conocer
+   las reglas de la titularidad —que son de otro módulo—.
+2. «Quién paga esta unidad» se contesta con una consulta, que es lo que la web pinta.
+3. Seguridad §2 construye el acceso del inquilino sobre «figura como responsable en
+   `BillingResponsibility` vigente». Si el propietario no figurara, las dos mitades de esa frase se
+   comportarían distinto.
+
+**Una unidad en copropiedad no recibe defecto.** La obligación lleva un responsable, y elegir al del
+porcentaje mayor sería decidir a quién se le reclama el dinero sin que nadie lo haya dicho. Esas
+unidades se configuran a mano, y la emisión del #24 las nombra en su mensaje de error. Añadir un
+segundo copropietario **no** retira el defecto que ya estaba abierto: era una decisión tomada cuando
+había un solo dueño, y retirarla cambiaría en silencio quién paga.
+
+Lo configurado a mano manda: si la unidad ya tiene responsable general, el alta de la titularidad no
+abre otro —y no podría, por el índice único parcial—. La llamada explícita queda para las
+excepciones, que es el caso de §13.3: «el inquilino paga el agua y el propietario las expensas».
+
+En la bitácora el evento lleva de qué origen viene, `DEFAULT_OWNER` o `EXPLICIT`: «por qué le cobran
+a esta persona» tiene dos respuestas posibles —lo decidió alguien, o lo decidió la regla— y son
+distintas.
+
 ### El reloj
 
 Nadie llama a `Instant.now()`. Se inyecta el `Clock` que declara `CopropBackendApplication`, de
@@ -1156,6 +1187,11 @@ la misma venta.
 esas filas le seguirían dando acceso —las tres cuentan por igual en `isRelatedTo`— y el criterio del
 issue no se cumpliría. Si se queda como inquilino, el administrador vuelve a registrar su ocupación,
 que es una decisión explícita y no un resto de la venta. El inquilino de otra persona no se toca.
+
+**Y al comprador se le abre la responsabilidad de pago por defecto**, desde el #29. Hace falta
+precisamente porque la del vendedor se cierra: sin eso la unidad vendida se quedaba sin responsable y
+la emisión de expensas se detenía entera. Es el mismo defecto que el alta de una titularidad, con la
+misma condición —que el comprador quede como único propietario—.
 
 El comprador recibe **el mismo porcentaje** que tenía el vendedor, y no viaja en el cuerpo: una venta
 parcial cambia el reparto de la unidad y se registra titularidad por titularidad. Por lo mismo se
