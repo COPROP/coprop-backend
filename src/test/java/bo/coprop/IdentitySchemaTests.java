@@ -39,6 +39,9 @@ class IdentitySchemaTests {
     private static final Instant AHORA = Instant.parse("2026-10-12T12:00:00Z");
     private static final OffsetDateTime DESDE = OffsetDateTime.ofInstant(AHORA, ZoneOffset.UTC);
 
+    /** Una vigencia ya cerrada, para las filas que son historia. */
+    private static final OffsetDateTime HASTA = DESDE.plusDays(30);
+
     private final JdbcTemplate jdbc;
 
     IdentitySchemaTests(@Autowired DataSource dataSource) {
@@ -458,6 +461,78 @@ class IdentitySchemaTests {
     }
 
     // ----------------------------------------------------------------------------------------
+    // Lo que promete la V14: la configuracion de expensas (issue #24)
+    // ----------------------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("solo puede haber una configuracion de expensas vigente por condominio y concepto")
+    void onlyOneCurrentExpenseSettingPerConcept() {
+        UUID condominium = condominium("1000000041", "Las Palmas");
+        UUID concept = chargeConcept(condominium, "EXP");
+        expenseSetting(condominium, concept, "FIXED_PER_UNIT", "350.00", null);
+
+        // Es la restriccion que hace que "la configuracion vigente" sea una fila y no una consulta
+        // con criterio, y la que obliga al servicio a cerrar la anterior antes de abrir la siguiente.
+        assertThatThrownBy(() -> expenseSetting(condominium, concept, "BY_ALIQUOT", "14700.00", null))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("expense_setting_current_uq");
+    }
+
+    @Test
+    @DisplayName("dos configuraciones del mismo concepto se admiten si la anterior esta cerrada")
+    void aClosedExpenseSettingDoesNotBlockTheNextOne() {
+        UUID condominium = condominium("1000000042", "Las Palmas");
+        UUID concept = chargeConcept(condominium, "EXP");
+        expenseSetting(condominium, concept, "FIXED_PER_UNIT", "300.00", HASTA);
+
+        // El indice es parcial --solo mira las de valid_to nulo-- justo para que la historia quepa.
+        expenseSetting(condominium, concept, "FIXED_PER_UNIT", "350.00", null);
+
+        assertThat(jdbc.queryForObject(
+                        "SELECT count(*) FROM expense_setting WHERE condominium_id = ?", Integer.class, condominium))
+                .isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("la configuracion de expensas no puede apuntar al concepto de otro condominio")
+    void anExpenseSettingCannotPointAtAnotherCondominiumConcept() {
+        UUID lasPalmas = condominium("1000000043", "Las Palmas");
+        UUID villaSol = condominium("1000000044", "Villa Sol");
+        UUID conceptoAjeno = chargeConcept(villaSol, "EXP");
+
+        // La clave foranea va compuesta, con el condominio dentro, igual que las cuatro de
+        // payment_obligation: es lo que lo hace imposible desde la base y no desde el servicio.
+        assertThatThrownBy(() -> expenseSetting(lasPalmas, conceptoAjeno, "FIXED_PER_UNIT", "350.00", null))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("expense_setting_concept_fk");
+    }
+
+    @Test
+    @DisplayName("una configuracion de expensas de monto cero la rechaza la base")
+    void anExpenseSettingOfZeroIsRejected() {
+        UUID condominium = condominium("1000000045", "Las Palmas");
+        UUID concept = chargeConcept(condominium, "EXP");
+
+        // Una expensa de cero no es un cobro: lo que corresponde ahi es no emitir el mes.
+        assertThatThrownBy(() -> expenseSetting(condominium, concept, "FIXED_PER_UNIT", "0.00", null))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("expense_setting_amount_ck");
+    }
+
+    @Test
+    @DisplayName("un metodo de calculo que no existe lo rechaza la base")
+    void anUnknownExpenseMethodIsRejected() {
+        UUID condominium = condominium("1000000046", "Las Palmas");
+        UUID concept = chargeConcept(condominium, "EXP");
+
+        // Dos valores y no los cuatro de RF-10: por metro cuadrado y por tipo de unidad no entran en
+        // el MVP, y un CHECK que los admitiera dejaria dos valores que nada escribe.
+        assertThatThrownBy(() -> expenseSetting(condominium, concept, "PER_SQUARE_METER", "350.00", null))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("expense_setting_method_ck");
+    }
+
+    // ----------------------------------------------------------------------------------------
     // Ayudantes
     // ----------------------------------------------------------------------------------------
 
@@ -588,6 +663,30 @@ class IdentitySchemaTests {
                 periodId,
                 number,
                 DESDE);
+        return id;
+    }
+
+    /**
+     * Una configuracion de expensas, por SQL como todo aqui. Issue #24.
+     *
+     * @param validTo nulo = vigente. Con valor, es historia
+     */
+    private UUID expenseSetting(
+            UUID condominiumId, UUID conceptId, String method, String amount, @Nullable OffsetDateTime validTo) {
+        UUID id = UUID.randomUUID();
+        jdbc.update(
+                """
+                INSERT INTO expense_setting
+                    (id, condominium_id, concept_id, method, amount, currency, valid_from, valid_to)
+                VALUES (?, ?, ?, ?, CAST(? AS NUMERIC), 'BOB', ?, ?)
+                """,
+                id,
+                condominiumId,
+                conceptId,
+                method,
+                amount,
+                DESDE,
+                validTo);
         return id;
     }
 

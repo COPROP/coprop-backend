@@ -1,6 +1,7 @@
 package bo.coprop.billing.internal;
 
 import bo.coprop.billing.PaymentObligationStatus;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -43,4 +44,27 @@ interface PaymentObligationRepository extends JpaRepository<PaymentObligation, U
 
     /** Si el concepto ya tiene obligaciones: lo pregunta el criterio del #100. */
     boolean existsByCondominiumIdAndConceptId(UUID condominiumId, UUID conceptId);
+
+    /**
+     * Los borradores de un concepto en un mes, por numero.
+     *
+     * <p>Son lo que la emision de expensas del #24 reemplaza al recalcular y saca a cobro al
+     * emitir. El concepto entra en la consulta porque un mes puede llevar expensas y fondo de
+     * reserva calculados por separado, y recalcular uno no puede borrar el otro.
+     */
+    List<PaymentObligation> findByCondominiumIdAndPeriodIdAndConceptIdAndStatusOrderByNumber(
+            UUID condominiumId, UUID periodId, UUID conceptId, PaymentObligationStatus status);
+
+    /**
+     * Cuantas obligaciones de ese concepto hay ya a cobro en ese mes.
+     *
+     * <p>Es lo que contesta el primer criterio del #24 --"emitir un periodo ya emitido no crea nada
+     * y lo informa"--: si hay alguna, la emision responde conflicto con este numero dentro.
+     *
+     * <p><strong>Se pregunta por estados y no por "distinto de borrador"</strong> a proposito: una
+     * anulada no cuenta como emitida. Un mes que se emitio y se anulo entero se puede volver a
+     * calcular y a emitir, que es lo que corresponde cuando la emision estuvo mal.
+     */
+    long countByCondominiumIdAndPeriodIdAndConceptIdAndStatusIn(
+            UUID condominiumId, UUID periodId, UUID conceptId, Collection<PaymentObligationStatus> statuses);
 }

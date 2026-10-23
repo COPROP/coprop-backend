@@ -54,6 +54,25 @@ public interface Units {
     UnitView find(UUID condominiumId, UUID unitId);
 
     /**
+     * Las unidades activas del condominio, por codigo.
+     *
+     * <p>Es lo que necesita la emision de expensas del issue <strong>#24</strong>: una obligacion
+     * por unidad activa. <strong>Las inactivas no entran</strong>, y es la mitad de lo que esa
+     * columna significa --una unidad que dejo de existir conserva su historia pero no recibe cargos
+     * nuevos--; si entraran, el estado no serviria para nada.
+     *
+     * <p>Devuelve la unidad entera y no solo el identificador porque lo que hace falta de ella son
+     * la alicuota --con la que se reparte-- y el codigo --con el que se compone el numero legible de
+     * la obligacion--, y pedirlas despues una por una serian tantas consultas como unidades.
+     *
+     * <p>Ordenadas por codigo, por lo mismo que el resto de los listados: un reparto que cambia de
+     * orden entre dos previsualizaciones no se puede comparar.
+     *
+     * @throws bo.coprop.shared.ResourceNotFound si el condominio no existe
+     */
+    List<UnitView> activeOf(UUID condominiumId);
+
+    /**
      * Crea una torre o bloque.
      *
      * @throws bo.coprop.shared.ResourceNotFound si el condominio no existe

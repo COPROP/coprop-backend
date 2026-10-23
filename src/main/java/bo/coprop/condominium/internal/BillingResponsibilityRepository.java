@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 interface BillingResponsibilityRepository extends JpaRepository<BillingResponsibility, UUID> {
 
@@ -51,4 +53,26 @@ interface BillingResponsibilityRepository extends JpaRepository<BillingResponsib
      */
     List<BillingResponsibility> findByCondominiumIdAndUnitIdAndPersonIdAndValidToIsNull(
             UUID condominiumId, UUID unitId, UUID personId);
+
+    /**
+     * Las vigentes del condominio que afectan a un concepto: las de ese concepto y las generales.
+     *
+     * <p>Escrita a mano y no derivada del nombre porque lleva un {@code OR} contra nulo, que es
+     * justo lo que un metodo derivado no puede expresar: {@code conceptId = :conceptId} nunca es
+     * cierto para la fila general, y pasar el nulo como parametro no la encuentra. Es el mismo
+     * motivo por el que los dos {@code exists} de arriba estan partidos en dos metodos.
+     *
+     * <p>Una sola consulta para todo el edificio: la pide la emision de expensas del #24, que no
+     * puede preguntar unidad por unidad.
+     */
+    @Query(
+            """
+            select b from BillingResponsibility b
+            where b.condominiumId = :condominiumId
+              and b.validTo is null
+              and (b.conceptId = :conceptId or b.conceptId is null)
+            order by b.unitId
+            """)
+    List<BillingResponsibility> currentFor(
+            @Param("condominiumId") UUID condominiumId, @Param("conceptId") UUID conceptId);
 }

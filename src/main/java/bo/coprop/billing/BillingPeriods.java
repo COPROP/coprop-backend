@@ -43,6 +43,23 @@ public interface BillingPeriods {
     BillingPeriodView open(UUID condominiumId, NewBillingPeriod body, String actor);
 
     /**
+     * Abre el periodo de un mes <strong>si no estaba abierto</strong>, y lo devuelve tal como esta.
+     *
+     * <p>Es lo que el #101 dejo escrito que necesitaba el #24: la emision abre el periodo si falta,
+     * de forma idempotente, para que el worker del #28 no falle en un mes que nadie preparo. Abrir
+     * uno que ya estaba abierto no es un error, y <strong>devuelve el que hay sin tocarlo</strong>:
+     * si ese mes ya se emitio, el estado que vuelve es {@code ISSUED} y es quien llama el que decide
+     * que hacer con eso.
+     *
+     * <p>Separada de {@link #open} y no un parametro suyo porque las dos respuestas a "ya existe"
+     * son legitimas y opuestas: quien abre un mes a mano se equivoco y tiene que saberlo; quien va
+     * a emitir no.
+     *
+     * @throws bo.coprop.shared.ResourceNotFound si el condominio no existe
+     */
+    BillingPeriodView openIfAbsent(UUID condominiumId, int year, int month, String actor);
+
+    /**
      * Los periodos del condominio, del mas reciente al mas antiguo.
      *
      * <p>Sin paginar, igual que el catalogo de conceptos: son doce al año y quien los pide los pide

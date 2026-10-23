@@ -173,6 +173,33 @@ public interface UnitRelations {
     /** Las unidades por cuyos cobros responde vigentemente una persona en ese condominio. */
     List<UUID> unitsBilledTo(UUID condominiumId, UUID personId);
 
+    /**
+     * Las responsabilidades de pago vigentes del condominio que afectan a un concepto: las de ese
+     * concepto y las generales.
+     *
+     * <p>Es lo que necesita la emision de expensas del issue <strong>#24</strong> para decidir a
+     * quien se le cobra cada unidad, y es <strong>una sola consulta para todo el edificio</strong>:
+     * preguntarlo unidad por unidad serian tantas como unidades, que es justo lo que no puede hacer
+     * una emision mensual de doscientas.
+     *
+     * <p><strong>Devuelve las dos clases juntas y sin resolver la precedencia</strong>, y es
+     * deliberado. Que la del concepto manda sobre la general es semantica de
+     * {@link #assignBilling}, pero quien tiene que ver la diferencia entre "esta unidad no tiene
+     * responsable" y "tiene dos y no se sabe cual" es quien emite: las dos cosas se arreglan de
+     * forma distinta y un metodo que devolviera ya resuelto el responsable las confundiria en un
+     * hueco. Resolverlo son cuatro lineas en {@code Expenses}; distinguirlo despues de haberlo
+     * resuelto, imposible.
+     *
+     * <p>Ordenadas por unidad, para que el reparto no cambie de orden entre dos
+     * previsualizaciones.
+     *
+     * <p><strong>No comprueba que el condominio exista</strong>, al contrario que el resto de este
+     * puerto: no hay unidad que comprobar, quien emite ya resolvio el condominio antes de llegar
+     * aqui, y un condominio que no existe no tiene filas. Añadir la comprobacion obligaria a este
+     * servicio a depender de {@code Condominiums} para nada.
+     */
+    List<BillingResponsibilityView> billingResponsibilitiesFor(UUID condominiumId, UUID conceptId);
+
     /** Las titularidades vigentes de una unidad, para saber a quien se le cobra. */
     List<OwnershipView> ownersOf(UUID condominiumId, UUID unitId);
 
