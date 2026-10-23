@@ -521,7 +521,9 @@ class AuditTrailTests {
         assertThat(venta.oldValues()).containsEntry("personId", vendedor.toString());
         assertThat(venta.newValues())
                 .containsEntry("personId", comprador.toString())
-                .containsEntry("relacionesCerradas", "1");
+                // Dos: la titularidad y la responsabilidad de pago que el alta de la titularidad
+                // abrio por defecto (#29). Era una antes de que el defecto existiera.
+                .containsEntry("relacionesCerradas", "2");
 
         // Y el alta que la precedio tambien esta: una bitacora que registra el fin de una relacion
         // y no su principio hace creer que la relacion nacio sola.

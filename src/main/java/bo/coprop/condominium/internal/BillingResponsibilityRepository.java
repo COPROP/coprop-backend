@@ -75,4 +75,31 @@ interface BillingResponsibilityRepository extends JpaRepository<BillingResponsib
             """)
     List<BillingResponsibility> currentFor(
             @Param("condominiumId") UUID condominiumId, @Param("conceptId") UUID conceptId);
+
+    /**
+     * Si la unidad ya tiene responsable general vigente, sea de quien sea.
+     *
+     * <p>La pregunta el defecto del #29 antes de abrir el suyo: lo configurado a mano manda, y
+     * volver a abrirlo chocaria contra el indice unico parcial de la V5. Sin persona en la consulta
+     * a proposito --al defecto no le importa quien sea, solo que haya alguien-- y por eso no sirve
+     * ninguno de los {@code exists} de arriba.
+     */
+    boolean existsByCondominiumIdAndUnitIdAndConceptIdIsNullAndValidToIsNull(UUID condominiumId, UUID unitId);
+
+    /**
+     * Quien responde vigentemente por una unidad: el general primero y los de un concepto despues.
+     *
+     * <p>El {@code nulls first} es lo que pone el general arriba, y se lee como "todo lo demas lo
+     * paga X, y estas son las excepciones". Escrito a mano porque un metodo derivado no sabe
+     * ordenar nulos, y no dejado al dialecto por lo mismo que en {@code ExpenseSettingRepository}.
+     */
+    @Query(
+            """
+            select b from BillingResponsibility b
+            where b.condominiumId = :condominiumId
+              and b.unitId = :unitId
+              and b.validTo is null
+            order by b.conceptId asc nulls first, b.validFrom asc
+            """)
+    List<BillingResponsibility> currentOfUnit(@Param("condominiumId") UUID condominiumId, @Param("unitId") UUID unitId);
 }

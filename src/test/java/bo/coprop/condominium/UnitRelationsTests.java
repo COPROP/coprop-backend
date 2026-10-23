@@ -85,13 +85,169 @@ class UnitRelationsTests {
 
         relations.grantOwnership(condominium, unit, owner, new BigDecimal("100.000000"), "admin");
         relations.grantOccupancy(condominium, unit, inquilino, OccupancyRole.TENANT, "admin");
-        relations.assignBilling(condominium, unit, owner, null, "admin");
 
+        // Desde el #29 no hace falta asignar nada: la propietaria responde por defecto, que es la
+        // regla de RF-08 y de la decision 13.3. Antes habia aqui un assignBilling y era redundante.
         assertThat(relations.unitsOccupiedBy(condominium, inquilino)).containsExactly(unit);
         assertThat(relations.unitsBilledTo(condominium, owner)).containsExactly(unit);
         // El inquilino ocupa y no paga; la propietaria paga y no ocupa.
         assertThat(relations.unitsBilledTo(condominium, inquilino)).isEmpty();
         assertThat(relations.unitsOccupiedBy(condominium, owner)).isEmpty();
+    }
+
+    // --- El responsable de pago por defecto (issue #29) ------------------------------------
+
+    @Test
+    @DisplayName("el alta de la titularidad abre la responsabilidad de pago por defecto")
+    void theOwnershipOpensTheDefaultBillingResponsibility() {
+        UUID condominium = condominium("Por defecto", "3000000030");
+        UUID unit = unit(condominium, "201");
+        UUID owner = person("6000040");
+
+        relations.grantOwnership(condominium, unit, owner, ALL, "admin");
+
+        // El primer criterio del #29: una unidad sin configuracion emite todo al propietario. Es la
+        // regla de RF-08 y de la decision 13.3, y desde aqui es un dato y no una regla implicita.
+        assertThat(relations.billingResponsiblesOf(condominium, unit))
+                .singleElement()
+                .satisfies(responsable -> {
+                    assertThat(responsable.personId()).isEqualTo(owner);
+                    // General: por todos los conceptos.
+                    assertThat(responsable.conceptId()).isNull();
+                });
+        assertThat(relations.unitsBilledTo(condominium, owner)).containsExactly(unit);
+    }
+
+    @Test
+    @DisplayName("el defecto dice en la bitacora que lo decidio la regla y no una persona")
+    void theDefaultSaysItWasTheRule(PublishedEvents eventos) {
+        UUID condominium = condominium("Defecto auditado", "3000000031");
+        UUID unit = unit(condominium, "202");
+        UUID owner = person("6000041");
+
+        relations.grantOwnership(condominium, unit, owner, ALL, "admin");
+
+        // "Por que le cobran a esta persona" tiene dos respuestas posibles --lo decidio alguien, o
+        // lo decidio la regla de 13.3-- y la bitacora tiene que poder distinguirlas.
+        assertThat(eventos.ofType(BillingResponsibilityAssigned.class))
+                .containsExactly(
+                        new BillingResponsibilityAssigned(condominium, unit, owner, null, true, "admin", AHORA));
+    }
+
+    @Test
+    @DisplayName("una unidad en copropiedad no recibe responsable por defecto")
+    void aCoOwnedUnitGetsNoDefault() {
+        UUID condominium = condominium("Copropiedad sin defecto", "3000000032");
+        UUID unit = unit(condominium, "203");
+        UUID una = person("6000042");
+        UUID otra = person("6000043");
+
+        // Las dos entran a la vez, asi que ninguna es la unica propietaria en el momento de abrirse
+        // el defecto: la obligacion lleva UN responsable, y elegir a una seria decidir a quien se le
+        // reclama el dinero sin que nadie lo haya dicho.
+        relations.grantOwnership(condominium, unit, una, MITAD, "admin");
+        relations.endBilling(condominium, unit, una, null, "admin");
+        relations.grantOwnership(condominium, unit, otra, MITAD, "admin");
+
+        assertThat(relations.billingResponsiblesOf(condominium, unit)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("un segundo copropietario no retira el defecto que ya estaba abierto")
+    void aSecondCoOwnerDoesNotRetractTheDefault() {
+        UUID condominium = condominium("Copropietario nuevo", "3000000033");
+        UUID unit = unit(condominium, "204");
+        UUID primera = person("6000044");
+        UUID segunda = person("6000045");
+
+        relations.grantOwnership(condominium, unit, primera, MITAD, "admin");
+        relations.grantOwnership(condominium, unit, segunda, MITAD, "admin");
+
+        // El defecto de la primera era una decision tomada cuando era la unica dueña, y retirarla
+        // cambiaria en silencio quien paga. La segunda no abre otro: la unidad ya tiene responsable.
+        assertThat(relations.billingResponsiblesOf(condominium, unit))
+                .extracting(BillingResponsibilityView::personId)
+                .containsExactly(primera);
+    }
+
+    @Test
+    @DisplayName("lo configurado a mano manda sobre el defecto")
+    void anExplicitResponsibleWinsOverTheDefault() {
+        UUID condominium = condominium("Configurado a mano", "3000000034");
+        UUID unit = unit(condominium, "205");
+        UUID owner = person("6000046");
+        UUID quienPaga = person("6000047");
+
+        relations.assignBilling(condominium, unit, quienPaga, null, "admin");
+        relations.grantOwnership(condominium, unit, owner, ALL, "admin");
+
+        // El alta de la titularidad no pisa lo que alguien ya decidio, y tampoco abre una segunda
+        // fila general: el indice unico parcial de la V5 no lo admitiria.
+        assertThat(relations.billingResponsiblesOf(condominium, unit))
+                .extracting(BillingResponsibilityView::personId)
+                .containsExactly(quienPaga);
+    }
+
+    @Test
+    @DisplayName("la venta le abre el defecto al comprador: una unidad vendida se sigue pudiendo emitir")
+    void theSaleOpensTheDefaultForTheBuyer() {
+        UUID condominium = condominium("Venta con defecto", "3000000035");
+        UUID unit = unit(condominium, "206");
+        UUID vende = person("6000048");
+        UUID compra = person("6000049");
+        relations.grantOwnership(condominium, unit, vende, ALL, "admin");
+
+        relations.transferOwnership(condominium, unit, vende, compra, "admin");
+
+        // La del vendedor se cerro con la venta. Sin abrirle la del comprador, la unidad quedaba sin
+        // responsable y la emision del #24 se detenia entera: es el agujero que el #29 encontro.
+        assertThat(relations.billingResponsiblesOf(condominium, unit))
+                .extracting(BillingResponsibilityView::personId)
+                .containsExactly(compra);
+    }
+
+    @Test
+    @DisplayName("el inquilino paga el agua si se configura, y el propietario sigue con el resto")
+    void theTenantPaysTheWaterWhenConfigured() {
+        UUID condominium = condominium("Agua al inquilino", "3000000036");
+        UUID unit = unit(condominium, "207");
+        UUID owner = person("6000050");
+        UUID inquilino = person("6000051");
+        relations.grantOwnership(condominium, unit, owner, ALL, "admin");
+        relations.grantOccupancy(condominium, unit, inquilino, OccupancyRole.TENANT, "admin");
+
+        // El concepto se inserta con SQL, igual que las personas: charge_concept es de billing y
+        // este modulo no depende de el, pero la clave foranea compuesta que la V11 añadio es real y
+        // un identificador inventado la viola. Lo que se prueba aqui es la precedencia, no el
+        // catalogo.
+        UUID agua = UUID.randomUUID();
+        jdbc.update(
+                """
+                INSERT INTO charge_concept (id, condominium_id, code, name, type, payment_group)
+                VALUES (?, ?, 'AGUA', 'Agua', 'WATER', 'WATER')
+                """,
+                agua,
+                condominium);
+        jdbc.update(
+                """
+                INSERT INTO billing_responsibility
+                    (id, condominium_id, unit_id, person_id, concept_id, valid_from)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                UUID.randomUUID(),
+                condominium,
+                unit,
+                inquilino,
+                agua,
+                OffsetDateTime.ofInstant(AHORA, ZoneOffset.UTC));
+
+        // El general primero y la excepcion despues: se lee como "todo lo demas lo paga el dueño, y
+        // estas son las excepciones".
+        assertThat(relations.billingResponsiblesOf(condominium, unit))
+                .extracting(BillingResponsibilityView::personId, BillingResponsibilityView::conceptId)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(owner, null),
+                        org.assertj.core.groups.Tuple.tuple(inquilino, agua));
     }
 
     @Test
@@ -228,7 +384,7 @@ class UnitRelationsTests {
         UUID compra = person("6000015");
         relations.grantOwnership(condominium, unit, vende, ALL, "admin");
         relations.grantOccupancy(condominium, unit, vende, OccupancyRole.RESIDENT, "admin");
-        relations.assignBilling(condominium, unit, vende, null, "admin");
+        // La responsabilidad de pago no se asigna: el alta de la titularidad ya la abrio (#29).
 
         relations.transferOwnership(condominium, unit, vende, compra, "admin");
 
@@ -370,10 +526,11 @@ class UnitRelationsTests {
 
         relations.transferOwnership(condominium, unit, vende, compra, "emma");
 
-        // Dos relaciones cerradas: la titularidad y la ocupacion. Va en el evento porque es lo que
-        // explica que el vendedor perdiera el acceso.
+        // TRES relaciones cerradas: la titularidad, la ocupacion y la responsabilidad de pago que el
+        // #29 abre con el alta de la titularidad. Eran dos antes de que el defecto existiera, y el
+        // numero va en el evento porque es lo que explica que el vendedor perdiera el acceso.
         assertThat(eventos.ofType(OwnershipTransferred.class))
-                .containsExactly(new OwnershipTransferred(condominium, unit, vende, compra, ALL, 2, "emma", AHORA));
+                .containsExactly(new OwnershipTransferred(condominium, unit, vende, compra, ALL, 3, "emma", AHORA));
         // Y la ocupacion cerrada publica lo mismo que si la hubiera cerrado el administrador a mano.
         assertThat(eventos.ofType(OccupancyEnded.class))
                 .containsExactly(new OccupancyEnded(condominium, unit, vende, OccupancyRole.RESIDENT, "emma", AHORA));

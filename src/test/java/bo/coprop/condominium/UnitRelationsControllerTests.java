@@ -117,7 +117,7 @@ class UnitRelationsControllerTests {
 
     @Test
     @WithMockUser(username = "emma", roles = "CONDO_ADMIN")
-    @DisplayName("el inquilino ocupa y el propietario responde por el pago, en dos llamadas")
+    @DisplayName("el inquilino ocupa y el propietario responde por el pago sin configurar nada")
     void theTenantOccupiesAndTheOwnerPays() throws Exception {
         UUID condominium = condominium("4000000006");
         UUID unit = unit(condominium, "501");
@@ -132,13 +132,51 @@ class UnitRelationsControllerTests {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.role").value("TENANT"));
 
+        // Antes del #29 habia aqui un POST a /billing-responsibles con el propietario. Ya no hace
+        // falta --el alta de la titularidad lo abrio-- y repetirlo responderia 422 por duplicado.
+        mockMvc.perform(get(path(condominium, unit) + "/billing-responsibles"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].personId").value(owner.toString()))
+                .andExpect(jsonPath("$[0].conceptId").doesNotExist());
+    }
+
+    @Test
+    @WithMockUser(username = "emma", roles = "CONDO_ADMIN")
+    @DisplayName("asignar otra vez al propietario responde 422: ya responde por defecto")
+    void assigningTheOwnerAgainIsADuplicate() throws Exception {
+        UUID condominium = condominium("4000000016");
+        UUID unit = unit(condominium, "502");
+        UUID owner = person("5000016");
+        registerOwner(condominium, unit, owner, "100.0");
+
+        // La llamada explicita del #29 es para las excepciones --pasarle el agua al inquilino-- no
+        // para repetir el defecto.
         mockMvc.perform(post(path(condominium, unit) + "/billing-responsibles")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"personId\":\"%s\"}".formatted(owner)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.personId").value(owner.toString()))
-                .andExpect(jsonPath("$.conceptId").doesNotExist());
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value("BUSINESS_RULE"));
+    }
+
+    @Test
+    @WithMockUser(username = "emma", roles = "CONDO_ADMIN")
+    @DisplayName("una unidad en copropiedad no recibe responsable por defecto")
+    void aCoOwnedUnitGetsNoDefault() throws Exception {
+        UUID condominium = condominium("4000000017");
+        UUID unit = unit(condominium, "503");
+        UUID primera = person("5000017");
+        registerOwner(condominium, unit, primera, "50.0");
+        registerOwner(condominium, unit, person("5000018"), "50.0");
+
+        // La primera titularidad si abrio el defecto --entonces era la unica propietaria-- y la
+        // segunda no lo retira: era una decision tomada cuando habia un solo dueño, y retirarla
+        // cambiaria en silencio quien paga.
+        mockMvc.perform(get(path(condominium, unit) + "/billing-responsibles"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].personId").value(primera.toString()));
     }
 
     @Test

@@ -270,7 +270,7 @@ class CrossCondominiumLeakTests {
     }
 
     /**
-     * Los treinta y ocho endpoints que cuelgan de un condominio.
+     * Los treinta y nueve endpoints que cuelgan de un condominio.
      *
      * <p>Son todos los que hay: los demas --personas, cuentas, el perfil propio, los
      * superadministradores, la bitacora de plataforma y las dos llamadas de quien llega con un token
@@ -279,7 +279,8 @@ class CrossCondominiumLeakTests {
      * de invitaciones entraron asi con el issue #18, la auditoria con el #21, los siete de bajas,
      * suspensiones y cierres de relacion con el #19, el cambio de roles con el #20, la edicion de la
      * ficha con el #90, los dos del catalogo de conceptos de cobro con el #100, los dos de los
-     * periodos de facturacion con el #101 y los cinco de las expensas con el #24.
+     * periodos de facturacion con el #101, los cinco de las expensas con el #24 y el de los
+     * responsables de pago con el #29.
      */
     private List<Endpoint> endpoints() {
         String person = personaSuelta.toString();
@@ -374,6 +375,11 @@ class CrossCondominiumLeakTests {
                         "{\"personId\":\"" + person + "\",\"share\":10.0}"),
                 new Endpoint(
                         "listar los propietarios", HttpMethod.GET, "/api/v1/condominiums/%s/units/%s/owners", null),
+                new Endpoint(
+                        "listar los responsables de pago",
+                        HttpMethod.GET,
+                        "/api/v1/condominiums/%s/units/%s/billing-responsibles",
+                        null),
                 new Endpoint(
                         "registrar un ocupante",
                         HttpMethod.POST,

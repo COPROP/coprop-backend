@@ -677,7 +677,7 @@
     },
     {
       "name": "4. Relaciones de la unidad",
-      "description": "Las tres son **relaciones separadas y con vigencia**, no una sola tabla con un tipo: con una sola no se podría expresar que el inquilino reside y el propietario sigue pagando.",
+      "description": "Las tres son **relaciones separadas y con vigencia**, no una sola tabla con un tipo: con una sola no se podría expresar que el inquilino reside y el propietario sigue pagando.\n\n**El responsable de pago tiene un defecto (#29): el propietario.** Registrar al propietario único de una unidad le abre también la responsabilidad general, porque RF-08 y la decisión §13.3 dicen «el propietario, para todos los conceptos; el inquilino solo si se configura explícitamente». Así que *Asignar un responsable de pago* es para las **excepciones** —pasarle el agua al inquilino—, no para repetir el defecto: repetirlo responde 422 por duplicado.\n\n**Una unidad en copropiedad no recibe defecto**: la obligación lleva un responsable y elegir al del porcentaje mayor sería decidir a quién se le cobra sin que nadie lo haya dicho. Esas unidades se configuran a mano, y hasta entonces la emisión del #24 las nombra en su error.",
       "item": [
         {
           "name": "Registrar un propietario",
@@ -704,7 +704,7 @@
                 "owners"
               ]
             },
-            "description": "Una unidad admite varios copropietarios vigentes, cada uno con su porcentaje.",
+            "description": "Una unidad admite varios copropietarios vigentes, cada uno con su porcentaje.\n\n**Si queda como única propietaria, se le abre además la responsabilidad de pago general** (#29): a partir de ahí la unidad ya se puede emitir sin configurar nada más. Con un segundo copropietario no se abre otra, y el defecto que ya estaba no se retira.\n\nNo se valida que los porcentajes sumen 100 —no se puede comprobar fila a fila—: eso lo valida la emisión por alícuota del #24.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"personId\": \"{{personId}}\",\n  \"share\": \"50.000000\"\n}",
@@ -801,10 +801,10 @@
                 "billing-responsibles"
               ]
             },
-            "description": "`conceptId` nulo = responde por todo lo que se le cobre a la unidad. El concepto como entidad nace en M2, así que hoy no se comprueba que exista.",
+            "description": "**Es para las excepciones.** El propietario único ya responde por defecto desde el #29, así que volver a asignarlo responde **422** por duplicado. Lo que se hace aquí es lo de §13.3: «el inquilino paga el agua y el propietario las expensas».\n\n`conceptId` nulo = responde por todo lo que se le cobre a la unidad; con valor, solo por ese concepto, y entonces manda sobre el general. Para pasarle el agua al inquilino, el `conceptId` del concepto `AGUA` (carpeta 11).\n\n**Que el concepto exista y sea de este condominio lo comprueba la base**, no el servicio: la regla 2 prohíbe que `condominium` dependa de `billing`. El precio es que un concepto ajeno responde 500 y no 404, y está anotado como cabo suelto del #29.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"personId\": \"{{personId}}\",\n  \"conceptId\": null\n}",
+              "raw": "{\n  \"personId\": \"{{personId}}\",\n  \"conceptId\": \"{{conceptId}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -812,8 +812,30 @@
               }
             }
           }
-        }
-,
+        },
+        {
+          "name": "Quién paga esta unidad",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/units/{{unitId}}/billing-responsibles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominiums",
+                "{{condominiumId}}",
+                "units",
+                "{{unitId}}",
+                "billing-responsibles"
+              ]
+            },
+            "description": "Quién responde vigentemente por los cobros de la unidad: **el general primero y los de cada concepto después**, que se lee como «todo lo demás lo paga X, y estas son las excepciones».\n\nMismo permiso y misma cadena por unidad que el listado de propietarios: `VIEW_ACCOUNT_STATEMENT` sobre *esta* unidad. El propietario tiene que poder ver que la factura va a su nombre, y el inquilino que el agua va al suyo; el de otra unidad recibe **404** y portería **403**.\n\n**Una lista vacía significa algo concreto**: la unidad está en copropiedad y nadie dijo quién paga, así que no se puede emitir hasta configurarlo."
+          }
+        },
         {
           "name": "Transferir la unidad (venta)",
           "request": {

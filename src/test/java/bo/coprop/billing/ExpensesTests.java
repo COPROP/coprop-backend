@@ -119,18 +119,25 @@ class ExpensesTests {
         return String.valueOf(Math.abs(UUID.randomUUID().getMostSignificantBits() % 1_000_000_0000L));
     }
 
-    /** Una unidad activa con su alicuota y con un responsable de pago general. */
+    /**
+     * Una unidad activa con su alicuota y con su propietaria.
+     *
+     * <p><strong>No se le asigna responsable de pago</strong>, y es el camino real desde el #29: el
+     * alta de la titularidad abre la responsabilidad por defecto, que es el primer criterio de ese
+     * ticket --"una unidad sin configuracion emite todo al propietario"--. Antes aqui habia un
+     * {@code assignBilling}, y ahora seria un duplicado.
+     */
     private UUID unidad(String code, String aliquot) {
         UUID unit = units.register(
                         condominium,
                         new NewUnit(code, UnitType.APARTMENT, new BigDecimal(aliquot), null, null, null),
                         "emma")
                 .id();
-        relations.assignBilling(condominium, unit, person, null, "emma");
+        relations.grantOwnership(condominium, unit, person, new BigDecimal("100.000000"), "emma");
         return unit;
     }
 
-    /** Una unidad sin responsable de pago, para los casos que tienen que fallar. */
+    /** Una unidad sin propietaria ni responsable de pago, para los casos que tienen que fallar. */
     private UUID unidadHuerfana(String code, String aliquot) {
         return units.register(
                         condominium,
@@ -582,6 +589,46 @@ class ExpensesTests {
             assertThat(issued.year()).isEqualTo(2026);
             assertThat(issued.month()).isEqualTo(9);
         });
+    }
+
+    @Test
+    @DisplayName("cambiar el responsable afecta solo a emisiones futuras")
+    void changingTheResponsibleOnlyAffectsFutureRuns() {
+        UUID unit = unidad("A-301", "100.000000");
+        configurar(ExpenseMethod.FIXED_PER_UNIT, "350.00");
+        expenses.calculate(condominium, concept, 2026, 9, "emma");
+        expenses.issue(condominium, concept, 2026, 9, "emma");
+
+        // El propietario vende, o simplemente se cambia quien responde.
+        UUID nuevo =
+                people.register(new NewPerson("Luis", "Mamani", null), "emma").id();
+        relations.endBilling(condominium, unit, person, null, "emma");
+        relations.assignBilling(condominium, unit, nuevo, null, "emma");
+
+        // El segundo criterio del #29: lo emitido sigue siendo de quien respondia cuando se emitio.
+        // La obligacion congela el responsable al crearse, asi que una historia de cobros no se
+        // reescribe cuando cambia el dato de hoy.
+        assertThat(obligations.ofUnit(condominium, unit).get(0).responsiblePersonId())
+                .isEqualTo(person);
+
+        // Y el mes siguiente ya sale al nuevo.
+        expenses.calculate(condominium, concept, 2026, 10, "emma");
+        ExpenseRunView octubre = expenses.issue(condominium, concept, 2026, 10, "emma");
+        assertThat(octubre.lines().get(0).responsiblePersonId()).isEqualTo(nuevo);
+    }
+
+    @Test
+    @DisplayName("una unidad recien dada de alta con su propietaria se emite sin configurar nada")
+    void aFreshUnitWithAnOwnerIsIssuable() {
+        // El primer criterio del #29 visto desde la emision, que es donde importa: antes de ese
+        // ticket esto fallaba con "sin responsable de pago" en toda unidad nueva.
+        unidad("A-301", "100.000000");
+        configurar(ExpenseMethod.FIXED_PER_UNIT, "350.00");
+
+        ExpenseRunView run = expenses.calculate(condominium, concept, 2026, 9, "emma");
+
+        assertThat(run.lines()).singleElement().satisfies(linea -> assertThat(linea.responsiblePersonId())
+                .isEqualTo(person));
     }
 
     @Test

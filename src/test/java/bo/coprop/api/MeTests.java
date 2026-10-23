@@ -172,8 +172,9 @@ class MeTests {
 
         // El reparto normal de un alquiler: de la suya es propietaria y responde por los cobros; la
         // otra solo la ocupa.
+        // Las dos relaciones de la suya salen de una sola llamada: el alta de la titularidad abre
+        // tambien la responsabilidad de pago por defecto (#29). Antes habia aqui un assignBilling.
         relations.grantOwnership(condominium, suya, emma.person(), new BigDecimal("100.00"), "admin");
-        relations.assignBilling(condominium, suya, emma.person(), null, "admin");
         relations.grantOccupancy(condominium, queOcupa, emma.person(), OccupancyRole.TENANT, "admin");
 
         mockMvc.perform(get(ME).header(HttpHeaders.AUTHORIZATION, emma.token()))
