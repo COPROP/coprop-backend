@@ -120,6 +120,11 @@
       "key": "invitationToken",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "conceptId",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -1789,7 +1794,25 @@
                 }
               }
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    const cuerpo = pm.response.json();",
+                  "    const id = Array.isArray(cuerpo) ? (cuerpo[0] && cuerpo[0].id) : cuerpo.id;",
+                  "    if (id) {",
+                  "        pm.collectionVariables.set('conceptId', id);",
+                  "        console.log('conceptId =', id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Listar los conceptos de cobro",
@@ -1872,6 +1895,161 @@
               ]
             },
             "description": "Los periodos del condominio, **del más reciente al más antiguo**: el mes de arriba es el que se está facturando, que es el que se busca al abrir la pantalla. Sin paginar, por lo mismo que el catálogo de conceptos: son doce al año."
+          }
+        }
+      ]
+    },
+    {
+      "name": "13. Expensas",
+      "description": "El monto de las expensas y su emisión por unidad (#24). Es el primer ticket que **crea obligaciones de pago en lote**, y el que por fin llena el `sourceType`/`sourceId` que el #23 dejó vacíos.\n\n## El flujo, que es el del análisis §7.1 y son dos pasos\n\n1. **Calcular** reparte el monto configurado entre las unidades activas y deja una obligación en `DRAFT` por unidad. Es la *vista previa en estado BORRADOR* del diagrama, y se puede repetir: recalcular reemplaza los borradores anteriores.\n2. **Emitir** las saca a cobro todas juntas y pasa el periodo a `ISSUED`.\n\n**La previsualización escribe, y es a propósito.** El análisis dibuja el borrador como un estado, con un lazo de *no aprobado* que vuelve a calcular, y el #23 construyó `DRAFT` justo para esto. Un cálculo que no se guardara habría que repetirlo al confirmar, y entre las dos llamadas una alícuota o una unidad pueden cambiar: lo que se emitiría no sería lo que la persona aprobó.\n\n## Dos permisos y no uno\n\nPoner el monto es `CONFIGURE_CHARGES` —configurar lo que se cobra, igual que el catálogo de conceptos y los periodos— y emitir es `ISSUE_DUES`. Hoy los dos los tiene el financiero; el día que un condominio quiera que el directorio apruebe el monto y la administración lo emita, los permisos ya están separados.\n\n## El orden para recorrer esta carpeta\n\nAntes hay que tener, en el condominio: **un concepto de tipo `DUES`** (carpeta 11, que ya guarda su id en `conceptId`), **al menos una unidad activa** (carpeta 3) y **un responsable de pago por cada unidad** (carpeta 4). Sin responsable la emisión se detiene entera y el mensaje lista las unidades que faltan.",
+      "item": [
+        {
+          "name": "Configurar las expensas",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/expense-settings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominiums",
+                "{{condominiumId}}",
+                "expense-settings"
+              ]
+            },
+            "description": "`method`: `FIXED_PER_UNIT` o `BY_ALIQUOT`. Son dos y no las cuatro que enumera RF-10 —también por m² y por tipo de unidad—: esas no entran en el MVP.\n\n**`amount` significa una cosa u otra según el método**: con `FIXED_PER_UNIT` es lo que paga cada unidad; con `BY_ALIQUOT` es el **total** que se reparte entre todas. Es una sola columna a propósito: dos alternas dirían lo mismo con el doble de reglas.\n\n**La moneda no se pide**: se copia del condominio, igual que en la obligación de pago.\n\nEl concepto tiene que ser de tipo `DUES`: el agua se calcula con una tarifa y una lectura (#25, #26) y la mora con una política (#27). Uno de otro tipo responde **422**.\n\n**Nunca actualiza en sitio.** Configurar otra vez cierra la vigente y abre otra, como `PUT /configuration` del condominio: la fila anterior es la que dice con qué monto se emitió cada mes, y cada obligación la nombra en su `sourceId`.\n\nDevuelve 201 y **sin cabecera `Location`**, igual que el alta de un concepto y la apertura de un periodo.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"conceptId\": \"{{conceptId}}\",\n  \"method\": \"BY_ALIQUOT\",\n  \"amount\": \"14700.00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Listar la configuración vigente",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/expense-settings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominiums",
+                "{{condominiumId}}",
+                "expense-settings"
+              ]
+            },
+            "description": "Las configuraciones **vigentes**, una por concepto. Son las que tienen `validTo` nulo, y la base garantiza con un índice parcial que no haya dos del mismo concepto.\n\nEn la respuesta `validTo` no aparece: la serialización omite los nulos."
+          }
+        },
+        {
+          "name": "Historial de configuraciones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/expense-settings/history",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominiums",
+                "{{condominiumId}}",
+                "expense-settings",
+                "history"
+              ]
+            },
+            "description": "Toda la historia, **de la más reciente a la más antigua**. Es el *historial de vigencias* que pide el criterio del ticket.\n\n**Ruta propia y no un parámetro del listado de arriba**: son dos preguntas distintas —lo que se va a cobrar y con qué se cobró— y un parámetro que cambia el significado de una respuesta obliga a quien la lee a mirar la petición para saber qué está viendo."
+          }
+        },
+        {
+          "name": "Calcular las expensas del mes (previsualización)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/expense-runs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominiums",
+                "{{condominiumId}}",
+                "expense-runs"
+              ]
+            },
+            "description": "Devuelve **200** y no 201: no es un recurso nuevo con su propia dirección, es el estado calculado de un mes, y repetir la llamada da lo mismo en vez de crear otro.\n\n**Abre el periodo si no existe**, de forma idempotente: es lo que el #101 le pidió a este ticket por escrito, para que el worker del #28 no falle en un mes que nadie preparó.\n\n**Recalcular borra los borradores anteriores y escribe otros.** No los anula: un borrador reemplazado antes de que nadie lo viera ocuparía su número legible —el siguiente cálculo saldría `EXP-2026-09-A-302-2`— y llenaría el mes de filas que no cuentan.\n\n**El vencimiento cae el mes siguiente**, el día que dice la configuración del condominio: las expensas de 2026-09 vencen el 15/10. Un condominio cobra el mes ya pasado (§7.1).\n\n**Con `BY_ALIQUOT` el total cuadra exacto.** Las alícuotas de las unidades activas tienen que sumar 100 —si no, **422** con la suma de verdad en el mensaje— y los centavos que sobran al redondear se reparten de uno en uno entre las unidades de resto mayor. No se le dan a la última: la última por código sería la misma todos los meses.\n\nUna unidad de alícuota cero no recibe obligación: un cargo de cero no es una deuda.\n\nSe detiene entero —y no emite ninguna— si a alguna unidad le falta responsable de pago o si tiene más de uno para ese concepto. Es todo o nada (§7.1), y el mensaje lista las unidades que hay que arreglar.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"conceptId\": \"{{conceptId}}\",\n  \"year\": 2026,\n  \"month\": 9\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Emitir las expensas del mes",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/condominiums/{{condominiumId}}/expense-runs/issue",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "condominiums",
+                "{{condominiumId}}",
+                "expense-runs",
+                "issue"
+              ]
+            },
+            "description": "Saca a cobro los borradores del mes y pasa el periodo a `ISSUED`.\n\n**Emitir un mes ya emitido no crea nada**, que es el primer criterio del ticket: responde **409** diciendo cuántas obligaciones tiene ya ese concepto en ese mes. Lo idempotente es abrir el periodo, no emitirlo: emitir dos veces duplicaría la deuda de todo el edificio, y eso no puede pasar en silencio.\n\nSin nada calculado responde **422**.\n\n**Se pregunta por concepto y no por periodo**, así que un condominio que cobra expensas y fondo de reserva por separado emite dos veces el mismo mes y el segundo encuentra el periodo ya en `ISSUED`. Eso es correcto, y el periodo no se vuelve a transitar.\n\nPublica un aviso por obligación —que es el que escuchan las notificaciones del #50— y además el resumen del mes, que es la fila de la bitácora con el total y cuántas se emitieron.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"conceptId\": \"{{conceptId}}\",\n  \"year\": 2026,\n  \"month\": 9\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           }
         }
       ]

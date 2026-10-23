@@ -27,14 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 class PaymentObligationsService implements PaymentObligations {
 
-    /**
-     * Cuantos correlativos se prueban antes de rendirse al componer el numero legible.
-     *
-     * <p>Veinte multas del mismo concepto sobre la misma unidad en el mismo mes no es un caso real;
-     * es un bucle que se fue. Mejor fallar que girar.
-     */
-    private static final int MAXIMO_DE_CORRELATIVOS = 20;
-
     private final PaymentObligationRepository obligations;
     private final ChargeConceptRepository concepts;
     private final BillingPeriodRepository periods;
@@ -43,6 +35,9 @@ class PaymentObligationsService implements PaymentObligations {
     private final People people;
     private final ApplicationEventPublisher eventos;
     private final Clock clock;
+
+    /** La composicion del numero legible, compartida con la emision de expensas del #24. */
+    private final ObligationNumbers numbers;
 
     PaymentObligationsService(
             PaymentObligationRepository obligations,
@@ -61,6 +56,7 @@ class PaymentObligationsService implements PaymentObligations {
         this.people = people;
         this.eventos = eventos;
         this.clock = clock;
+        this.numbers = new ObligationNumbers(obligations);
     }
 
     @Override
@@ -85,7 +81,7 @@ class PaymentObligationsService implements PaymentObligations {
         BillingPeriod period = periodoDe(condominiumId, body.periodId());
         requireParent(condominiumId, body.parentObligationId());
 
-        String number = numeroLibre(condominiumId, concept.getCode(), period, body.dueDate(), unitCode);
+        String number = numbers.free(condominiumId, concept.getCode(), period, body.dueDate(), unitCode);
 
         PaymentObligation created = obligations.save(new PaymentObligation(
                 condominiumId,
@@ -249,41 +245,6 @@ class PaymentObligationsService implements PaymentObligations {
      */
     private LocalDate hoyEn(CondominiumView condominium) {
         return LocalDate.ofInstant(clock.instant(), ZoneId.of(condominium.timeZone()));
-    }
-
-    /**
-     * El numero legible del analisis 5.2, libre en el condominio.
-     *
-     * <p>Se compone del codigo del concepto, el año y el mes, y el codigo de la unidad:
-     * {@code EXP-2026-09-A-302}. <strong>El mes sale del periodo cuando hay periodo y del
-     * vencimiento cuando no</strong>: una multa no pertenece a ningun mes, pero vence en uno, y es el
-     * dato con el que una persona la va a buscar.
-     *
-     * <p>No es una secuencia a proposito: un {@code OBL-000123} no dice nada al leerlo, y el analisis
-     * escribe el ejemplo compuesto. El precio es que puede repetirse --dos multas del mismo concepto
-     * sobre la misma unidad en el mismo mes-- y ahi lleva un correlativo detras.
-     */
-    private String numeroLibre(
-            UUID condominiumId,
-            String conceptCode,
-            @Nullable BillingPeriod period,
-            LocalDate dueDate,
-            String unitCode) {
-        int year = period != null ? period.getYear() : dueDate.getYear();
-        int month = period != null ? period.getMonth() : dueDate.getMonthValue();
-        String base = "%s-%d-%02d-%s".formatted(conceptCode, year, month, unitCode);
-
-        if (!obligations.existsByCondominiumIdAndNumber(condominiumId, base)) {
-            return base;
-        }
-        for (int correlativo = 2; correlativo <= MAXIMO_DE_CORRELATIVOS; correlativo++) {
-            String candidato = base + "-" + correlativo;
-            if (!obligations.existsByCondominiumIdAndNumber(condominiumId, candidato)) {
-                return candidato;
-            }
-        }
-        throw new BusinessRuleViolated(
-                "Ya hay %d obligaciones con el numero %s en este condominio.".formatted(MAXIMO_DE_CORRELATIVOS, base));
     }
 
     private static PaymentObligationView view(PaymentObligation obligation, LocalDate hoy) {

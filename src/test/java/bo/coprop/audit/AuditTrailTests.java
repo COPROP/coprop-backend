@@ -95,6 +95,9 @@ class AuditTrailTests {
     private PaymentObligations obligations;
 
     @Autowired
+    private bo.coprop.billing.Expenses expenses;
+
+    @Autowired
     private DataSource fuenteDeDatos;
 
     @Autowired
@@ -313,6 +316,89 @@ class AuditTrailTests {
         // El motivo vive solo en la bitacora, igual que en la baja de una membresia.
         assertThat(anulacion.newValues()).containsEntry("reason", "se emitio a la unidad equivocada");
         assertThat(anulacion.oldValues()).containsEntry("status", "ISSUED");
+    }
+
+    @Test
+    @DisplayName("configurar expensas deja fila, y la segunda vez con los valores de antes")
+    void theExpenseSettingIsRecorded() {
+        UUID concept = chargeConcepts
+                .register(
+                        condominium,
+                        new NewChargeConcept("AUD-EXP", "Expensas", ChargeConceptType.DUES, PaymentGroup.DUES),
+                        administradora.toString())
+                .id();
+
+        expenses.configure(
+                condominium,
+                new bo.coprop.billing.NewExpenseSetting(
+                        concept, bo.coprop.billing.ExpenseMethod.FIXED_PER_UNIT, new BigDecimal("300.00")),
+                administradora.toString());
+
+        AuditEntryView primera = laFilaDe("EXPENSE_SETTING_CHANGED");
+        assertThat(primera.entity()).isEqualTo("configuracion-de-expensas");
+        assertThat(primera.newValues()).containsEntry("amount", "300.00").containsEntry("currency", "BOB");
+        // La primera no tiene "antes": no habia nada que cambiar.
+        assertThat(primera.oldValues()).isNull();
+
+        expenses.configure(
+                condominium,
+                new bo.coprop.billing.NewExpenseSetting(
+                        concept, bo.coprop.billing.ExpenseMethod.BY_ALIQUOT, new BigDecimal("14700.00")),
+                administradora.toString());
+
+        // Las dos filas tienen la misma accion, asi que se busca la que si tiene mitad de antes.
+        AuditEntryView segunda = delCondominio().stream()
+                .filter(fila -> "EXPENSE_SETTING_CHANGED".equals(fila.action()) && fila.oldValues() != null)
+                .findFirst()
+                .orElseThrow();
+        assertThat(segunda.oldValues()).containsEntry("amount", "300.00");
+        assertThat(segunda.newValues()).containsEntry("method", "BY_ALIQUOT");
+    }
+
+    @Test
+    @DisplayName("emitir las expensas deja el resumen del mes, ademas del aviso de cada obligacion")
+    void theExpenseRunIsRecorded() {
+        UUID unit = units.register(
+                        condominium,
+                        new NewUnit("AUD-EXP-1", UnitType.APARTMENT, new BigDecimal("1.000000"), null, null, null),
+                        administradora.toString())
+                .id();
+        UUID concept = chargeConcepts
+                .register(
+                        condominium,
+                        new NewChargeConcept("AUD-RUN", "Expensas", ChargeConceptType.DUES, PaymentGroup.DUES),
+                        administradora.toString())
+                .id();
+        relations.assignBilling(
+                condominium,
+                unit,
+                people.register(new NewPerson("Aud", "Mamani", null), "admin").id(),
+                null,
+                administradora.toString());
+        expenses.configure(
+                condominium,
+                new bo.coprop.billing.NewExpenseSetting(
+                        concept, bo.coprop.billing.ExpenseMethod.FIXED_PER_UNIT, new BigDecimal("350.00")),
+                administradora.toString());
+
+        expenses.calculate(condominium, concept, 2026, 12, administradora.toString());
+
+        // El calculo no deja fila: es un borrador, igual que el alta de una obligacion sola.
+        assertThat(delCondominio()).extracting(AuditEntryView::action).doesNotContain("EXPENSES_ISSUED");
+
+        expenses.issue(condominium, concept, 2026, 12, administradora.toString());
+
+        AuditEntryView emision = laFilaDe("EXPENSES_ISSUED");
+        // El periodo es la entidad, no el concepto: es lo que una persona nombra, "la emision de
+        // diciembre", y lo que hace que la historia del mes salga junta.
+        assertThat(emision.entity()).isEqualTo("periodo-de-facturacion");
+        assertThat(emision.newValues())
+                .containsEntry("period", "2026-12")
+                .containsEntry("obligations", "1")
+                .containsEntry("total", "350.00");
+
+        // Y el aviso de la obligacion sigue estando: los dos hacen falta y dicen cosas distintas.
+        assertThat(delCondominio()).extracting(AuditEntryView::action).contains("PAYMENT_OBLIGATION_ISSUED");
     }
 
     @Test

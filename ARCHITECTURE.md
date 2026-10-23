@@ -18,7 +18,7 @@ no declaró, el build falla.
 | `api` | Contrato HTTP: problem+json, prefijo de versión, seguridad, OpenAPI. | `shared`, `identity`, `condominium`, `billing` |
 | `identity` | Personas, cuentas de acceso, membresías por condominio, roles, invitaciones. | `shared`, `notifications` |
 | `condominium` | Condominios, su configuración, sus unidades, y las tres relaciones de la unidad con las personas: titularidad, ocupación y responsabilidad de pago. | `shared` |
-| `billing` | El catálogo de conceptos de cobro, el periodo de facturación, `PaymentObligation` y su máquina de estados; expensas, agua, mora. | `shared`, `condominium`, `identity` |
+| `billing` | El catálogo de conceptos de cobro, el periodo de facturación, `PaymentObligation` y su máquina de estados, la configuración de expensas y su emisión por unidad; agua y mora. | `shared`, `condominium`, `identity` |
 | `payments` | Intents, QR, inbox de eventos, registro y aplicación de pagos, conciliación. | `shared`, `billing`, `condominium` |
 | `notifications` | Envío de avisos. Solo correo en el MVP. | `shared` |
 | `audit` | Bitácora inmutable append-only, retención de un año. Escucha `AuditableEvent`. | `shared` |
@@ -210,10 +210,19 @@ trajo listado de unidades—.
 
 ### Dinero y fechas
 
-Convención fijada aquí, sin código todavía porque aún no hay nada que devuelva importes; entra
-con `billing`. Los montos viajan como `{"monto": "1234.56", "moneda": "BOB"}`, **el monto como
-string**: §12.2 prohíbe `double`, y un número JSON en JavaScript es exactamente eso. Los
-instantes viajan en ISO-8601 UTC; los vencimientos se calculan en `America/La_Paz`.
+**En vigor desde el #24**, que es el primer endpoint que devuelve importes. Los montos viajan como
+`{"amount": "1234.56", "currency": "BOB"}`, **el monto como string**: §12.2 prohíbe `double`, y un
+número JSON en JavaScript es exactamente eso, así que el redondeo que `NUMERIC(14,2)` evita en la
+base volvería en la pantalla. Se consigue con `@JsonFormat(shape = STRING)` en el campo, no con una
+configuración global del `ObjectMapper`: la alícuota y el porcentaje de copropiedad también son
+`BigDecimal` y **no** son dinero, y una regla global las arrastraría.
+
+De entrada se admiten las dos formas —Jackson convierte una cadena a `BigDecimal` sin pedir nada—,
+así que un cliente que mande el número no se rompe. Lo que está fijado es la salida.
+
+Los instantes viajan en ISO-8601 UTC; los vencimientos se calculan en `America/La_Paz` y se guardan
+como `DATE`, no como marca de tiempo: una obligación vence un día *allí*, y guardarla como instante
+obligaría a elegir una hora que nadie decidió.
 
 ### OpenAPI
 
@@ -634,6 +643,16 @@ Dos detalles que cuesta descubrir solos:
 - **Hay que forzar un `flush` entre cerrar la vieja y crear la nueva.** Hibernate ordena todos los
   `INSERT` antes que los `UPDATE` dentro de un mismo flush, así que sin eso la fila nueva entra
   mientras la vieja sigue abierta y el índice la rechaza.
+- **Ordenar el historial por `valid_from DESC` no alcanza.** Dos cambios seguidos caen en el mismo
+  instante —el reloj de Windows tiene una granularidad de unos 15 ms— y entonces el orden es el que
+  devuelva la base, distinto entre dos peticiones. El desempate es `valid_to DESC NULLS FIRST`, que
+  además pone la vigente arriba; y va escrito en la consulta, no dejado al dialecto. Lo descubrió un
+  test del #24, no un usuario.
+
+`expense_setting` (#24) es el tercer caso del patrón, y el primero donde la fila cerrada se
+*referencia*: cada obligación de expensas guarda en su `source_id` la configuración con la que se
+calculó, así que «¿con qué monto se emitió esto?» no se contesta buscando por fechas, se contesta
+siguiendo un identificador.
 
 ### El reloj
 

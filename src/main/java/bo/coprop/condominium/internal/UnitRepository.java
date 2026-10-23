@@ -1,5 +1,6 @@
 package bo.coprop.condominium.internal;
 
+import bo.coprop.condominium.UnitStatus;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -14,4 +15,12 @@ interface UnitRepository extends JpaRepository<Unit, UUID> {
      * 200 consultas para averiguar lo mismo.
      */
     List<Unit> findByCondominiumIdAndCodeIn(UUID condominiumId, Collection<String> codes);
+
+    /**
+     * Las unidades del condominio en un estado, por codigo.
+     *
+     * <p>La pide la emision de expensas del #24, que solo cobra a las activas. El orden va en la
+     * consulta y no en memoria, igual que en el resto del proyecto.
+     */
+    List<Unit> findByCondominiumIdAndStatusOrderByCode(UUID condominiumId, UnitStatus status);
 }

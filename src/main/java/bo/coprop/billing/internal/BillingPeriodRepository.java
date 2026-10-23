@@ -10,6 +10,14 @@ interface BillingPeriodRepository extends JpaRepository<BillingPeriod, UUID> {
     boolean existsByCondominiumIdAndYearAndMonth(UUID condominiumId, int year, int month);
 
     /**
+     * El periodo de un mes, si esta abierto.
+     *
+     * <p>La pide la apertura idempotente que necesita la emision del #24: lo unico que distingue a
+     * esa del alta normal es que mira antes en vez de chocar.
+     */
+    Optional<BillingPeriod> findByCondominiumIdAndYearAndMonth(UUID condominiumId, int year, int month);
+
+    /**
      * El periodo, pero solo si es de ese condominio.
      *
      * <p>El condominio va en la consulta y no se comprueba despues de leer: es la misma forma que

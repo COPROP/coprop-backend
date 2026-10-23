@@ -84,6 +84,9 @@ class CrossCondominiumLeakTests {
     @Autowired
     private UnitRelations relations;
 
+    @Autowired
+    private bo.coprop.billing.ChargeConcepts chargeConcepts;
+
     /** El condominio de quien pide, donde si tiene membresia. */
     private UUID propio;
 
@@ -98,6 +101,9 @@ class CrossCondominiumLeakTests {
     private UUID membresiaAjena;
     private UUID invitacionPropia;
     private UUID invitacionAjena;
+    /** El concepto de cobro del condominio propio que las rutas de expensas nombran en su cuerpo. */
+    private UUID conceptoPropio;
+
     private UUID personaSuelta;
     private UUID cuentaParaInvitar;
     private String authorizationHeader;
@@ -125,6 +131,21 @@ class CrossCondominiumLeakTests {
         unidadAjena = unitRegistration(ajeno, "A-101");
         bloquePropio = units.addBlock(propio, "Bloque propio", "admin").id();
         bloqueAjeno = units.addBlock(ajeno, "Bloque ajeno", "admin").id();
+
+        // Un concepto de verdad del condominio propio para el cuerpo de las rutas de expensas (#24).
+        // Hoy quien pide es CONDO_ADMIN y no llega a leerlo --se queda en 403, que es lo que esta
+        // suite necesita: no 404--, pero con un identificador inventado el dia que ese rol tuviera el
+        // permiso la mitad de control empezaria a dar 404 por el dato y no por la ruta.
+        conceptoPropio = chargeConcepts
+                .register(
+                        propio,
+                        new bo.coprop.billing.NewChargeConcept(
+                                "FUGA-EXP",
+                                "Expensas",
+                                bo.coprop.billing.ChargeConceptType.DUES,
+                                bo.coprop.billing.PaymentGroup.DUES),
+                        "admin")
+                .id();
 
         // Quien pide: cuenta con membresia ACTIVE en el propio y ninguna en el ajeno.
         AccountView account = cuentaNueva();
@@ -238,8 +259,18 @@ class CrossCondominiumLeakTests {
                 {"name": "Fuga editada", "nit": "7777778001", "address": "Av. Ballivian 456"}""";
     }
 
+    /** El cuerpo de la configuracion de expensas, con el concepto del condominio propio. */
+    private String configuracionDeExpensas() {
+        return "{\"conceptId\":\"%s\",\"method\":\"FIXED_PER_UNIT\",\"amount\":\"350.00\"}".formatted(conceptoPropio);
+    }
+
+    /** El cuerpo del calculo y de la emision. El mes es uno cualquiera: repetirlo no choca. */
+    private String mesDeExpensas() {
+        return "{\"conceptId\":\"%s\",\"year\":2026,\"month\":7}".formatted(conceptoPropio);
+    }
+
     /**
-     * Los treinta y tres endpoints que cuelgan de un condominio.
+     * Los treinta y ocho endpoints que cuelgan de un condominio.
      *
      * <p>Son todos los que hay: los demas --personas, cuentas, el perfil propio, los
      * superadministradores, la bitacora de plataforma y las dos llamadas de quien llega con un token
@@ -247,8 +278,8 @@ class CrossCondominiumLeakTests {
      * aislarse. Cuando entre uno nuevo bajo {@code /condominiums/{id}}, su caso entra aqui; los cinco
      * de invitaciones entraron asi con el issue #18, la auditoria con el #21, los siete de bajas,
      * suspensiones y cierres de relacion con el #19, el cambio de roles con el #20, la edicion de la
-     * ficha con el #90, los dos del catalogo de conceptos de cobro con el #100 y los dos de los
-     * periodos de facturacion con el #101.
+     * ficha con el #90, los dos del catalogo de conceptos de cobro con el #100, los dos de los
+     * periodos de facturacion con el #101 y los cinco de las expensas con el #24.
      */
     private List<Endpoint> endpoints() {
         String person = personaSuelta.toString();
@@ -288,6 +319,33 @@ class CrossCondominiumLeakTests {
                         HttpMethod.GET,
                         "/api/v1/condominiums/%s/billing-periods",
                         null),
+                // Las expensas (#24), las cinco rutas. El concepto va en el cuerpo y es del
+                // condominio propio: en el ajeno el filtro responde antes de leerlo.
+                new Endpoint(
+                        "configurar las expensas",
+                        HttpMethod.POST,
+                        "/api/v1/condominiums/%s/expense-settings",
+                        configuracionDeExpensas()),
+                new Endpoint(
+                        "listar la configuracion de expensas",
+                        HttpMethod.GET,
+                        "/api/v1/condominiums/%s/expense-settings",
+                        null),
+                new Endpoint(
+                        "consultar el historial de configuraciones",
+                        HttpMethod.GET,
+                        "/api/v1/condominiums/%s/expense-settings/history",
+                        null),
+                new Endpoint(
+                        "calcular las expensas del mes",
+                        HttpMethod.POST,
+                        "/api/v1/condominiums/%s/expense-runs",
+                        mesDeExpensas()),
+                new Endpoint(
+                        "emitir las expensas del mes",
+                        HttpMethod.POST,
+                        "/api/v1/condominiums/%s/expense-runs/issue",
+                        mesDeExpensas()),
                 new Endpoint(
                         "dar de alta una unidad",
                         HttpMethod.POST,

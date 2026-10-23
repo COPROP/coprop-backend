@@ -64,11 +64,12 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
  * La cadena de autorizacion completa del issue #15: <strong>cada endpoint, contra cada rol</strong>.
  *
  * <p>Es el segundo criterio del issue --"existe un test que recorre la matriz de roles y
- * endpoints"-- y recorre las dos dimensiones de verdad: los cuarenta y cinco endpoints de la API
+ * endpoints"-- y recorre las dos dimensiones de verdad: los cincuenta y dos endpoints de la API
  * por los siete roles de Seguridad 3, con el resultado esperado declarado celda a celda. Los cinco
  * de invitaciones entraron con el issue #18, los dos del catalogo de parametricas con el #89, la
  * edicion del condominio con el #90, los dos del catalogo de conceptos de cobro con el #100, los
- * dos de los periodos de facturacion con el #101, y asi entra cada endpoint nuevo.
+ * dos de los periodos de facturacion con el #101, los cinco de las expensas con el #24, y asi entra
+ * cada endpoint nuevo.
  *
  * <p><strong>Cada endpoint declara los siete roles, no solo los que pueden.</strong> Es la leccion
  * que dejo el issue #16, donde el test que declaraba las columnas completas encontro que a
@@ -127,6 +128,9 @@ class AuthorizationChainTests {
     private UnitRelations relations;
 
     @Autowired
+    private bo.coprop.billing.ChargeConcepts chargeConcepts;
+
+    @Autowired
     private People people;
 
     @Autowired
@@ -146,6 +150,9 @@ class AuthorizationChainTests {
 
     /** Otra unidad del MISMO condominio, con la que nadie de la rejilla tiene relacion. */
     private UUID unidadAjena;
+
+    /** El concepto de cobro que las rutas de expensas nombran en su cuerpo. */
+    private UUID conceptoDeExpensas;
 
     private UUID membresiaDelCondominio;
     private UUID personaSuelta;
@@ -213,6 +220,20 @@ class AuthorizationChainTests {
         block = units.addBlock(condominium, "Bloque A", "admin").id();
         unidadPropia = unitRegistration("CAD-PROPIA");
         unidadAjena = unitRegistration("CAD-AJENA");
+
+        // Un concepto de verdad para las rutas de expensas (#24): su cuerpo lleva el identificador
+        // del concepto, y con uno inventado la celda daria 404 --que es justo lo que la rejilla usa
+        // para decir otra cosa-- en vez de pasar o no la autorizacion.
+        conceptoDeExpensas = chargeConcepts
+                .register(
+                        condominium,
+                        new bo.coprop.billing.NewChargeConcept(
+                                "CAD-EXP",
+                                "Expensas",
+                                bo.coprop.billing.ChargeConceptType.DUES,
+                                bo.coprop.billing.PaymentGroup.DUES),
+                        "admin")
+                .id();
 
         for (MembershipRole rol : MembershipRole.values()) {
             porRol.put(rol, conElRol(rol));
@@ -591,6 +612,40 @@ class AuthorizationChainTests {
                         null,
                         soloPara(FINANCE_ADMIN)),
 
+                // Las expensas (issue #24): el monto por CONFIGURE_CHARGES y la emision por
+                // ISSUE_DUES. Son dos permisos distintos aunque hoy los tenga el mismo rol, y por eso
+                // las cinco rutas van declaradas aparte.
+                new Endpoint(
+                        "configurar las expensas",
+                        HttpMethod.POST,
+                        enElCondominio + "/expense-settings",
+                        configuracionDeExpensas(),
+                        soloPara(FINANCE_ADMIN)),
+                new Endpoint(
+                        "listar la configuracion de expensas",
+                        HttpMethod.GET,
+                        enElCondominio + "/expense-settings",
+                        null,
+                        soloPara(FINANCE_ADMIN)),
+                new Endpoint(
+                        "consultar el historial de configuraciones",
+                        HttpMethod.GET,
+                        enElCondominio + "/expense-settings/history",
+                        null,
+                        soloPara(FINANCE_ADMIN)),
+                new Endpoint(
+                        "calcular las expensas del mes",
+                        HttpMethod.POST,
+                        enElCondominio + "/expense-runs",
+                        mesDeExpensas(),
+                        soloPara(FINANCE_ADMIN)),
+                new Endpoint(
+                        "emitir las expensas del mes",
+                        HttpMethod.POST,
+                        enElCondominio + "/expense-runs/issue",
+                        mesDeExpensas(),
+                        soloPara(FINANCE_ADMIN)),
+
                 // Crear condominios es del superadministrador.
                 new Endpoint(
                         "dar de alta un condominio",
@@ -781,6 +836,22 @@ class AuthorizationChainTests {
         return "{\"year\":" + (2000 + n / 12) + ",\"month\":" + (1 + n % 12) + "}";
     }
 
+    /** El cuerpo de la configuracion de expensas, con el concepto que el {@code @BeforeAll} creo. */
+    private String configuracionDeExpensas() {
+        return "{\"conceptId\":\"%s\",\"method\":\"FIXED_PER_UNIT\",\"amount\":\"350.00\"}"
+                .formatted(conceptoDeExpensas);
+    }
+
+    /**
+     * El cuerpo del calculo y de la emision.
+     *
+     * <p>El mes es uno cualquiera y no se reparte como en {@code periodoNuevo()}: calcular dos veces
+     * el mismo mes es idempotente a proposito, asi que repetirlo no choca con nada.
+     */
+    private String mesDeExpensas() {
+        return "{\"conceptId\":\"%s\",\"year\":2026,\"month\":5}".formatted(conceptoDeExpensas);
+    }
+
     private static String conceptoConCodigo() {
         String sufijo = UUID.randomUUID().toString().substring(0, 8);
         return "{\"code\":\"C-" + sufijo + "\",\"name\":\"Expensas\",\"type\":\"DUES\",\"paymentGroup\":\"DUES\"}";
@@ -836,7 +907,7 @@ class AuthorizationChainTests {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("celdas")
-    @DisplayName("la rejilla entera: los cuarenta y cinco endpoints por los siete roles")
+    @DisplayName("la rejilla entera: los cincuenta y dos endpoints por los siete roles")
     void theWholeGrid(Celda celda) throws Exception {
         var result = mockMvc.perform(
                 authorizedRequest(celda.endpoint(), principal(celda.rol()).authorizationHeader()));

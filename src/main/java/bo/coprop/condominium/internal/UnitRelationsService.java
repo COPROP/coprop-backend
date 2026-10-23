@@ -319,6 +319,14 @@ class UnitRelationsService implements UnitRelations {
 
     @Override
     @Transactional(readOnly = true)
+    public List<BillingResponsibilityView> billingResponsibilitiesFor(UUID condominiumId, UUID conceptId) {
+        return billingResponsibilities.currentFor(condominiumId, conceptId).stream()
+                .map(UnitRelationsService::view)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<OwnershipView> ownersOf(UUID condominiumId, UUID unitId) {
         requireUnitOfCondominium(condominiumId, unitId);
         return ownerships.findByCondominiumIdAndUnitIdAndValidToIsNull(condominiumId, unitId).stream()

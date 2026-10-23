@@ -62,6 +62,14 @@ class BillingPeriodsService implements BillingPeriods {
     }
 
     @Override
+    @Transactional
+    public BillingPeriodView openIfAbsent(UUID condominiumId, int year, int month, String actor) {
+        return periods.findByCondominiumIdAndYearAndMonth(condominiumId, year, month)
+                .map(BillingPeriodsService::view)
+                .orElseGet(() -> open(condominiumId, new NewBillingPeriod(year, month), actor));
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<BillingPeriodView> list(UUID condominiumId) {
         requireCondominium(condominiumId);

@@ -60,6 +60,9 @@ class ApiPermissionsTests {
     private Memberships memberships;
 
     @Autowired
+    private bo.coprop.billing.ChargeConcepts chargeConcepts;
+
+    @Autowired
     private DataSource dataSource;
 
     private UUID condominioNuevo() {
@@ -227,6 +230,54 @@ class ApiPermissionsTests {
                 .andExpect(status().isCreated());
         mockMvc.perform(authorizedRequest(HttpMethod.GET, ruta, financiero, null))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("el monto de las expensas es del financiero, y emitirlas tambien")
+    void theExpensesBelongToTheFinanceAdmin() throws Exception {
+        UUID condominium = condominioNuevo();
+        UUID concepto = chargeConcepts
+                .register(
+                        condominium,
+                        new bo.coprop.billing.NewChargeConcept(
+                                "EXP-P",
+                                "Expensas",
+                                bo.coprop.billing.ChargeConceptType.DUES,
+                                bo.coprop.billing.PaymentGroup.DUES),
+                        "emma")
+                .id();
+        String settings = "/api/v1/condominiums/" + condominium + "/expense-settings";
+        String runs = "/api/v1/condominiums/" + condominium + "/expense-runs";
+        String configuracion =
+                "{\"conceptId\":\"%s\",\"method\":\"FIXED_PER_UNIT\",\"amount\":\"350.00\"}".formatted(concepto);
+        String mes = "{\"conceptId\":\"%s\",\"year\":2026,\"month\":10}".formatted(concepto);
+
+        // Poner el monto es CONFIGURE_CHARGES, como el catalogo de conceptos: el administrador del
+        // condominio no decide cuanto se cobra.
+        mockMvc.perform(authorizedRequest(
+                        HttpMethod.POST, settings, tokenDe(condominium, MembershipRole.CONDO_ADMIN), configuracion))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("NO_PERMISSION"));
+        mockMvc.perform(authorizedRequest(HttpMethod.GET, settings, tokenDe(condominium, MembershipRole.OWNER), null))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("NO_PERMISSION"));
+
+        // Emitir es ISSUE_DUES, que es un permiso distinto aunque hoy lo tenga el mismo rol: el dia
+        // que el monto lo apruebe el directorio y lo emita la administracion, la matriz ya lo separa.
+        mockMvc.perform(authorizedRequest(HttpMethod.POST, runs, tokenDe(condominium, MembershipRole.CONDO_ADMIN), mes))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("NO_PERMISSION"));
+
+        String financiero = tokenDe(condominium, MembershipRole.FINANCE_ADMIN);
+        mockMvc.perform(authorizedRequest(HttpMethod.POST, settings, financiero, configuracion))
+                .andExpect(status().isCreated());
+        mockMvc.perform(authorizedRequest(HttpMethod.GET, settings, financiero, null))
+                .andExpect(status().isOk());
+        // El calculo pasa el permiso y se detiene en la regla de negocio --el condominio no tiene
+        // unidades activas--, que es lo que esta suite necesita saber: no respondio 403.
+        mockMvc.perform(authorizedRequest(HttpMethod.POST, runs, financiero, mes))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value("BUSINESS_RULE"));
     }
 
     @Test

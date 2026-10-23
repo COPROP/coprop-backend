@@ -5,6 +5,7 @@ import bo.coprop.condominium.BlockView;
 import bo.coprop.condominium.FloorRegistered;
 import bo.coprop.condominium.FloorView;
 import bo.coprop.condominium.NewUnit;
+import bo.coprop.condominium.UnitStatus;
 import bo.coprop.condominium.UnitView;
 import bo.coprop.condominium.Units;
 import bo.coprop.condominium.UnitsRegistered;
@@ -96,6 +97,15 @@ class UnitsService implements Units {
                 .filter(unit -> unit.getCondominiumId().equals(condominiumId))
                 .map(UnitsService::view)
                 .orElseThrow(() -> ResourceNotFound.de("la unidad", unitId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<UnitView> activeOf(UUID condominiumId) {
+        requireCondominium(condominiumId);
+        return units.findByCondominiumIdAndStatusOrderByCode(condominiumId, UnitStatus.ACTIVE).stream()
+                .map(UnitsService::view)
+                .toList();
     }
 
     @Override
